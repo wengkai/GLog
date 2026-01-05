@@ -1,9 +1,9 @@
 #include "file.h"
 #include "record.h"
-#include "logdb.h"
+// #include "logdb.h"
 
 #include <iostream>
-#include <sqlite3.h>
+// #include <sqlite3.h>
 #include <fstream>
 
 using namespace std;
