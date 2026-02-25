@@ -1,14 +1,18 @@
-#include "file.h"
-#include "record.h"
+// #include "file.h"
+// #include "record.h"
 // #include "logdb.h"
 
 #include <iostream>
 // #include <sqlite3.h>
 #include <fstream>
 
-using namespace std;
-using namespace adif;
+#include "GLogApplication.h"
+#include <QtWidgets/QApplication>
 
+using namespace std;
+// using namespace adif;
+
+/*
 enum MENU_ITEM {
     LOAD = 1,
     LIST,
@@ -18,8 +22,11 @@ enum MENU_ITEM {
     EXPORT,
     QUIT
 };
+*/
 
 static const string db_name = "alllog.adi";
+
+/*
 // LogDB theDB;
 adif::File theDB;
 
@@ -34,28 +41,17 @@ void searchDate(void);
 void searchCall(void);
 void input(void);
 void export_csv(void);
+*/
 
-int main()
+int main(int argc, char* argv[])
 {
-    static void (*cmds[])() = {
-        load_adif,
-        list,
-        searchDate,
-        searchCall,
-        input,
-        export_csv,
-    };
-    load_db();
-    cout << "Number of records in database: " << theDB.size() << endl;
-    int choice = 0;
-    choice = menu();
-    while (choice != QUIT){
-        cmds[choice-1]();
-        choice = menu();
-    }
-    // theDB.close();
+    QApplication app(argc, argv);
+    auto window = new GLogApplication;
+    window->show();
+    return app.exec();
 }
 
+/*
 void load_db(void)
 {
     ifstream in(db_name);
@@ -365,3 +361,4 @@ void modify_record(Record& rec)
     }
     cout << "Modified: " << rec.to_string() << endl;
 }
+*/
