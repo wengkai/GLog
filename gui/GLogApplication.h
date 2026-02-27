@@ -6,27 +6,9 @@
 #include <QThread>
 #include "adifdb.h"
 #include "glogparser.h"
+#include "DropAbleTableView.h"
 #include "ui_GLogApplication.h"
 
-class ParserThread : public QObject 
-{
-    Q_OBJECT
-
-public:
-    explicit ParserThread(QObject *parent = nullptr);
-
-public slots:
-    void openFile(QString filename, AdifModel* model);
-    void appendFile(QString filename, AdifModel* model);
-
-signals:
-    void done();
-
-private:
-    GLOG_PARSER::GLogParserDriver driver{  };
-    GLOG_PARSER::Parser parser{ &driver };
-
-};
 
 class GLogApplication : public QMainWindow
 {
@@ -46,13 +28,13 @@ public slots:
     void modelUpdated();
 
 signals:
-    void openFileActionSignal(QString filename, AdifModel* model);
-    void openFileAppendActionSignal(QString filename, AdifModel* model);
+    void openFileActionSignal(QString filename);
+    void openFileAppendActionSignal(QString filename);
 
 private:
     Ui::GLogApplicationClass ui;
-    QTableView* tableview = nullptr;
-    QThread parserSub;
+    DropAbleTableView* tableview = nullptr;
+    QThread modelSub;
     AdifModel* model = nullptr;
     
 };

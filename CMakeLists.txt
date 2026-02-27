@@ -46,6 +46,7 @@ set(ROOT_DIR ${PROJECT_SOURCE_DIR})
 list (APPEND INCLUDES_DIR "${ROOT_DIR}/parser")
 list (APPEND INCLUDES_DIR "${ROOT_DIR}/gui")
 list (APPEND INCLUDES_DIR "${ROOT_DIR}/model")
+list (APPEND INCLUDES_DIR "${ROOT_DIR}/tools")
 list (APPEND INCLUDES_DIR "${ROOT_DIR}/thirdparty")
 
 include_directories(
@@ -60,6 +61,8 @@ add_subdirectory(${ROOT_DIR}/parser)
 list (APPEND EXTRA_LIBS parser)
 add_subdirectory(${ROOT_DIR}/model)
 list (APPEND EXTRA_LIBS model)
+add_subdirectory(${ROOT_DIR}/tools)
+list (APPEND EXTRA_LIBS tools)
 
 qt_add_executable(${PROJECT_NAME} 
 		${ROOT_DIR}/main.cpp
