@@ -9,7 +9,29 @@ find_package(Qt6
         Gui
         Widgets 
 REQUIRED)
-qt_standard_project_setup()
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTORCC ON)
+set(CMAKE_AUTOUIC ON)
+
+get_target_property(MY_QT_TARGET_TYPE Qt6::Core TYPE)
+if (MY_QT_TARGET_TYPE STREQUAL "STATIC_LIBRARY")
+    set(QT_LINK_STATIC ON)
+    message(STATUS "Qt was built as a static library!")
+    else()
+    set(QT_LINK_STATIC OFF)
+endif()
+if (QT_LINK_STATIC)
+    if(MSVC)
+        message(STATUS "Static linking with MSVC, changing /MD to /MT")
+	    foreach(flag_var
+                CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
+                CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
+            if(${flag_var} MATCHES "/MD")
+                string(REGEX REPLACE "/MD" "/MT" ${flag_var} "${${flag_var}}")
+            endif(${flag_var} MATCHES "/MD")
+        endforeach(flag_var)
+    endif()
+endif()
 
 if (WIN32)
 	message(STATUS "OS:Windows")
@@ -75,6 +97,13 @@ if (WIN32)
     set_target_properties(${PROJECT_NAME}
         PROPERTIES
             WIN32_EXECUTABLE TRUE
+    )
+endif()
+
+if (APPLE)
+    set_target_properties(${PROJECT_NAME}
+        PROPERTIES
+            MACOSX_BUNDLE TRUE
     )
 endif()
 

@@ -1,4 +1,6 @@
 #include "DropAbleTableView.h"
+#include "MultiLineDelegate.h"
+#include "GHeaderView.h"
 #include <QDropEvent>
 #include <QKeyEvent>
 #include <QAbstractItemModel>
@@ -8,15 +10,16 @@
 
 DropAbleTableView::DropAbleTableView(QWidget *parent) : QTableView(parent)
 {
+    setItemDelegate(new MultiLineDelegate(this));
+    headerview = new GHeaderView(Qt::Orientation::Horizontal, this);
+    setHorizontalHeader(headerview);
     setSelectionMode(QAbstractItemView::ExtendedSelection);
-    //setSelectionBehavior(QAbstractItemView::SelectRows);
     setDragEnabled(true);
     setAcceptDrops(true);
     setDragDropMode(QAbstractItemView::DragDropMode::DragDrop);
     setDefaultDropAction(Qt::DropAction::MoveAction);
     setDragDropOverwriteMode(false);
     setDropIndicatorShown(true);
-    setSortingEnabled(true);
 }
 
 void DropAbleTableView::tryDeleteSelectedRows()
@@ -31,6 +34,11 @@ void DropAbleTableView::tryDeleteSelectedRows()
             emit deleteRows(rows);
         }
     }
+}
+
+GHeaderView *DropAbleTableView::getHeaderView()
+{
+    return headerview;
 }
 
 void DropAbleTableView::dropEvent(QDropEvent *event)

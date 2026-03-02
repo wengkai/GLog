@@ -19,3 +19,6 @@ add_library(${LIB_NAME} STATIC
         ${PARSER_FILES}
 )
 
+target_include_directories(${LIB_NAME} PUBLIC
+        ${FLEX_INCLUDE_DIRS}
+)

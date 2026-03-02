@@ -5,30 +5,32 @@
 #include <QLabel>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QMessageBox>
 #include <fstream>
 
 GLogApplication::GLogApplication(QWidget *parent)
     : QMainWindow(parent)
 {
     ui.setupUi(this);
-    //setAcceptDrops(true);
     tableview = new DropAbleTableView(this);
     setCentralWidget(tableview);
     connect(ui.actionOpen, &QAction::triggered, this, &GLogApplication::openFileAction);
-    connect(ui.actionOpen_Append, &QAction::triggered, this, &GLogApplication::openFileAppendAction);
+    connect(ui.actionMerge, &QAction::triggered, this, &GLogApplication::mergeFileAction);
+    connect(ui.actionSave_As, &QAction::triggered, this, &GLogApplication::saveAsAction);
     model = new AdifModel(this);
-    QSortFilterProxyModel *proxyModel = new QSortFilterProxyModel(model);
     model->getControl()->moveToThread(&modelSub);
-    proxyModel->setSourceModel(model);
     tableview->setModel(model);
-    tableview->setItemDelegate(new MultiLineDelegate(tableview));
     connect(&modelSub, &QThread::finished, &modelSub, &QThread::deleteLater);
     connect(this, &GLogApplication::openFileActionSignal, model->getControl(), &AdifModelC::openFile);
-    connect(this, &GLogApplication::openFileAppendActionSignal, model->getControl(), &AdifModelC::appendFile);
+    connect(this, &GLogApplication::mergeFileActionSignal, model->getControl(), &AdifModelC::appendFile);
+    connect(this, &GLogApplication::saveAsActionSignal, model->getControl(), &AdifModelC::saveAs);
     connect(model, &AdifModel::appendFileSignal, model->getControl(), &AdifModelC::appendFile);
     connect(model, &AdifModel::insertFileSignal, model->getControl(), &AdifModelC::insertFile);
     connect(model->getControl(), &AdifModelC::modelUpdated, this, &GLogApplication::modelUpdated);
+    connect(model->getControl(), &AdifModelC::saveDone, this, &GLogApplication::saveDone);
     connect(tableview, &DropAbleTableView::deleteRows, model, &AdifModel::deleteRows);
+    connect(tableview->getHeaderView(), &GHeaderView::sortByColumnSignal, model, &AdifModel::sortSelectedColumn);
+    connect(tableview->getHeaderView(), &GHeaderView::removeColumnSignal, model, &AdifModel::removeSelectedColumn);
     modelSub.start();
 }
 
@@ -54,15 +56,20 @@ void GLogApplication::openFileAction()
     openFile(QFileDialog::getOpenFileName(this, tr("Open File"), "", tr("Adif Files (*.adi *.adif);;All Files (*.*)")));
 }
 
-void GLogApplication::openFileAppend(const QString &filename)
+void GLogApplication::mergeFile(const QString &filename)
 {
     //tableview->setVisible(false);
-    emit openFileAppendActionSignal(filename);
+    emit mergeFileActionSignal(filename);
 }
 
-void GLogApplication::openFileAppendAction() 
+void GLogApplication::saveAsFile(const QString &filename)
 {
-    openFileAppend(QFileDialog::getOpenFileName(this, tr("Open File"), "", tr("Adif Files (*.adi *.adif);;All Files (*.*)")));
+    emit saveAsActionSignal(filename);
+}
+
+void GLogApplication::mergeFileAction() 
+{
+    mergeFile(QFileDialog::getOpenFileName(this, tr("Open File"), "", tr("Adif Files (*.adi *.adif);;All Files (*.*)")));
 }
 
 
@@ -70,4 +77,17 @@ void GLogApplication::modelUpdated()
 {
     //resizeTableView();
     //tableview->setVisible(true);
+}
+
+void GLogApplication::saveAsAction()
+{
+    if (model->rowCount() == 0) {
+        return;
+    }
+    saveAsFile(QFileDialog::getSaveFileName(this, tr("Save As"), "", tr("Adif Files (*.adi *.adif);;Csv Files (*.csv)")));
+}
+
+void GLogApplication::saveDone()
+{
+    QMessageBox::information(this, "Save", "Done", QMessageBox::StandardButton::Ok);
 }

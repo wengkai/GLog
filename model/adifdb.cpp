@@ -29,6 +29,13 @@ void AdifModelC::insertFile(int row, QString filename)
     emit modelUpdated();
 }
 
+void AdifModelC::saveAs(QString filename)
+{
+    if (model->saveAs(filename)) {
+        emit saveDone();
+    }
+}
+
 bool AdifModel::addHeader(const std::string &header)
 {
     std::unique_lock<decltype(mutex)> lock(mutex);
@@ -38,11 +45,14 @@ bool AdifModel::addHeader(const std::string &header)
 bool AdifModel::_addHeader(const std::string &header)
 {
     auto& h = header;
-    auto iter = std::lower_bound(rheaders.begin(), rheaders.end(), h);
+    if (sheaders.find(h) != sheaders.end()) {
+        return false;
+    }
+    auto iter = std::lower_bound((rheaders.begin() + sheaders.size()), rheaders.end(), h);
     if (iter != rheaders.end() && *iter == h) {
         return false;
     }
-    beginInsertColumns(QModelIndex(), iter - rheaders.begin(), iter - rheaders.begin());
+    beginInsertColumns(QModelIndex(), iter - (rheaders.begin() + sheaders.size()), iter - (rheaders.begin() + sheaders.size()));
     rheaders.insert(iter, h);
     endInsertColumns();
     return true;
@@ -53,34 +63,42 @@ std::string AdifModel::_records2StdString(const std::set<int> &rows) const
     std::stringstream stream {};
     for (auto& row : rows) {
         if (0 <= row && row < records.size()) {
-            stream << record2StdString(records[row]) << "<EOR>\n";
+            stream << records[row] << "\n";
         }
     }
     return stream.str();
 }
 
-std::string AdifModel::record2StdString(const Record &record)
+std::vector<std::string> AdifModel::getDefaultSortModel(const std::string &field)
 {
-    std::stringstream stream {};
-    for (auto& pair : record) {
-        stream << '<';
-        stream << pair.first;
-        stream << ':';
-        stream << pair.second.size();
-        stream << '>';
-        stream << pair.second;
+    std::vector<std::string> ret {field};
+    if (field == "qso_date") {
+        ret.push_back("time_on");
+        return ret;
     }
-    return stream.str();
+    if (field == "time_on") {
+        ret.push_back("qso_date");
+        return ret;
+    }
+    ret.push_back("qso_date");
+    ret.push_back("time_on");
+    return ret;
 }
 
 void AdifModel::_clear()
 {
     records.clear();
-    rheaders.clear();
+    while (rheaders.size() > GRecord::RESOLVE_HEADERS_COUNT) {
+        rheaders.pop_back();
+    }
 }
 
 AdifModel::AdifModel(QObject *parent) : QAbstractTableModel(parent)
 {
+    for (int i = 0; i < GRecord::RESOLVE_HEADERS_COUNT; ++i) {
+        rheaders.push_back(GRecord::RESOLVE_HEADERS[i]);
+        sheaders.insert(GRecord::RESOLVE_HEADERS[i]);
+    }
     control = new AdifModelC(this);
 }
 
@@ -187,7 +205,6 @@ QMimeData *AdifModel::mimeData(const QModelIndexList &indexes) const
         }
     }
     mimeData->setText(QString::fromStdString(_records2StdString(rows)));
-    auto text = mimeData->text();
     return mimeData;
 }
 
@@ -271,19 +288,9 @@ void AdifModel::sort(int column, Qt::SortOrder order)
     std::unique_lock<decltype(mutex)> lock(mutex);
     if (0 <= column && column < rheaders.size()) {
         auto& col = rheaders[column];
+        std::vector<std::string> fields = getDefaultSortModel(col);
         auto less = [=](const decltype(records)::value_type& a, const decltype(records)::value_type& b)->bool {
-            auto pa = a.find(col);
-            auto pb = b.find(col);
-            if (pa == a.end() && pb == b.end()) {
-                return false;
-            }
-            if (pb == b.end()) {
-                return true;
-            }
-            if (pa == a.end()) {
-                return false;
-            }
-            return pa->second < pb->second;
+            return GRecord::less(a, b, fields);
         };
         beginResetModel();
         if (order == Qt::AscendingOrder) {
@@ -317,6 +324,60 @@ std::string AdifModel::records2StdString(const std::set<int> &rows) const
     auto& m = const_cast<decltype(mutex)&>(mutex);
     std::shared_lock<decltype(mutex)> lock(m);
     return _records2StdString(rows);
+}
+
+void AdifModel::toCsv(std::ostream &stream) const
+{
+    auto& m = const_cast<decltype(mutex)&>(mutex);
+    std::shared_lock<decltype(mutex)> lock(m);
+    _toCsv(stream);
+}
+
+void AdifModel::toAdif(std::ostream &stream) const
+{
+    auto& m = const_cast<decltype(mutex)&>(mutex);
+    std::shared_lock<decltype(mutex)> lock(m);
+    _toAdif(stream);
+}
+
+void AdifModel::_toCsv(std::ostream &stream) const
+{
+    auto iter1 = rheaders.begin();
+    while (true) {
+        stream << *iter1;
+        ++iter1;
+        if (iter1 == rheaders.end()) {
+            break;
+        }
+        stream << ',';
+    }
+    stream << "\n";
+
+    auto iter2 = records.begin();
+    while (true) {
+        for (auto h = rheaders.begin(); h != rheaders.end(); ++h) {
+            if (h != rheaders.begin()) {
+                stream << ',';
+            }
+            auto iter3 = iter2->find(*h);
+            if (iter3 == iter2->end()) {
+                continue;
+            }
+            stream << iter3->second;
+        }
+        ++iter2;
+        if (iter2 == records.end()) {
+            break;
+        }
+        stream << "\n";
+    }
+}
+
+void AdifModel::_toAdif(std::ostream &stream) const
+{
+    for (auto& record : records) {
+        stream << record << "\n";
+    }
 }
 
 void AdifModel::openFile(const QString& filename)
@@ -355,6 +416,52 @@ void AdifModel::insertFile(int row, const QString &filename)
     in.close();
 }
 
+bool AdifModel::saveAs(QString filename) const
+{
+    if (records.empty()) {
+        return false;
+    }
+    QFileInfo file(filename);
+    std::ofstream out(file.filesystemAbsoluteFilePath());
+    if (out) {
+        if (filename.endsWith(".csv")) {
+            toCsv(out);
+            out.close();
+            return true;
+        }
+        if (filename.endsWith(".adi") || filename.endsWith(".adif")) {
+            toAdif(out);
+            out.close();
+            return true;
+        }
+    }
+    out.close();
+    return false;
+}
+
+void AdifModel::sortSelectedColumn(int column, Qt::SortOrder order)
+{
+    sort(column, order);
+}
+
+void AdifModel::removeSelectedColumn(int column)
+{
+    std::unique_lock<decltype(mutex)> lock(mutex);
+    if (column < sheaders.size() || column >= rheaders.size()) {
+        return;
+    }
+    beginRemoveColumns(QModelIndex(), column, column);
+    auto field = rheaders.at(column);
+    for (auto& record : records) {
+        auto iter = record.find(field);
+        if (iter != record.end()) {
+            record.erase(iter);
+        }
+    }
+    rheaders.erase(rheaders.begin() + column);
+    endRemoveColumns();
+}
+
 void AdifModel::deleteRows(QModelIndexList indexes)
 {
     if (indexes.empty()) {
@@ -381,7 +488,7 @@ void AdifModel::deleteRows(QModelIndexList indexes)
         deletebegin = indexes.at(idx).row();
         deleteend = deletebegin + 1;
     }
-    auto iter = rheaders.begin();
+    auto iter = (rheaders.begin() + sheaders.size());
     while (iter != rheaders.end()) {
         bool vaild = false;
         for (auto& record : records) {
@@ -394,7 +501,7 @@ void AdifModel::deleteRows(QModelIndexList indexes)
             ++iter;
             continue;
         }
-        beginRemoveColumns(QModelIndex(), iter - rheaders.begin(), iter - rheaders.begin());
+        beginRemoveColumns(QModelIndex(), iter - (rheaders.begin() + sheaders.size()), iter - (rheaders.begin() + sheaders.size()));
         iter = rheaders.erase(iter);
         endRemoveColumns();
     }

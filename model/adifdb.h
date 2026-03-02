@@ -2,6 +2,7 @@
 #define ADIFDB_H
 
 #include "glogparser.h"
+#include "record.h"
 #include <QStandardItemModel>
 #include <QMimeData>
 #include <set>
@@ -9,6 +10,8 @@
 #include <string>
 #include <map>
 #include <shared_mutex>
+#include <mutex>
+#include <iostream>
 
 class AdifModel;
 
@@ -26,9 +29,11 @@ public slots:
     void openFile(QString filename);
     void appendFile(QString filename);
     void insertFile(int row, QString filename);
+    void saveAs(QString filename);
 
 signals:
     void modelUpdated();
+    void saveDone();
 
 };
 
@@ -37,11 +42,12 @@ class AdifModel : public QAbstractTableModel
     Q_OBJECT
 
 public:
-    using Record = std::map<std::string, std::string>;
-    static std::string record2StdString(const Record& record);
+    using Record = GRecord;
+    static std::vector<std::string> getDefaultSortModel(const std::string& field);
     
 private:
     std::vector<Record> records{};
+    std::set<std::string> sheaders{};
     std::vector<std::string> rheaders{};
     std::shared_mutex mutex{};
     friend class AdifModelC;
@@ -77,6 +83,8 @@ private:
     void _clear();
     bool _addHeader(const std::string& header);
     std::string _records2StdString(const std::set<int>& rows) const;
+    void _toCsv(std::ostream& stream) const;
+    void _toAdif(std::ostream& stream) const;
 
     template <typename RecordIter>
     void _insertRecords(int row, const RecordIter& begin, const RecordIter& end) {
@@ -139,13 +147,18 @@ public:
     void clear();
 
     std::string records2StdString(const std::set<int>& rows) const;
+    void toCsv(std::ostream& stream) const;
+    void toAdif(std::ostream& stream) const;
 
     void openFile(const QString& filename);
     void appendFile(const QString& filename);
     void insertFile(int row, const QString& filename);
+    bool saveAs(QString filename) const;
 
 public slots:
     void deleteRows(QModelIndexList indexes);
+    void sortSelectedColumn(int column, Qt::SortOrder order);
+    void removeSelectedColumn(int column);
 
 signals:
     void appendFileSignal(QString filename);

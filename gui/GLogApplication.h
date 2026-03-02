@@ -20,16 +20,20 @@ public:
 
     void resizeTableView();
     void openFile(const QString& filename);
-    void openFileAppend(const QString& filename);
+    void mergeFile(const QString& filename);
+    void saveAsFile(const QString& filename);
     
 public slots:
     void openFileAction();
-    void openFileAppendAction();
+    void mergeFileAction();
     void modelUpdated();
+    void saveAsAction();
+    void saveDone();
 
 signals:
     void openFileActionSignal(QString filename);
-    void openFileAppendActionSignal(QString filename);
+    void mergeFileActionSignal(QString filename);
+    void saveAsActionSignal(QString filename);
 
 private:
     Ui::GLogApplicationClass ui;
