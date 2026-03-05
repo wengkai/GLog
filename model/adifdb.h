@@ -5,6 +5,7 @@
 #include "record.h"
 #include <QStandardItemModel>
 #include <QMimeData>
+#include <QList>
 #include <set>
 #include <vector>
 #include <string>
@@ -30,10 +31,20 @@ public slots:
     void appendFile(QString filename);
     void insertFile(int row, QString filename);
     void saveAs(QString filename);
+    void newViewWithRows(QModelIndexList indexes);
+    void pasteRows(const QMimeData* mimeData);
+    void copyRows(const QModelIndexList indexes);
+    void findNext(QModelIndex current, QString key, QString value, bool isReg = false);
+    void selectAll(QString key, QString value, bool isReg = false);
+    void deselectAll(QString key, QString value, bool isReg = false);
 
 signals:
     void modelUpdated();
     void saveDone();
+    void setCilpboard(QMimeData* mimeData);
+    void foundNext(QModelIndex index);
+    void selectRows(QList<int> rows);
+    void deselectRows(QList<int> rows);
 
 };
 
@@ -110,6 +121,78 @@ public:
     bool removeRows(int row, int count, const QModelIndex &parent = QModelIndex()) override;
     bool moveRows(const QModelIndex &sourceParent, int sourceRow, int count, const QModelIndex &destinationParent, int destinationChild) override;
     void sort(int column, Qt::SortOrder order = Qt::AscendingOrder) override;
+
+    template<typename Condition>
+    QModelIndex findNext(const QModelIndex& start, Condition condition, const std::string& field = "") const {
+        auto ret = QModelIndex();
+        auto& m = const_cast<decltype(mutex)&>(mutex);
+        std::shared_lock<decltype(mutex)> lock(m);
+        if (records.empty()) { 
+            return ret;
+        }
+        int row = start.isValid() ? start.row() : 0;
+        bool finded = false;
+        for (int i = 0; i <= records.size() && !finded; ++i, ++row) {
+            row %= records.size();
+            auto& record = records.at(row);
+            if (field.empty()) {
+                int startColumn = 0;
+                if (i == 0) {
+                    startColumn = start.isValid() ? start.column() : 0;
+                }
+                for (int j = startColumn; j < rheaders.size(); ++j) {
+                    auto iter = record.find(rheaders[j]);
+                    if (iter != record.end() && condition(iter->second)) {
+                        ret = index(row, j);
+                        finded = true;
+                        break;
+                    }
+                }
+            }
+            else {
+                auto iter = record.find(field);
+                if (iter != record.end() && condition(iter->second)) {
+                    int column = 0;
+                    for (; column < rheaders.size(); ++column) {
+                        if (rheaders[column] == field) {
+                            break;
+                        }
+                    }
+                    ret = index(row, column);
+                    finded = true;
+                }
+            }
+        }
+        return ret;
+    }
+    template<typename Condition>
+    QList<int> findAll(Condition condition, const std::string& field = "") const {
+        QList<int> rows;
+        auto& m = const_cast<decltype(mutex)&>(mutex);
+        std::shared_lock<decltype(mutex)> lock(m);
+        if (records.empty()) {
+            return rows;
+        }
+        for (int i = 0; i < records.size(); ++i) {
+            auto& record = records[i];
+            if (field.empty()) {
+                for (auto& h : rheaders) {
+                    auto iter = record.find(h);
+                    if (iter != record.end() && condition(iter->second)) {
+                        rows.append(i);
+                        break;
+                    }
+                }
+            }
+            else {
+                auto iter = record.find(field);
+                if (iter != record.end() && condition(iter->second)) {
+                    rows.append(i);
+                }
+            }
+        }
+        return rows;
+    };
     virtual ~AdifModel();
 
     bool addHeader(const std::string& header);
@@ -161,7 +244,7 @@ public slots:
     void removeSelectedColumn(int column);
 
 signals:
-    void appendFileSignal(QString filename);
+    //void appendFileSignal(QString filename);
     void insertFileSignal(int row, QString filename);
 
 };

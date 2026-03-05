@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 3.10)
-
 set(LIB_NAME parser)
 
 aux_source_directory(. PARSER_FILES)

@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 3.10)
-
 set(LIB_NAME tools)
 
 aux_source_directory(. TOOLS_FILES)

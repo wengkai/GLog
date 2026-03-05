@@ -4,9 +4,11 @@
 #include <QtWidgets/QMainWindow>
 #include <QTableView>
 #include <QThread>
+#include <QMimeData>
 #include "adifdb.h"
 #include "glogparser.h"
 #include "DropAbleTableView.h"
+#include "SearchBar.h"
 #include "ui_GLogApplication.h"
 
 
@@ -29,6 +31,7 @@ public slots:
     void modelUpdated();
     void saveAsAction();
     void saveDone();
+    void setCilpboard(QMimeData* mimeData);
 
 signals:
     void openFileActionSignal(QString filename);
@@ -40,6 +43,7 @@ private:
     DropAbleTableView* tableview = nullptr;
     QThread modelSub;
     AdifModel* model = nullptr;
+    SearchBar* searchBar = nullptr;
     
 };
 

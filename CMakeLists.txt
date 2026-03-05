@@ -1,17 +1,15 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.14)
 set(CMAKE_CXX_STANDARD 17)
 
 project ("GLog")
 
-find_package(Qt6
+find_package(Qt6 6.3
     COMPONENTS
         Core
         Gui
         Widgets 
 REQUIRED)
-set(CMAKE_AUTOMOC ON)
-set(CMAKE_AUTORCC ON)
-set(CMAKE_AUTOUIC ON)
+qt_standard_project_setup()
 
 get_target_property(MY_QT_TARGET_TYPE Qt6::Core TYPE)
 if (MY_QT_TARGET_TYPE STREQUAL "STATIC_LIBRARY")
@@ -69,7 +67,6 @@ list (APPEND INCLUDES_DIR "${ROOT_DIR}/parser")
 list (APPEND INCLUDES_DIR "${ROOT_DIR}/gui")
 list (APPEND INCLUDES_DIR "${ROOT_DIR}/model")
 list (APPEND INCLUDES_DIR "${ROOT_DIR}/tools")
-list (APPEND INCLUDES_DIR "${ROOT_DIR}/thirdparty")
 
 include_directories(
 	${INCLUDES_DIR}
@@ -91,6 +88,9 @@ qt_add_executable(${PROJECT_NAME}
 		${ROOT_DIR}/gui/GLogApplication.cpp
 		${ROOT_DIR}/gui/GLogApplication.h
 		${ROOT_DIR}/gui/GLogApplication.ui
+        ${ROOT_DIR}/gui/SearchBar.cpp
+		${ROOT_DIR}/gui/SearchBar.h
+		${ROOT_DIR}/gui/SearchBar.ui
 )
 
 if (WIN32)
@@ -112,6 +112,18 @@ target_link_libraries(${PROJECT_NAME}
         ${EXTRA_LIBS}
         Qt6::Widgets
 )
+
+install(TARGETS ${PROJECT_NAME}
+    BUNDLE  DESTINATION .
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+qt_generate_deploy_app_script(
+    TARGET ${PROJECT_NAME}
+    OUTPUT_SCRIPT deploy_script
+    NO_UNSUPPORTED_PLATFORM_ERROR
+)
+install(SCRIPT ${deploy_script})
 
 # TODO
 enable_testing()

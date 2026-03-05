@@ -3,6 +3,8 @@
 #include <QMenu>
 #include <QString>
 #include <QMouseEvent>
+#include <QApplication>
+#include <QClipboard>
 #include <string>
 #include <cstdlib>
 #include <cstring>
@@ -20,16 +22,20 @@ void GHeaderView::customContextMenu(const QPoint& pos)
     int section = logicalIndexAt(pos);
     if (section != -1) {
         auto contextMenu = new QMenu(this);
-        QAction *actionSortAscending = contextMenu->addAction("sort by column (ascending)");
+        QAction *actionSortAscending = contextMenu->addAction(tr("sort by column (ascending)"));
         connect(actionSortAscending, &QAction::triggered, this, [=](){
             emit sortByColumnSignal(section, Qt::AscendingOrder);
         });
-        QAction* actionSortDescending = contextMenu->addAction("sort by column (descending)");
+        QAction* actionSortDescending = contextMenu->addAction(tr("sort by column (descending)"));
         connect(actionSortDescending, &QAction::triggered, this, [=](){
             emit sortByColumnSignal(section, Qt::DescendingOrder);
         });
+        QAction* actionCopy = contextMenu->addAction(tr("copy column name"));
+        connect(actionCopy, &QAction::triggered, this, [=](){
+            QApplication::clipboard()->setText(model()->headerData(section, orientation()).toString());
+        });
         if (section >= GRecord::RESOLVE_HEADERS_COUNT) {
-            QAction *actionDelete = contextMenu->addAction("delete column");
+            QAction *actionDelete = contextMenu->addAction(tr("delete column"));
             connect(actionDelete, &QAction::triggered, this, [=]() {
                 emit removeColumnSignal(section);
             });

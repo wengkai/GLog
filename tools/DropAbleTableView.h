@@ -3,6 +3,8 @@
 
 #include "GHeaderView.h"
 #include <QTableView>
+#include <QMimeData>
+#include <QItemSelection>
 
 class DropAbleTableView : public QTableView
 {
@@ -14,15 +16,34 @@ private:
 public:
     explicit DropAbleTableView(QWidget *parent = nullptr);
     void tryDeleteSelectedRows();
+    void tryNewSelectedRowsView();
+    void tryPasteRows();
+    void tryCopySelectedRows();
     GHeaderView* getHeaderView();
 
+public slots:
+    void customContextMenu(const QPoint& pos);
+    void findNext(QString key, QString value, bool isReg);
+    void foundNext(QModelIndex index);
+    void selectRows(QList<int> rows);
+    void deselectRows(QList<int> rows);
+    void setMSelection(QItemSelectionModel::SelectionFlag command);
+
 signals:
-    void deleteRows(QModelIndexList indexes);
+    void deleteRowsSignal(QModelIndexList indexes);
+    void newViewWithRowsSignal(QModelIndexList indexes);
+    void pasteRowsSignal(const QMimeData* mimeData);
+    void copyRowsSignal(const QModelIndexList indexes);
+    void findNextSignal(QModelIndex current, QString key, QString value, bool isReg);
+    void setMSelectionSignal(QItemSelectionModel::SelectionFlag command);
+    void selected();
 
 protected:
     void dropEvent(QDropEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
 
+private:
+    QItemSelection m_selection;
 
 };
 

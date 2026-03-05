@@ -1,6 +1,13 @@
 #include "adifdb.h"
 #include <QFileInfo>
 #include <QUrl>
+#include <QDir>
+#include <QTemporaryDir>
+#include <QProcess>
+#include <QCoreApplication>
+#include <QApplication>
+#include <QClipboard>
+#include <QRegularExpression>
 #include <fstream>
 #include <sstream>
 #include <cstdlib>
@@ -34,6 +41,81 @@ void AdifModelC::saveAs(QString filename)
     if (model->saveAs(filename)) {
         emit saveDone();
     }
+}
+
+void AdifModelC::newViewWithRows(QModelIndexList indexes)
+{
+    auto mineData = model->mimeData(indexes);
+    auto text = mineData->data("text/plain");
+    QTemporaryDir dir;
+    dir.setAutoRemove(false);
+    if (dir.isValid()){
+        auto file = dir.filePath("temp.adi");
+        std::ofstream ofs(file.toStdString());
+        ofs << text.toStdString();
+        ofs.close();
+        auto program = QCoreApplication::applicationFilePath();
+        QStringList arguments;
+        arguments << "-i" << file;
+        QProcess::startDetached(program, arguments);
+    }
+}
+
+void AdifModelC::pasteRows(const QMimeData *mimeData)
+{
+    model->dropMimeData(mimeData, Qt::DropAction::CopyAction, -1, -1, QModelIndex());
+}
+
+void AdifModelC::copyRows(const QModelIndexList indexes)
+{
+    auto mimeData = new QMimeData();
+    mimeData->setData("text/plain", model->mimeData(indexes)->data("text/plain"));
+    emit setCilpboard(mimeData); // set clipboard in main thread
+}
+
+void AdifModelC::findNext(QModelIndex current, QString key, QString value, bool isReg)
+{
+    auto sv = value.toStdString();
+    auto sk = key.toStdString();
+    if (!isReg) {
+        auto index = model->findNext(current, [=](const std::string& v) { return v.find(sv) != std::string::npos; }, sk);
+        emit foundNext(index);
+        return;
+    }
+    QRegularExpression re(value);
+    auto match = [=](const std::string& v) { return re.match(QString::fromStdString(v)).hasMatch(); };
+    auto index = model->findNext(current, match, sk);
+    emit foundNext(index);
+}
+
+void AdifModelC::selectAll(QString key, QString value, bool isReg)
+{
+    auto sv = value.toStdString();
+    auto sk = key.toStdString();
+    if (!isReg) {
+        auto rows = model->findAll([=](const std::string& v) { return v.find(sv) != std::string::npos; }, sk);
+        emit selectRows(rows);
+        return;
+    }
+    QRegularExpression re(value);
+    auto match = [=](const std::string& v) { return re.match(QString::fromStdString(v)).hasMatch(); };
+    auto rows = model->findAll(match, sk);
+    emit selectRows(rows);
+}
+
+void AdifModelC::deselectAll(QString key, QString value, bool isReg)
+{
+    auto sv = value.toStdString();
+    auto sk = key.toStdString();
+    if (!isReg) {
+        auto rows = model->findAll([=](const std::string& v) { return v.find(sv) != std::string::npos; }, sk);
+        emit deselectRows(rows);
+        return;
+    }
+    QRegularExpression re(value);
+    auto match = [=](const std::string& v) { return re.match(QString::fromStdString(v)).hasMatch(); };
+    auto rows = model->findAll(match, sk);
+    emit deselectRows(rows);
 }
 
 bool AdifModel::addHeader(const std::string &header)

@@ -1,11 +1,14 @@
 #include "GLogApplication.h"
 #include "MultiLineDelegate.h"
+#include "GCommandLineParser.h"
 #include <QVBoxLayout>
 #include <QSortFilterProxyModel>
 #include <QLabel>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QMessageBox>
+#include <QApplication>
+#include <QClipboard>
 #include <fstream>
 
 GLogApplication::GLogApplication(QWidget *parent)
@@ -24,13 +27,39 @@ GLogApplication::GLogApplication(QWidget *parent)
     connect(this, &GLogApplication::openFileActionSignal, model->getControl(), &AdifModelC::openFile);
     connect(this, &GLogApplication::mergeFileActionSignal, model->getControl(), &AdifModelC::appendFile);
     connect(this, &GLogApplication::saveAsActionSignal, model->getControl(), &AdifModelC::saveAs);
-    connect(model, &AdifModel::appendFileSignal, model->getControl(), &AdifModelC::appendFile);
+    //connect(model, &AdifModel::appendFileSignal, model->getControl(), &AdifModelC::appendFile);
     connect(model, &AdifModel::insertFileSignal, model->getControl(), &AdifModelC::insertFile);
     connect(model->getControl(), &AdifModelC::modelUpdated, this, &GLogApplication::modelUpdated);
     connect(model->getControl(), &AdifModelC::saveDone, this, &GLogApplication::saveDone);
-    connect(tableview, &DropAbleTableView::deleteRows, model, &AdifModel::deleteRows);
+    connect(model->getControl(), &AdifModelC::setCilpboard, this, &GLogApplication::setCilpboard);
+    connect(tableview, &DropAbleTableView::deleteRowsSignal, model, &AdifModel::deleteRows);
+    connect(tableview, &DropAbleTableView::newViewWithRowsSignal, model->getControl(), &AdifModelC::newViewWithRows);
+    connect(tableview, &DropAbleTableView::pasteRowsSignal, model->getControl(), &AdifModelC::pasteRows);
+    connect(tableview, &DropAbleTableView::copyRowsSignal, model->getControl(), &AdifModelC::copyRows);
     connect(tableview->getHeaderView(), &GHeaderView::sortByColumnSignal, model, &AdifModel::sortSelectedColumn);
     connect(tableview->getHeaderView(), &GHeaderView::removeColumnSignal, model, &AdifModel::removeSelectedColumn);
+    
+    GCommandLineParser parser;
+    parser.process(QCoreApplication::arguments());
+    if (parser.isSet("i")) {
+        auto files = parser.values("i");
+        for (auto& file: files) {
+            //QMessageBox::information(this, "pre open", file, QMessageBox::StandardButton::Ok);
+            mergeFile(file);
+        }
+    }
+
+    searchBar = new SearchBar(this);
+    connect(ui.actionSearch, &QAction::triggered, searchBar, &SearchBar::show);
+    connect(searchBar, &SearchBar::findNext, tableview, &DropAbleTableView::findNext);
+    connect(searchBar, &SearchBar::selectAll, model->getControl(), &AdifModelC::selectAll);
+    connect(searchBar, &SearchBar::deselectAll, model->getControl(), &AdifModelC::deselectAll);
+    connect(tableview, &DropAbleTableView::selected, searchBar, &SearchBar::enableButtons);
+    connect(tableview, &DropAbleTableView::findNextSignal, model->getControl(), &AdifModelC::findNext);
+    connect(model->getControl(), &AdifModelC::foundNext, tableview, &DropAbleTableView::foundNext);
+    connect(model->getControl(), &AdifModelC::selectRows, tableview, &DropAbleTableView::selectRows);
+    connect(model->getControl(), &AdifModelC::deselectRows, tableview, &DropAbleTableView::deselectRows);
+
     modelSub.start();
 }
 
@@ -89,5 +118,11 @@ void GLogApplication::saveAsAction()
 
 void GLogApplication::saveDone()
 {
-    QMessageBox::information(this, "Save", "Done", QMessageBox::StandardButton::Ok);
+    QMessageBox::information(this, tr("Save"), tr("Done"), QMessageBox::StandardButton::Ok);
+}
+
+void GLogApplication::setCilpboard(QMimeData *mimeData)
+{
+    QApplication::clipboard()->setMimeData(mimeData);
+    QMessageBox::information(this, tr("Copy"), tr("Done"), QMessageBox::StandardButton::Ok);
 }
