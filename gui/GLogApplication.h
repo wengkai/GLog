@@ -9,6 +9,7 @@
 #include "glogparser.h"
 #include "DropAbleTableView.h"
 #include "SearchBar.h"
+#include "MapGraphicsView.h"
 #include "ui_GLogApplication.h"
 
 
@@ -22,7 +23,7 @@ public:
 
     void resizeTableView();
     void openFile(const QString& filename);
-    void mergeFile(const QString& filename);
+    void mergeFile(const QString& filename, bool remove = false);
     void saveAsFile(const QString& filename);
     
 public slots:
@@ -35,7 +36,7 @@ public slots:
 
 signals:
     void openFileActionSignal(QString filename);
-    void mergeFileActionSignal(QString filename);
+    void mergeFileActionSignal(QString filename, bool remove = false);
     void saveAsActionSignal(QString filename);
 
 private:
@@ -44,6 +45,7 @@ private:
     QThread modelSub;
     AdifModel* model = nullptr;
     SearchBar* searchBar = nullptr;
+    MapGraphicsView* mapView = nullptr;
     
 };
 

@@ -30,9 +30,22 @@
     <addaction name="actionOpen"/>
     <addaction name="actionMerge"/>
     <addaction name="actionSave_As"/>
+   </widget>
+   <widget class="QMenu" name="menuView">
+    <property name="title">
+     <string>View</string>
+    </property>
+    <addaction name="actionMap_View"/>
+   </widget>
+   <widget class="QMenu" name="menuSearch">
+    <property name="title">
+     <string>Search</string>
+    </property>
     <addaction name="actionSearch"/>
    </widget>
    <addaction name="menuFile"/>
+   <addaction name="menuSearch"/>
+   <addaction name="menuView"/>
   </widget>
   <action name="actionOpen">
    <property name="text">
@@ -60,10 +73,15 @@
   </action>
   <action name="actionSearch">
    <property name="text">
-    <string>Search</string>
+    <string>Find</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+F</string>
+   </property>
+  </action>
+  <action name="actionMap_View">
+   <property name="text">
+    <string>Map View</string>
    </property>
   </action>
  </widget>

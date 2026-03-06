@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/">
+        <file>assets/world.svg</file>
+    </qresource>
+</RCC>

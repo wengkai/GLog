@@ -3,6 +3,7 @@
 #include <QUrl>
 #include <QDir>
 #include <QTemporaryDir>
+#include <QTemporaryFile>
 #include <QProcess>
 #include <QCoreApplication>
 #include <QApplication>
@@ -24,10 +25,13 @@ void AdifModelC::openFile(QString filename)
     emit modelUpdated();
 }
 
-void AdifModelC::appendFile(QString filename)
+void AdifModelC::appendFile(QString filename, bool remove)
 {
     model->appendFile(filename);
     emit modelUpdated();
+    if (remove) {
+        QFile::remove(QFileInfo(filename).absoluteFilePath());
+    }
 }
 
 void AdifModelC::insertFile(int row, QString filename)
@@ -47,16 +51,16 @@ void AdifModelC::newViewWithRows(QModelIndexList indexes)
 {
     auto mineData = model->mimeData(indexes);
     auto text = mineData->data("text/plain");
-    QTemporaryDir dir;
-    dir.setAutoRemove(false);
-    if (dir.isValid()){
-        auto file = dir.filePath("temp.adi");
-        std::ofstream ofs(file.toStdString());
-        ofs << text.toStdString();
-        ofs.close();
+    QTemporaryFile tempFile;
+    tempFile.setAutoRemove(false);
+    if (tempFile.open()) {
+        tempFile.write(text);
+        tempFile.flush();
+        auto tempFilePath = tempFile.fileName();
+        tempFile.close();
         auto program = QCoreApplication::applicationFilePath();
         QStringList arguments;
-        arguments << "-i" << file;
+        arguments << "-i" << tempFilePath << "--remove";
         QProcess::startDetached(program, arguments);
     }
 }

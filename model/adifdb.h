@@ -28,7 +28,7 @@ public:
     
 public slots:
     void openFile(QString filename);
-    void appendFile(QString filename);
+    void appendFile(QString filename, bool remove = false);
     void insertFile(int row, QString filename);
     void saveAs(QString filename);
     void newViewWithRows(QModelIndexList indexes);

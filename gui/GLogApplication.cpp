@@ -2,6 +2,7 @@
 #include "MultiLineDelegate.h"
 #include "GCommandLineParser.h"
 #include <QVBoxLayout>
+#include <QOpenGLWidget>
 #include <QSortFilterProxyModel>
 #include <QLabel>
 #include <QFileDialog>
@@ -41,11 +42,12 @@ GLogApplication::GLogApplication(QWidget *parent)
     
     GCommandLineParser parser;
     parser.process(QCoreApplication::arguments());
+    bool remove = parser.isSet("remove");
     if (parser.isSet("i")) {
         auto files = parser.values("i");
         for (auto& file: files) {
             //QMessageBox::information(this, "pre open", file, QMessageBox::StandardButton::Ok);
-            mergeFile(file);
+            mergeFile(file, remove);
         }
     }
 
@@ -59,6 +61,23 @@ GLogApplication::GLogApplication(QWidget *parent)
     connect(model->getControl(), &AdifModelC::foundNext, tableview, &DropAbleTableView::foundNext);
     connect(model->getControl(), &AdifModelC::selectRows, tableview, &DropAbleTableView::selectRows);
     connect(model->getControl(), &AdifModelC::deselectRows, tableview, &DropAbleTableView::deselectRows);
+
+    auto mapWidget = new QMainWindow(this);
+    mapWidget->setWindowTitle(tr("Map View"));
+    mapView = new MapGraphicsView(mapWidget);
+    QOpenGLWidget *gl = new QOpenGLWidget();
+    QSurfaceFormat format;
+    format.setSamples(4);
+    gl->setFormat(format);
+    mapView->setViewport(gl);
+    mapWidget->setCentralWidget(mapView);
+    connect(ui.actionMap_View, &QAction::triggered, [=] {
+        mapView->testMarker();
+        mapWidget->show();
+    });
+    connect(mapView, &MapGraphicsView::mouseMoveTo, [=](qreal x, qreal y) {
+        mapWidget->setWindowTitle(tr("Map View") + " x:" + QString::number(x) + " y:" + QString::number(y));
+    });
 
     modelSub.start();
 }
@@ -85,10 +104,10 @@ void GLogApplication::openFileAction()
     openFile(QFileDialog::getOpenFileName(this, tr("Open File"), "", tr("Adif Files (*.adi *.adif);;All Files (*.*)")));
 }
 
-void GLogApplication::mergeFile(const QString &filename)
+void GLogApplication::mergeFile(const QString &filename, bool remove)
 {
     //tableview->setVisible(false);
-    emit mergeFileActionSignal(filename);
+    emit mergeFileActionSignal(filename, remove);
 }
 
 void GLogApplication::saveAsFile(const QString &filename)

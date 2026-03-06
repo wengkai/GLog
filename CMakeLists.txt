@@ -1,13 +1,17 @@
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.21)
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 project ("GLog")
 
-find_package(Qt6 6.3
+find_package(Qt6 6.5
     COMPONENTS
         Core
         Gui
         Widgets 
+        Network
+        SvgWidgets
+        OpenGLWidgets
 REQUIRED)
 qt_standard_project_setup()
 
@@ -83,7 +87,7 @@ list (APPEND EXTRA_LIBS model)
 add_subdirectory(${ROOT_DIR}/tools)
 list (APPEND EXTRA_LIBS tools)
 
-qt_add_executable(${PROJECT_NAME} 
+set(PROJECT_SOURCES
 		${ROOT_DIR}/main.cpp
 		${ROOT_DIR}/gui/GLogApplication.cpp
 		${ROOT_DIR}/gui/GLogApplication.h
@@ -91,7 +95,13 @@ qt_add_executable(${PROJECT_NAME}
         ${ROOT_DIR}/gui/SearchBar.cpp
 		${ROOT_DIR}/gui/SearchBar.h
 		${ROOT_DIR}/gui/SearchBar.ui
+        ${ROOT_DIR}/gui/MapGraphicsView.h
+        ${ROOT_DIR}/gui/MapGraphicsView.cpp
 )
+
+qt_add_resources(PROJECT_SOURCES assets.qrc)
+
+qt_add_executable(${PROJECT_NAME} ${PROJECT_SOURCES})
 
 if (WIN32)
     set_target_properties(${PROJECT_NAME}
@@ -111,6 +121,9 @@ target_link_libraries(${PROJECT_NAME}
     PUBLIC
         ${EXTRA_LIBS}
         Qt6::Widgets
+        Qt6::Network
+        Qt6::SvgWidgets
+        Qt6::OpenGLWidgets
 )
 
 install(TARGETS ${PROJECT_NAME}
