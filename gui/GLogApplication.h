@@ -9,7 +9,7 @@
 #include "glogparser.h"
 #include "DropAbleTableView.h"
 #include "SearchBar.h"
-#include "MapGraphicsView.h"
+#include "MapWidget.h"
 #include "ui_GLogApplication.h"
 
 

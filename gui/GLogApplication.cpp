@@ -1,6 +1,8 @@
 #include "GLogApplication.h"
 #include "MultiLineDelegate.h"
 #include "GCommandLineParser.h"
+#include "GlobalNetwork.h"
+#include "ctydb.h"
 #include <QVBoxLayout>
 #include <QOpenGLWidget>
 #include <QSortFilterProxyModel>
@@ -16,6 +18,7 @@ GLogApplication::GLogApplication(QWidget *parent)
     : QMainWindow(parent)
 {
     ui.setupUi(this);
+    GLogNetwork::init(this);
     tableview = new DropAbleTableView(this);
     setCentralWidget(tableview);
     connect(ui.actionOpen, &QAction::triggered, this, &GLogApplication::openFileAction);
@@ -62,24 +65,40 @@ GLogApplication::GLogApplication(QWidget *parent)
     connect(model->getControl(), &AdifModelC::selectRows, tableview, &DropAbleTableView::selectRows);
     connect(model->getControl(), &AdifModelC::deselectRows, tableview, &DropAbleTableView::deselectRows);
 
-    auto mapWidget = new QMainWindow(this);
-    mapWidget->setWindowTitle(tr("Map View"));
-    mapView = new MapGraphicsView(mapWidget);
-    QOpenGLWidget *gl = new QOpenGLWidget();
-    QSurfaceFormat format;
-    format.setSamples(4);
-    gl->setFormat(format);
-    mapView->setViewport(gl);
-    mapWidget->setCentralWidget(mapView);
-    connect(ui.actionMap_View, &QAction::triggered, [=] {
-        mapView->testMarker();
-        mapWidget->show();
-    });
-    connect(mapView, &MapGraphicsView::mouseMoveTo, [=](qreal x, qreal y) {
-        mapWidget->setWindowTitle(tr("Map View") + " x:" + QString::number(x) + " y:" + QString::number(y));
-    });
+    auto mapWidget = new MapWidget(model, this);
+    connect(ui.actionMap_View, &QAction::triggered, mapWidget, &MapWidget::show);
+    connect(ui.actionMap_View, &QAction::triggered, mapWidget, &MapWidget::dataVisualize);
+
+    auto ctydb = CtyDB::instance();
+    connect(ctydb, &CtyDB::dbHintChanged, mapWidget, &MapWidget::initCtyMarkers, Qt::QueuedConnection);
 
     modelSub.start();
+
+    GLogNetwork::get(CtyDB::DEFAULT_ONLINE_DATA, [=](QNetworkReply * rep) {
+        if (rep->error() == QNetworkReply::NoError) {
+            ctydb->loadDB(*rep, CtyDB::DEFAULT_ONLINE_DATA);
+        } else {
+            QMessageBox::warning(this, tr("Warning"), tr("Can not fetch cty.dat online. Using build-in one.\nYou should consider to check your network, or add a cty.dat manually."), QMessageBox::StandardButton::Ok);
+            ctydb->loadLocalDB();
+        }
+    });
+
+    connect(ui.actionMapCallSignInView, &QAction::triggered, [=](){
+        if (!CtyDB::instance()->ready()) {
+            QMessageBox::warning(this, tr("Warning"), tr("The mapping database has not ready."), QMessageBox::StandardButton::Ok);
+            return;
+        }
+        auto button1 = QMessageBox::question(this, tr("Warning"), tr("This action will update the following fields: \nCQZ, ITUZ, CONT, COUNTRY\nContinue?"), QMessageBox::StandardButton::Yes | QMessageBox::StandardButton::No);
+        if (button1 == QMessageBox::StandardButton::No) {
+            return;
+        }
+        auto button2 = QMessageBox::question(this, tr("Warning"), tr("Should we overwrite the following fields: \nCQZ, ITUZ, CONT, COUNTRY\nIf there is a confict to the original data?"), QMessageBox::StandardButton::Yes | QMessageBox::StandardButton::No);
+        bool keepOrigin = button2 == QMessageBox::StandardButton::No;
+        model->mapCallSignInView(keepOrigin);
+    });
+    connect(model, &AdifModel::mapCallSignInViewEnd, [=](int failCount, int confictCount){
+        QMessageBox::information(this, tr("Map Call Sign in View"), tr("Done\n%1 record(s) failed to be mapped.\n%2 confict field(s) found.").arg(failCount).arg(confictCount), QMessageBox::StandardButton::Ok);
+    });
 }
 
 GLogApplication::~GLogApplication()

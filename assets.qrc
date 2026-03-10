@@ -1,5 +1,6 @@
 <RCC>
     <qresource prefix="/">
         <file>assets/world.svg</file>
+        <file>assets/cty.dat</file>
     </qresource>
 </RCC>

@@ -3,6 +3,7 @@
 
 #include "glogparser.h"
 #include "record.h"
+#include "ctydb.h"
 #include <QStandardItemModel>
 #include <QMimeData>
 #include <QList>
@@ -15,6 +16,8 @@
 #include <iostream>
 
 class AdifModel;
+
+class MapWidget;
 
 class AdifModelC : public QObject {
     Q_OBJECT
@@ -62,6 +65,7 @@ private:
     std::vector<std::string> rheaders{};
     std::shared_mutex mutex{};
     friend class AdifModelC;
+    friend class MapWidget;
     AdifModelC* control = nullptr;
 
     GLOG_PARSER::GLogParserDriver driver{  };
@@ -204,6 +208,7 @@ public:
         for (auto iter {begin}; iter != end; ++iter) {
             _addRecord(iter->begin(), iter->end());
         }
+        lock.unlock();
         endInsertRows();
     }
 
@@ -213,6 +218,7 @@ public:
         if (row == -1) row = records.size();
         beginInsertRows(QModelIndex(), row, row + (end - begin) - 1);
         _insertRecords(row, begin, end);
+        lock.unlock();
         endInsertRows();
     }
 
@@ -224,6 +230,7 @@ public:
         for (auto iter {begin}; iter != end; ++iter) {
             _addRecord(iter->begin(), iter->end());
         }
+        lock.unlock();
         endResetModel();
     }
 
@@ -242,10 +249,13 @@ public slots:
     void deleteRows(QModelIndexList indexes);
     void sortSelectedColumn(int column, Qt::SortOrder order);
     void removeSelectedColumn(int column);
+    void mapCallSignInView(bool keepOrigin);
 
 signals:
     //void appendFileSignal(QString filename);
     void insertFileSignal(int row, QString filename);
+    void mapCallSignInViewBegin();
+    void mapCallSignInViewEnd(int failCount, int confictCount);
 
 };
 

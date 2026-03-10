@@ -9,6 +9,8 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QRegularExpression>
+#include <QThread>
+#include <QMessageBox>
 #include <fstream>
 #include <sstream>
 #include <cstdlib>
@@ -171,6 +173,54 @@ std::vector<std::string> AdifModel::getDefaultSortModel(const std::string &field
     return ret;
 }
 
+void AdifModel::mapCallSignInView(bool keepOrigin)
+{
+    if (records.empty()) {
+        return;
+    }
+    std::string testField = "z_glog_resolved_1";
+    addHeader(testField);
+    auto ctydb = CtyDB::instance();
+    emit mapCallSignInViewBegin();
+    std::shared_lock<decltype(ctydb->mutex)> lock0(ctydb->mutex);
+    std::unique_lock<decltype(mutex)> lock1(mutex);
+    
+    int failCount = 0;
+    int confictCount = 0;
+    auto writeByKeepOriginFlag = [&](std::string& dest, const std::string& s) {
+        if (!dest.empty() && dest != s) {
+            ++confictCount;
+            if (keepOrigin)
+                return;
+        }
+        dest = s;
+    };
+    
+    QString buf;
+    for (auto& record : records) {
+        auto & call = record["call"];
+        buf = QString::fromUtf8(call.data(), call.size());
+        ctydb->normalizeCallSign(buf);
+        auto result = ctydb->lookUpCallSign(QStringView(buf));
+        if (result.first->vaild) {
+            record[testField] = (result.first->name + result.second).toStdString();
+            // CQZ, ITUZ, CONT, COUNTRY
+            writeByKeepOriginFlag(record["cqz"], QString::number(result.first->cq).toStdString());
+            writeByKeepOriginFlag(record["ituz"], QString::number(result.first->itu).toStdString());
+            writeByKeepOriginFlag(record["cont"], result.first->continent.toStdString());
+            writeByKeepOriginFlag(record["country"], result.first->name.toStdString());
+        }
+        else {
+            record[testField] = result.second.toStdString();
+            ++failCount;
+        }
+    }
+
+    lock1.unlock();
+    emit layoutChanged();
+    emit mapCallSignInViewEnd(failCount, confictCount);
+}
+
 void AdifModel::_clear()
 {
     records.clear();
@@ -209,7 +259,8 @@ QVariant AdifModel::data(const QModelIndex &index, int role) const
     if (role != Qt::DisplayRole && role != Qt::EditRole)
         return QVariant();
 
-    if (m.try_lock_shared()) {
+    std::shared_lock<decltype(mutex)> lock(m, std::defer_lock);
+    if (lock.try_lock()) {
         QVariant ret{};
         if (index.column() < rheaders.size()
             && index.row() < records.size()
@@ -218,11 +269,9 @@ QVariant AdifModel::data(const QModelIndex &index, int role) const
             auto& r = records.at(index.row());
             auto iter = r.find(k);
             if (iter != r.end()) {
-                ret = QString::fromStdString(iter->second);
+                return QString::fromStdString(iter->second);
             }
         }
-        m.unlock_shared();
-        return ret;
     }
 
     return QVariant();
@@ -235,13 +284,12 @@ QVariant AdifModel::headerData(int section, Qt::Orientation orientation, int rol
         return QVariant();
     if (orientation == Qt::Horizontal) {
         QVariant ret{};
-        if (m.try_lock_shared()) {
+        std::shared_lock<decltype(mutex)> lock(m, std::defer_lock);
+        if (lock.try_lock()) {
             if (section < rheaders.size()) {
-                ret = QString::fromStdString(rheaders.at(section));
+                return QString::fromStdString(rheaders.at(section));
             }
-            m.unlock_shared();
         }
-        return ret;
     } 
     return section + 1;
 }
@@ -253,6 +301,7 @@ bool AdifModel::setData(const QModelIndex &index, const QVariant &value, int rol
         auto v = value.toString().toStdString();
         if (index.row() < records.size() && index.column() < rheaders.size()) {
             records[index.row()][rheaders[index.column()]] = v;
+            lock.unlock();
             dataChanged(index, index);
             return true;
         }
@@ -346,6 +395,7 @@ bool AdifModel::removeRows(int row, int count, const QModelIndex &parent)
     if (row >= 0 && count > 0 && row + count <= records.size()) {
         beginRemoveRows(parent, row, row + count - 1);
         records.erase(records.begin() + row, records.begin() + row + count);
+        lock.unlock();
         endRemoveRows();
         return true;
     }
@@ -365,6 +415,7 @@ bool AdifModel::moveRows(const QModelIndex &sourceParent, int sourceRow, int cou
     if (destinationChild < sourceRow) {
         std::rotate(records.begin() + destinationChild, records.begin() + sourceRow, records.begin() + sourceRow + count);
     }
+    lock.unlock();
     endMoveRows();
     return true;
 }
@@ -388,6 +439,7 @@ void AdifModel::sort(int column, Qt::SortOrder order)
                 return less(b, a);
             });
         }
+        lock.unlock();
         endResetModel();
     }
     
@@ -402,6 +454,7 @@ void AdifModel::clear()
     std::unique_lock<decltype(mutex)> lock(mutex);
     beginResetModel();
     _clear();
+    lock.unlock();
     endResetModel();
 }
 
@@ -545,6 +598,7 @@ void AdifModel::removeSelectedColumn(int column)
         }
     }
     rheaders.erase(rheaders.begin() + column);
+    lock.unlock();
     endRemoveColumns();
 }
 
@@ -566,7 +620,9 @@ void AdifModel::deleteRows(QModelIndexList indexes)
         }
         beginRemoveRows(QModelIndex(), deletebegin, deleteend - 1);
         records.erase(records.begin() + deletebegin, records.begin() + deleteend);
+        lock.unlock();
         endRemoveRows();
+        lock.lock();
         if (idx == 0) {
             break;
         }
@@ -589,6 +645,8 @@ void AdifModel::deleteRows(QModelIndexList indexes)
         }
         beginRemoveColumns(QModelIndex(), iter - (rheaders.begin() + sheaders.size()), iter - (rheaders.begin() + sheaders.size()));
         iter = rheaders.erase(iter);
+        lock.unlock();
         endRemoveColumns();
+        lock.lock();
     }
 }

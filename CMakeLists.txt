@@ -95,8 +95,9 @@ set(PROJECT_SOURCES
         ${ROOT_DIR}/gui/SearchBar.cpp
 		${ROOT_DIR}/gui/SearchBar.h
 		${ROOT_DIR}/gui/SearchBar.ui
-        ${ROOT_DIR}/gui/MapGraphicsView.h
-        ${ROOT_DIR}/gui/MapGraphicsView.cpp
+        ${ROOT_DIR}/gui/MapWidget.h
+        ${ROOT_DIR}/gui/MapWidget.cpp
+        ${ROOT_DIR}/gui/MapWidget.ui
 )
 
 qt_add_resources(PROJECT_SOURCES assets.qrc)
