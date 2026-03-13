@@ -1,6 +1,12 @@
 build/
 out/
 .vs/
+build-*/
+qt-everywhere-src-*/
+appimagetool-*.AppImage
+linuxdeploy-*.AppImage
+linuxdeploy-plugin-qt-*.AppImage
 CMakePresets.json
 CMakeUserPresets.json
 CMakeLists.txt.user
+*.log

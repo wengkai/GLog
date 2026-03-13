@@ -48,7 +48,7 @@ bool CtyDB::loadDB(QIODevice &device, const QString& db_hint)
             if (m_pattern.isEmpty()) {
                 continue;
             }
-            unsigned int prefixEnd = 0;
+            std::size_t prefixEnd = 0;
             auto my_ent = overrideEnt(m_pattern, ent, prefixEnd);
             auto it = location_map.find({my_ent->lat, my_ent->lon}); // std::map<std::pair<double, double>, int>
             if (it == location_map.end()) {
@@ -139,9 +139,9 @@ void CtyDB::normalizeCallSign(QString & callsign)
 // {aa}	Override Continent
 // ~#~	Override local time offset from GMT
 
-std::shared_ptr<CtyEntry> CtyDB::overrideEnt(const QString &m_pattern, std::shared_ptr<CtyEntry> ent, unsigned int & prefixEnd)
+std::shared_ptr<CtyEntry> CtyDB::overrideEnt(const QString &m_pattern, std::shared_ptr<CtyEntry> ent, std::size_t & prefixEnd)
 {
-    prefixEnd = static_cast<unsigned int>(m_pattern.size());
+    prefixEnd = static_cast<std::size_t>(m_pattern.size());
     
     if (!m_pattern.contains('(') && !m_pattern.contains('[') && 
         !m_pattern.contains('<') && !m_pattern.contains('{') && !m_pattern.contains('~')) {
@@ -155,7 +155,7 @@ std::shared_ptr<CtyEntry> CtyDB::overrideEnt(const QString &m_pattern, std::shar
         int end = m_pattern.indexOf(')', start);
         if (end == -1) throw std::runtime_error("Invalid pattern: missing )");
         my_ent->cq = m_pattern.mid(start + 1, end - start - 1).toInt();
-        prefixEnd = std::min(prefixEnd, unsigned int (start));
+        prefixEnd = std::min(prefixEnd, std::size_t (start));
     }
 
     // ITU Zone: [n]
@@ -163,7 +163,7 @@ std::shared_ptr<CtyEntry> CtyDB::overrideEnt(const QString &m_pattern, std::shar
         int end = m_pattern.indexOf(']', start);
         if (end == -1) throw std::runtime_error("Invalid pattern: missing ]");
         my_ent->itu = m_pattern.mid(start + 1, end - start - 1).toInt();
-        prefixEnd = std::min(prefixEnd, unsigned int (start));
+        prefixEnd = std::min(prefixEnd, std::size_t (start));
     }
 
     // Lat/Lon: <lat/lon>
@@ -174,7 +174,7 @@ std::shared_ptr<CtyEntry> CtyDB::overrideEnt(const QString &m_pattern, std::shar
         
         my_ent->lat = m_pattern.mid(start + 1, mid - start - 1).toDouble();
         my_ent->lon = -m_pattern.mid(mid + 1, end - mid - 1).toDouble();
-        prefixEnd = std::min(prefixEnd, unsigned int (start));
+        prefixEnd = std::min(prefixEnd, std::size_t (start));
     }
 
     // Continent: {aa}
@@ -182,7 +182,7 @@ std::shared_ptr<CtyEntry> CtyDB::overrideEnt(const QString &m_pattern, std::shar
         int end = m_pattern.indexOf('}', start);
         if (end == -1) throw std::runtime_error("Invalid pattern: missing }");
         my_ent->continent = m_pattern.mid(start + 1, end - start - 1);
-        prefixEnd = std::min(prefixEnd, unsigned int (start));
+        prefixEnd = std::min(prefixEnd, std::size_t (start));
     }
 
     // UTC Offset: ~#~
@@ -190,7 +190,7 @@ std::shared_ptr<CtyEntry> CtyDB::overrideEnt(const QString &m_pattern, std::shar
         int end = m_pattern.indexOf('~', start + 1); 
         if (end == -1) throw std::runtime_error("Invalid pattern: missing second ~");
         my_ent->utc_offset = m_pattern.mid(start + 1, end - start - 1).toDouble();
-        prefixEnd = std::min(prefixEnd, unsigned int (start));
+        prefixEnd = std::min(prefixEnd, std::size_t (start));
     }
     
     return my_ent;

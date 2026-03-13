@@ -13,6 +13,7 @@
 #include <memory>
 #include <atomic>
 #include <set>
+#include <mutex>
 #include <shared_mutex>
 
 struct CtyEntry
@@ -44,7 +45,7 @@ public:
     }
     static QString normalizeCallSign(const QString& call);
     static void normalizeCallSign(QString& call);
-    std::shared_ptr<CtyEntry> overrideEnt(const QString& m_pattern, std::shared_ptr<CtyEntry> ent, unsigned int & prefixEnd);
+    std::shared_ptr<CtyEntry> overrideEnt(const QString& m_pattern, std::shared_ptr<CtyEntry> ent, std::size_t & prefixEnd);
     static CtyDB* instance();
     bool loadDB(QIODevice& device, const QString& db_hint);
     bool ready() const { return m_ready; }

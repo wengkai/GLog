@@ -1,0 +1,7 @@
+[Desktop Entry]
+Categories=Utility;
+Type=Application
+Icon=GLog
+Exec=GLog %u
+Name=GLog
+Terminal=false
