@@ -49,8 +49,9 @@ void MapWidget::clearMarkers()
 void MapWidget::initCtyMarkersBatch()
 {
     auto ctydb = CtyDB::instance();
+    std::shared_lock<decltype(ctydb->mutex)> lock0(ctydb->mutex, std::defer_lock);
 
-    while (ctydb->mutex.try_lock_shared()) {
+    while (lock0.try_lock()) {
         if (m_db_hint != ctydb->getDBHint()) {
             add_markers_begin = 0;
             m_db_hint = ctydb->getDBHint();
@@ -79,7 +80,6 @@ void MapWidget::initCtyMarkersBatch()
             ui.graphicsView->addItem(maker);
         }
         add_markers_begin = add_markers_end;
-        ctydb->mutex.unlock_shared();
         break;
     }
 

@@ -25,7 +25,7 @@ endif()
 if (QT_LINK_STATIC)
     if(MSVC)
         message(STATUS "Static linking with MSVC, changing /MD to /MT")
-	    foreach(flag_var
+        foreach(flag_var
                 CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
                 CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
             if(${flag_var} MATCHES "/MD")
@@ -36,10 +36,10 @@ if (QT_LINK_STATIC)
 endif()
 
 if (WIN32)
-	message(STATUS "OS:Windows")
-	add_definitions(-D YY_NO_UNISTD_H)
+    message(STATUS "OS:Windows")
+    add_definitions(-D YY_NO_UNISTD_H)
 elseif (UNIX)
-	message(STATUS "OS:UNIX-like OS's")
+    message(STATUS "OS:UNIX-like OS's")
 else ()
     message(WARNING "OS:others")
 endif ()
@@ -73,8 +73,7 @@ list (APPEND INCLUDES_DIR "${ROOT_DIR}/model")
 list (APPEND INCLUDES_DIR "${ROOT_DIR}/tools")
 
 include_directories(
-	${INCLUDES_DIR}
-	${CMAKE_BINARY_DIR}
+    ${INCLUDES_DIR}
 )
 
 # add_subdirectory(${ROOT_DIR}/adif)
@@ -88,16 +87,22 @@ add_subdirectory(${ROOT_DIR}/tools)
 list (APPEND EXTRA_LIBS tools)
 
 set(PROJECT_SOURCES
-		${ROOT_DIR}/main.cpp
-		${ROOT_DIR}/gui/GLogApplication.cpp
-		${ROOT_DIR}/gui/GLogApplication.h
-		${ROOT_DIR}/gui/GLogApplication.ui
+        ${ROOT_DIR}/main.cpp
+        ${ROOT_DIR}/gui/GLogApplication.cpp
+        ${ROOT_DIR}/gui/GLogApplication.h
+        ${ROOT_DIR}/gui/GLogApplication.ui
         ${ROOT_DIR}/gui/SearchBar.cpp
-		${ROOT_DIR}/gui/SearchBar.h
-		${ROOT_DIR}/gui/SearchBar.ui
+        ${ROOT_DIR}/gui/SearchBar.h
+        ${ROOT_DIR}/gui/SearchBar.ui
         ${ROOT_DIR}/gui/MapWidget.h
         ${ROOT_DIR}/gui/MapWidget.cpp
         ${ROOT_DIR}/gui/MapWidget.ui
+        ${ROOT_DIR}/gui/ConfigureCtyDialog.h
+        ${ROOT_DIR}/gui/ConfigureCtyDialog.cpp
+        ${ROOT_DIR}/gui/ConfigureCtyDialog.ui
+        ${ROOT_DIR}/gui/AddQSODialog.h
+        ${ROOT_DIR}/gui/AddQSODialog.cpp
+        ${ROOT_DIR}/gui/AddQSODialog.ui
 )
 
 qt_add_resources(PROJECT_SOURCES assets.qrc)

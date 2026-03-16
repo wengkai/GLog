@@ -3,13 +3,14 @@
 
 #include <QtWidgets/QMainWindow>
 #include <QTableView>
-#include <QThread>
 #include <QMimeData>
 #include "adifdb.h"
 #include "glogparser.h"
 #include "DropAbleTableView.h"
 #include "SearchBar.h"
 #include "MapWidget.h"
+#include "ConfigureCtyDialog.h"
+#include "AddQSODialog.h"
 #include "ui_GLogApplication.h"
 
 
@@ -42,10 +43,11 @@ signals:
 private:
     Ui::GLogApplicationClass ui;
     DropAbleTableView* tableview = nullptr;
-    QThread modelSub;
     AdifModel* model = nullptr;
     SearchBar* searchBar = nullptr;
     MapGraphicsView* mapView = nullptr;
+    ConfigureCtyDialog* configureCtyDialog = nullptr;
+    AddQSODialog* addQSODialog = nullptr;
     
 };
 

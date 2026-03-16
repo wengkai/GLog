@@ -37,7 +37,7 @@ class CtyDB : public QObject {
 
 public:
     static constexpr const char * DEFAULT_ONLINE_DATA = "https://www.country-files.com/bigcty/cty.dat";
-    bool loadLocalDB(const QString& filename = QStringLiteral(":/assets/cty.dat"));
+    std::pair<bool, QString /*error msg*/> loadLocalDB(const QString& filename = QStringLiteral(":/assets/cty.dat"));
     std::pair<std::shared_ptr<CtyEntry>, QString /*hint*/> lookUpCallSign(const QStringView& call) const;
     std::pair<std::shared_ptr<CtyEntry>, QString /*hint*/> lookUpCallSign(const QString& call) const;
     inline std::pair<std::shared_ptr<CtyEntry>, QString /*hint*/> lookUpCallSign(const std::string& call) const {
@@ -47,7 +47,8 @@ public:
     static void normalizeCallSign(QString& call);
     std::shared_ptr<CtyEntry> overrideEnt(const QString& m_pattern, std::shared_ptr<CtyEntry> ent, std::size_t & prefixEnd);
     static CtyDB* instance();
-    bool loadDB(QIODevice& device, const QString& db_hint);
+    std::pair<bool, QString /*error msg*/> loadDB(QIODevice& device, const QString& db_hint);
+    std::pair<bool, QString /*error msg*/> loadDBString(const QString& cty, const QString& db_hint);
     bool ready() const { return m_ready; }
     const std::vector<std::shared_ptr<CtyEntry>> & getVEnts() const { return v_ents; };
     const QString & getDBHint() const { return db_hint; }
@@ -57,6 +58,7 @@ public:
 
 signals:
     void dbHintChanged(QString db_hint);
+    void loadDbBegin();
 
 private:
     void _clear();

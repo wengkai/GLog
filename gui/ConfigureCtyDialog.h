@@ -1,0 +1,38 @@
+#ifndef CONFIGURECTYDIALOG_H
+#define CONFIGURECTYDIALOG_H
+
+#include "ui_ConfigureCtyDialog.h"
+
+class ConfigureCtyDialog : public QDialog
+{
+    Q_OBJECT
+
+public:
+    ConfigureCtyDialog(QWidget *parent = nullptr);
+    ~ConfigureCtyDialog();
+    QString successMsg() const;
+
+public slots:
+    void setDBhint(QString db_hint);
+    void disableCtyConfigure();
+    int exec() override;
+    void enableCtyConfigure();
+    void applyLoadDB(QString db_hint, QString load_hint, bool rollBack = false);
+    void onLoadFinished(QString msg);
+
+protected slots:
+    
+
+signals:
+    void startLoadDB(QString db_hint, QString load_hint, bool rollBack = false);
+    void endLoadDB(QString load_hint);
+
+private:
+    Ui::ConfigureCtyDialogClass ui;
+    QString db_hint;
+    QPushButton * m_ok = nullptr;
+    int disable_count = 0;
+
+};
+
+#endif

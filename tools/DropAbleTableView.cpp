@@ -1,6 +1,7 @@
 #include "DropAbleTableView.h"
 #include "MultiLineDelegate.h"
 #include "GHeaderView.h"
+#include "Concurrent.h"
 #include <QDropEvent>
 #include <QKeyEvent>
 #include <QAbstractItemModel>
@@ -9,7 +10,6 @@
 #include <QApplication>
 #include <QMimeData>
 #include <QMenu>
-#include <QThread>
 #include <exception>
 
 DropAbleTableView::DropAbleTableView(QWidget *parent) : QTableView(parent)
@@ -26,7 +26,7 @@ DropAbleTableView::DropAbleTableView(QWidget *parent) : QTableView(parent)
     setDropIndicatorShown(true);
     setContextMenuPolicy(Qt::ContextMenuPolicy::CustomContextMenu);
     connect(this, &DropAbleTableView::customContextMenuRequested, this, &DropAbleTableView::customContextMenu);
-    connect(this, &DropAbleTableView::setMSelectionSignal, this, &DropAbleTableView::setMSelection);
+    connect(this, &DropAbleTableView::setMSelectionSignal, this, &DropAbleTableView::setMSelection, Qt::QueuedConnection);
 }
 
 void DropAbleTableView::tryDeleteSelectedRows()
@@ -125,7 +125,7 @@ void DropAbleTableView::selectRows(QList<int> rows)
     auto m_model = model();
     auto columnCount = m_model->columnCount();
     // QItemSelection::merge can be time consuming when there are many rows to be selected
-    auto mergeSub = QThread::create([=](){
+    auto mergeSub = GLogConcurrent::makeFuture([=](){
         for (auto& row : rows) {
             auto index = m_model->index(row, 0);
             auto index2 = m_model->index(row, columnCount - 1);
@@ -133,8 +133,6 @@ void DropAbleTableView::selectRows(QList<int> rows)
         }
         emit setMSelectionSignal(QItemSelectionModel::SelectionFlag::ClearAndSelect);
     });
-    connect(mergeSub, &QThread::finished, mergeSub, &QThread::deleteLater);
-    mergeSub->start();
 }
 
 void DropAbleTableView::deselectRows(QList<int> rows)
@@ -143,7 +141,7 @@ void DropAbleTableView::deselectRows(QList<int> rows)
     auto m_model = model();
     auto columnCount = m_model->columnCount();
     // QItemSelection::merge can be time consuming when there are many rows to be selected
-    auto mergeSub = QThread::create([=](){
+    auto mergeSub = GLogConcurrent::makeFuture([=](){
         for (auto& row : rows) {
             auto index = m_model->index(row, 0);
             auto index2 = m_model->index(row, columnCount - 1);
@@ -151,8 +149,6 @@ void DropAbleTableView::deselectRows(QList<int> rows)
         }
         emit setMSelectionSignal(QItemSelectionModel::SelectionFlag::ClearAndSelect);
     });
-    connect(mergeSub, &QThread::finished, mergeSub, &QThread::deleteLater);
-    mergeSub->start();
 }
 
 void DropAbleTableView::setMSelection(QItemSelectionModel::SelectionFlag command)

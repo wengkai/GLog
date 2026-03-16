@@ -25,21 +25,20 @@ GLogApplication::GLogApplication(QWidget *parent)
     connect(ui.actionMerge, &QAction::triggered, this, &GLogApplication::mergeFileAction);
     connect(ui.actionSave_As, &QAction::triggered, this, &GLogApplication::saveAsAction);
     model = new AdifModel(this);
-    model->getControl()->moveToThread(&modelSub);
+    //model->getControl()->moveToThread(&modelSub);
     tableview->setModel(model);
-    connect(&modelSub, &QThread::finished, &modelSub, &QThread::deleteLater);
-    connect(this, &GLogApplication::openFileActionSignal, model->getControl(), &AdifModelC::openFile);
-    connect(this, &GLogApplication::mergeFileActionSignal, model->getControl(), &AdifModelC::appendFile);
-    connect(this, &GLogApplication::saveAsActionSignal, model->getControl(), &AdifModelC::saveAs);
+    connect(this, &GLogApplication::openFileActionSignal, model, &AdifModel::openFile);
+    connect(this, &GLogApplication::mergeFileActionSignal, model, &AdifModel::appendFile);
+    connect(this, &GLogApplication::saveAsActionSignal, model, &AdifModel::saveAs);
     //connect(model, &AdifModel::appendFileSignal, model->getControl(), &AdifModelC::appendFile);
-    connect(model, &AdifModel::insertFileSignal, model->getControl(), &AdifModelC::insertFile);
-    connect(model->getControl(), &AdifModelC::modelUpdated, this, &GLogApplication::modelUpdated);
-    connect(model->getControl(), &AdifModelC::saveDone, this, &GLogApplication::saveDone);
-    connect(model->getControl(), &AdifModelC::setCilpboard, this, &GLogApplication::setCilpboard);
+    //connect(model, &AdifModel::insertFileSignal, model, &AdifModel::insertFile);
+    //connect(model->getControl(), &AdifModelC::modelUpdated, this, &GLogApplication::modelUpdated);
+    connect(model, &AdifModel::saveDone, this, &GLogApplication::saveDone, Qt::QueuedConnection);
+    connect(model, &AdifModel::setCilpboard, this, &GLogApplication::setCilpboard, Qt::QueuedConnection);
     connect(tableview, &DropAbleTableView::deleteRowsSignal, model, &AdifModel::deleteRows);
-    connect(tableview, &DropAbleTableView::newViewWithRowsSignal, model->getControl(), &AdifModelC::newViewWithRows);
-    connect(tableview, &DropAbleTableView::pasteRowsSignal, model->getControl(), &AdifModelC::pasteRows);
-    connect(tableview, &DropAbleTableView::copyRowsSignal, model->getControl(), &AdifModelC::copyRows);
+    connect(tableview, &DropAbleTableView::newViewWithRowsSignal, model, &AdifModel::newViewWithRows);
+    connect(tableview, &DropAbleTableView::pasteRowsSignal, model, &AdifModel::pasteRows);
+    connect(tableview, &DropAbleTableView::copyRowsSignal, model, &AdifModel::copyRows);
     connect(tableview->getHeaderView(), &GHeaderView::sortByColumnSignal, model, &AdifModel::sortSelectedColumn);
     connect(tableview->getHeaderView(), &GHeaderView::removeColumnSignal, model, &AdifModel::removeSelectedColumn);
     
@@ -57,13 +56,13 @@ GLogApplication::GLogApplication(QWidget *parent)
     searchBar = new SearchBar(this);
     connect(ui.actionSearch, &QAction::triggered, searchBar, &SearchBar::show);
     connect(searchBar, &SearchBar::findNext, tableview, &DropAbleTableView::findNext);
-    connect(searchBar, &SearchBar::selectAll, model->getControl(), &AdifModelC::selectAll);
-    connect(searchBar, &SearchBar::deselectAll, model->getControl(), &AdifModelC::deselectAll);
+    connect(searchBar, &SearchBar::selectAll, model, &AdifModel::selectAll);
+    connect(searchBar, &SearchBar::deselectAll, model, &AdifModel::deselectAll);
     connect(tableview, &DropAbleTableView::selected, searchBar, &SearchBar::enableButtons);
-    connect(tableview, &DropAbleTableView::findNextSignal, model->getControl(), &AdifModelC::findNext);
-    connect(model->getControl(), &AdifModelC::foundNext, tableview, &DropAbleTableView::foundNext);
-    connect(model->getControl(), &AdifModelC::selectRows, tableview, &DropAbleTableView::selectRows);
-    connect(model->getControl(), &AdifModelC::deselectRows, tableview, &DropAbleTableView::deselectRows);
+    connect(tableview, &DropAbleTableView::findNextSignal, model, &AdifModel::findNextS);
+    connect(model, &AdifModel::foundNext, tableview, &DropAbleTableView::foundNext);
+    connect(model, &AdifModel::selectRows, tableview, &DropAbleTableView::selectRows);
+    connect(model, &AdifModel::deselectRows, tableview, &DropAbleTableView::deselectRows);
 
     auto mapWidget = new MapWidget(model, this);
     connect(ui.actionMap_View, &QAction::triggered, mapWidget, &MapWidget::show);
@@ -72,7 +71,17 @@ GLogApplication::GLogApplication(QWidget *parent)
     auto ctydb = CtyDB::instance();
     connect(ctydb, &CtyDB::dbHintChanged, mapWidget, &MapWidget::initCtyMarkers, Qt::QueuedConnection);
 
-    modelSub.start();
+    configureCtyDialog = new ConfigureCtyDialog(this);
+    connect(ctydb, &CtyDB::dbHintChanged, configureCtyDialog, &ConfigureCtyDialog::setDBhint, Qt::QueuedConnection);
+    connect(mapWidget, &MapWidget::initCtyMarkersBegin, configureCtyDialog, &ConfigureCtyDialog::disableCtyConfigure, Qt::QueuedConnection);
+    connect(mapWidget, &MapWidget::initCtyMarkersEnd, configureCtyDialog, &ConfigureCtyDialog::enableCtyConfigure, Qt::QueuedConnection);
+    connect(model, &AdifModel::mapCallSignInViewBegin, configureCtyDialog, &ConfigureCtyDialog::disableCtyConfigure, Qt::QueuedConnection);
+    connect(model, &AdifModel::mapCallSignInViewEnd, configureCtyDialog, &ConfigureCtyDialog::enableCtyConfigure, Qt::QueuedConnection);
+    connect(ui.actionConfigure_Cty_dat, &QAction::triggered, [=](){
+        configureCtyDialog->exec();
+    });
+
+    configureCtyDialog->disableCtyConfigure();
 
     GLogNetwork::get(CtyDB::DEFAULT_ONLINE_DATA, [=](QNetworkReply * rep) {
         if (rep->error() == QNetworkReply::NoError) {
@@ -81,6 +90,7 @@ GLogApplication::GLogApplication(QWidget *parent)
             QMessageBox::warning(this, tr("Warning"), tr("Can not fetch cty.dat online. Using build-in one.\nYou should consider to check your network, or add a cty.dat manually."), QMessageBox::StandardButton::Ok);
             ctydb->loadLocalDB();
         }
+        configureCtyDialog->enableCtyConfigure();
     });
 
     connect(ui.actionMapCallSignInView, &QAction::triggered, [=](){
@@ -98,6 +108,11 @@ GLogApplication::GLogApplication(QWidget *parent)
     });
     connect(model, &AdifModel::mapCallSignInViewEnd, [=](int failCount, int confictCount){
         QMessageBox::information(this, tr("Map Call Sign in View"), tr("Done\n%1 record(s) failed to be mapped.\n%2 confict field(s) found.").arg(failCount).arg(confictCount), QMessageBox::StandardButton::Ok);
+    });
+
+    addQSODialog = new AddQSODialog(model, this);
+    connect(ui.actionAdd_QSO_Manually, &QAction::triggered, [=](){
+        addQSODialog->exec();
     });
 }
 

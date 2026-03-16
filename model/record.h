@@ -4,15 +4,26 @@
 #include <vector>
 #include <string>
 #include <map>
+#include <set>
+#include <functional>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+
+struct ModeContent {
+    bool import_only;
+    std::set<std::string> mode_submode;
+};
+
+using ModeMap = std::map<std::string /*mode*/, ModeContent>;
+
+#include "mode_map.h"
 
 class GRecord : public std::map<std::string, std::string> 
 {
     
 public:
-    static constexpr const char* RESOLVE_HEADERS[] = {"qso_date", "time_on", "call", "freq", "mode", "rst_rcvd", "rst_sent"};
+    static constexpr const char* RESOLVE_HEADERS[] = {"qso_date", "time_on", "call", "freq", "mode", "submode", "rst_rcvd", "rst_sent"};
     static constexpr std::size_t RESOLVE_HEADERS_COUNT = sizeof(RESOLVE_HEADERS) / sizeof(char *);
 
     template<typename Compare>
@@ -49,8 +60,29 @@ public:
 
 };
 
+using GRecordFilter = std::function<void(GRecord &)>;
+
+static const std::vector<GRecordFilter> GRecordOutputFilters = {
+    [](GRecord & r) {
+        if (r.at("mode") == "C4FM") {
+            r["mode"] = "DIGITALVOICE";
+            r["submode"] = "C4FM";
+        }
+    },
+    [](GRecord & r) {
+        if (r.at("mode") == "DSTAR") {
+            r["mode"] = "DIGITALVOICE";
+            r["submode"] = "DSTAR";
+        }
+    },
+};
+
 template<typename Ostream>
-inline Ostream& operator<<(Ostream& stream, const GRecord& r) {
+inline Ostream& operator<<(Ostream& stream, const GRecord& record) {
+    auto r = record;
+    for (auto & func : GRecordOutputFilters) {
+        func(r);
+    }
     for (auto& pair : r) {
         if (pair.second.empty()) {
             continue;

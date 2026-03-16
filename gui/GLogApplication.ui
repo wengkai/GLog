@@ -48,6 +48,8 @@
      <string>Tools</string>
     </property>
     <addaction name="actionMapCallSignInView"/>
+    <addaction name="actionConfigure_Cty_dat"/>
+    <addaction name="actionAdd_QSO_Manually"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuSearch"/>
@@ -94,6 +96,16 @@
   <action name="actionMapCallSignInView">
    <property name="text">
     <string>Map Call Sign(s) in View</string>
+   </property>
+  </action>
+  <action name="actionConfigure_Cty_dat">
+   <property name="text">
+    <string>Configure Cty.dat</string>
+   </property>
+  </action>
+  <action name="actionAdd_QSO_Manually">
+   <property name="text">
+    <string>Add QSO Manually</string>
    </property>
   </action>
  </widget>

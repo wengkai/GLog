@@ -19,37 +19,37 @@ class AdifModel;
 
 class MapWidget;
 
-class AdifModelC : public QObject {
-    Q_OBJECT
+// class AdifModelC : public QObject {
+//     Q_OBJECT
 
-private:
-    AdifModel* model;
+// private:
+//     AdifModel* model;
 
-public:
-    explicit AdifModelC(AdifModel* model, QObject* parent = nullptr);
+// public:
+//     explicit AdifModelC(AdifModel* model, QObject* parent = nullptr);
 
     
-public slots:
-    void openFile(QString filename);
-    void appendFile(QString filename, bool remove = false);
-    void insertFile(int row, QString filename);
-    void saveAs(QString filename);
-    void newViewWithRows(QModelIndexList indexes);
-    void pasteRows(const QMimeData* mimeData);
-    void copyRows(const QModelIndexList indexes);
-    void findNext(QModelIndex current, QString key, QString value, bool isReg = false);
-    void selectAll(QString key, QString value, bool isReg = false);
-    void deselectAll(QString key, QString value, bool isReg = false);
+// public slots:
+//     void openFile(QString filename);
+//     void appendFile(QString filename, bool remove = false);
+//     void insertFile(int row, QString filename);
+//     void saveAs(QString filename);
+//     void newViewWithRows(QModelIndexList indexes);
+//     void pasteRows(const QMimeData* mimeData);
+//     void copyRows(const QModelIndexList indexes);
+//     void findNext(QModelIndex current, QString key, QString value, bool isReg = false);
+//     void selectAll(QString key, QString value, bool isReg = false);
+//     void deselectAll(QString key, QString value, bool isReg = false);
 
-signals:
-    void modelUpdated();
-    void saveDone();
-    void setCilpboard(QMimeData* mimeData);
-    void foundNext(QModelIndex index);
-    void selectRows(QList<int> rows);
-    void deselectRows(QList<int> rows);
+// signals:
+//     void modelUpdated();
+//     void saveDone();
+//     void setCilpboard(QMimeData* mimeData);
+//     void foundNext(QModelIndex index);
+//     void selectRows(QList<int> rows);
+//     void deselectRows(QList<int> rows);
 
-};
+// };
 
 class AdifModel : public QAbstractTableModel
 {
@@ -64,9 +64,9 @@ private:
     std::set<std::string> sheaders{};
     std::vector<std::string> rheaders{};
     std::shared_mutex mutex{};
-    friend class AdifModelC;
+    //friend class AdifModelC;
     friend class MapWidget;
-    AdifModelC* control = nullptr;
+    // AdifModelC* control = nullptr;
 
     GLOG_PARSER::GLogParserDriver driver{  };
     GLOG_PARSER::Parser parser{ &driver };
@@ -85,6 +85,7 @@ private:
     };
     template <typename PairIter>
     void _insertRecord(int row, const PairIter& begin, const PairIter& end) {
+        if (row == -1) row = records.size();
         decltype(records)::value_type r{};
         for (auto iter { begin }; iter != end; ++iter) {
             auto k { iter->first };
@@ -107,10 +108,23 @@ private:
             _insertRecord(row, iter->begin(), iter->end());
         }
     };
+    template <typename RecordIter>
+    void _setRecords(const RecordIter& begin, const RecordIter& end) {
+        _clear();
+        for (auto iter {begin}; iter != end; ++iter) {
+            _addRecord(iter->begin(), iter->end());
+        }
+    }
+    template <typename RecordIter>
+    void _addRecords(const RecordIter& begin, const RecordIter& end) {
+        for (auto iter {begin}; iter != end; ++iter) {
+            _addRecord(iter->begin(), iter->end());
+        }
+    }
     
 public:
     explicit AdifModel(QObject *parent = nullptr);
-    AdifModelC* getControl();
+    // AdifModelC* getControl();
     int rowCount(const QModelIndex &parent = QModelIndex()) const override;
     int columnCount(const QModelIndex &parent = QModelIndex()) const override;
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
@@ -201,35 +215,38 @@ public:
 
     bool addHeader(const std::string& header);
 
+    void addRecord(const GRecord& record) {
+        std::unique_lock<std::shared_mutex> lock(mutex);
+        beginInsertRowsWrap(QModelIndex(), records.size(), records.size());
+        _addRecord(record.begin(), record.end());
+        lock.unlock();
+        endInsertRowsWrap();
+    }
+
     template <typename RecordIter>
     void addRecords(const RecordIter& begin, const RecordIter& end) {
         std::unique_lock<std::shared_mutex> lock(mutex);
-        beginInsertRows(QModelIndex(), records.size(), records.size() + (end - begin) - 1);
-        for (auto iter {begin}; iter != end; ++iter) {
-            _addRecord(iter->begin(), iter->end());
-        }
+        beginInsertRowsWrap(QModelIndex(), records.size(), records.size() + (end - begin) - 1);
+        _addRecords(begin, end);
         lock.unlock();
-        endInsertRows();
+        endInsertRowsWrap();
     }
 
     template <typename RecordIter>
     void insertRecords(int row, const RecordIter& begin, const RecordIter& end) {
         std::unique_lock<std::shared_mutex> lock(mutex);
         if (row == -1) row = records.size();
-        beginInsertRows(QModelIndex(), row, row + (end - begin) - 1);
+        beginInsertRowsWrap(QModelIndex(), row, row + (end - begin) - 1);
         _insertRecords(row, begin, end);
         lock.unlock();
-        endInsertRows();
+        endInsertRowsWrap();
     }
 
     template <typename RecordIter>
     void setRecords(const RecordIter& begin, const RecordIter& end) {
         std::unique_lock<std::shared_mutex> lock(mutex);
         beginResetModel();
-        _clear();
-        for (auto iter {begin}; iter != end; ++iter) {
-            _addRecord(iter->begin(), iter->end());
-        }
+        _setRecords(begin, end);
         lock.unlock();
         endResetModel();
     }
@@ -240,22 +257,65 @@ public:
     void toCsv(std::ostream& stream) const;
     void toAdif(std::ostream& stream) const;
 
-    void openFile(const QString& filename);
-    void appendFile(const QString& filename);
-    void insertFile(int row, const QString& filename);
-    bool saveAs(QString filename) const;
 
 public slots:
     void deleteRows(QModelIndexList indexes);
     void sortSelectedColumn(int column, Qt::SortOrder order);
     void removeSelectedColumn(int column);
     void mapCallSignInView(bool keepOrigin);
+    void openFile(QString filename);
+    void appendFile(QString filename, bool remove);
+    void insertFile(int row, QString filename);
+    void saveAs(QString filename) const;
+    void newViewWithRows(QModelIndexList indexes);
+    void pasteRows(const QMimeData *mimeData);
+    void copyRows(const QModelIndexList indexes);
+    void findNextS(QModelIndex current, QString key, QString value, bool isReg);
+    void selectAll(QString key, QString value, bool isReg = false);
+    void deselectAll(QString key, QString value, bool isReg = false);
 
 signals:
     //void appendFileSignal(QString filename);
-    void insertFileSignal(int row, QString filename);
+    //void insertFileSignal(int row, QString filename);
     void mapCallSignInViewBegin();
     void mapCallSignInViewEnd(int failCount, int confictCount);
+    void saveDone() const;
+    void setCilpboard(QMimeData* mimeData);
+    void foundNext(QModelIndex index);
+    void selectRows(QList<int> rows);
+    void deselectRows(QList<int> rows);
+
+public slots:
+    void beginInsertColumnsWrapS(QModelIndex parent, int first, int last);
+    void endInsertColumnsWrapS();
+
+    void beginInsertRowsWrapS(QModelIndex parent, int first, int last);
+    void endInsertRowsWrapS();
+
+    // void beginRemoveRowsWrapS(QModelIndex parent, int first, int last);
+    // void endRemoveRowsWrapS();
+
+    // void beginRemoveColumnsWrapS(QModelIndex parent, int first, int last);
+    // void endRemoveColumnsWrapS();
+
+    void beginResetModelWrapS();
+    void endResetModelWrapS();
+
+signals:
+    void beginInsertColumnsWrap(QModelIndex parent, int first, int last);
+    void endInsertColumnsWrap();
+
+    void beginInsertRowsWrap(QModelIndex parent, int first, int last);
+    void endInsertRowsWrap();
+
+    // void beginRemoveRowsWrap(QModelIndex parent, int first, int last);
+    // void endRemoveRowsWrap();
+
+    // void beginRemoveColumnsWrap(QModelIndex parent, int first, int last);
+    // void endRemoveColumnsWrap();
+
+    void beginResetModelWrap();
+    void endResetModelWrap();
 
 };
 

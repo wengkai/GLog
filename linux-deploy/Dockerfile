@@ -1,5 +1,7 @@
 FROM almalinux:8 AS build0
 
+ARG QT_BUILD_NPROC=8
+
 ENV QT_VERSION=6.9.3
 ENV QT_VERSION_MAJOR=6
 ENV QT_DIR=/opt/Qt${QT_VERSION}
@@ -47,7 +49,7 @@ RUN . ${ENABLE_GCC_TOOLSET} && \
 	-- -DOPENSSL_INCLUDE_DIR=/usr/include/openssl3 \
     -DOPENSSL_CRYPTO_LIBRARY=/usr/lib64/openssl3/libcrypto.so  \
     -DOPENSSL_SSL_LIBRARY=/usr/lib64/openssl3/libssl.so \
-    && cmake --build . --parallel 8 && cmake --install . && rm -rf *
+    && cmake --build . --parallel ${QT_BUILD_NPROC} && cmake --install . 
 	
 FROM build0 AS qtbuilder
 COPY --from=qtbuilderbase ${QT_DIR} ${QT_DIR}
@@ -64,10 +66,10 @@ RUN chmod +x /usr/local/bin/linuxdeploy
 COPY linuxdeploy-plugin-qt-${BUILD_ARCH}.AppImage /usr/local/bin/linuxdeploy-plugin-qt
 RUN chmod +x /usr/local/bin/linuxdeploy-plugin-qt
 
-RUN echo "export PATH=$QT_DIR/bin:$PATH" >> /etc/profile.d/Qt${QT_VERSION}.sh && \
-    echo "export LD_LIBRARY_PATH=$QT_DIR/lib:$QT_DIR/lib64:$LD_LIBRARY_PATH" >> /etc/profile.d/Qt${QT_VERSION}.sh && \
-	echo "export APPIMAGE_EXTRACT_AND_RUN=1"  >> /etc/profile.d/appimage-in-docker.sh
+COPY qt-env.sh /etc/profile.d/
+COPY appimage-in-docker.sh /etc/profile.d/
 
 WORKDIR /root
+ENTRYPOINT ["/bin/bash", "-l", "-c"]
 CMD ["bash"]
 

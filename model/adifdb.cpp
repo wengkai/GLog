@@ -1,4 +1,5 @@
 #include "adifdb.h"
+#include "Concurrent.h"
 #include <QFileInfo>
 #include <QUrl>
 #include <QDir>
@@ -9,49 +10,52 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QRegularExpression>
-#include <QThread>
 #include <QMessageBox>
 #include <fstream>
 #include <sstream>
 #include <cstdlib>
 #include <iostream>
 #include <algorithm>
+#include <type_traits>
 
-AdifModelC::AdifModelC(AdifModel *model, QObject *parent) : model(model), QObject(parent)
-{
-}
+#define THIS_CONNECT_Q(signal, slot) QObject::connect(this, &std::remove_reference_t<decltype(*this)>::signal, this, &std::remove_reference_t<decltype(*this)>::slot, Qt::QueuedConnection)
 
-void AdifModelC::openFile(QString filename)
-{
-    model->openFile(filename);
-    emit modelUpdated();
-}
 
-void AdifModelC::appendFile(QString filename, bool remove)
-{
-    model->appendFile(filename);
-    emit modelUpdated();
-    if (remove) {
-        QFile::remove(QFileInfo(filename).absoluteFilePath());
-    }
-}
+// AdifModelC::AdifModelC(AdifModel *model, QObject *parent) : model(model), QObject(parent)
+// {
+// }
 
-void AdifModelC::insertFile(int row, QString filename)
-{
-    model->insertFile(row, filename);
-    emit modelUpdated();
-}
+// void AdifModelC::openFile(QString filename)
+// {
+//     model->openFile(filename);
+//     emit modelUpdated();
+// }
 
-void AdifModelC::saveAs(QString filename)
-{
-    if (model->saveAs(filename)) {
-        emit saveDone();
-    }
-}
+// void AdifModelC::appendFile(QString filename, bool remove)
+// {
+//     model->appendFile(filename);
+//     emit modelUpdated();
+//     if (remove) {
+//         QFile::remove(QFileInfo(filename).absoluteFilePath());
+//     }
+// }
 
-void AdifModelC::newViewWithRows(QModelIndexList indexes)
+// void AdifModelC::insertFile(int row, QString filename)
+// {
+//     model->insertFile(row, filename);
+//     emit modelUpdated();
+// }
+
+// void AdifModelC::saveAs(QString filename)
+// {
+//     if (model->saveAs(filename)) {
+//         emit saveDone();
+//     }
+// }
+
+void AdifModel::newViewWithRows(QModelIndexList indexes)
 {
-    auto mineData = model->mimeData(indexes);
+    auto mineData = mimeData(indexes);
     auto text = mineData->data("text/plain");
     QTemporaryFile tempFile;
     tempFile.setAutoRemove(false);
@@ -67,60 +71,60 @@ void AdifModelC::newViewWithRows(QModelIndexList indexes)
     }
 }
 
-void AdifModelC::pasteRows(const QMimeData *mimeData)
+void AdifModel::pasteRows(const QMimeData *mimeData)
 {
-    model->dropMimeData(mimeData, Qt::DropAction::CopyAction, -1, -1, QModelIndex());
+    dropMimeData(mimeData, Qt::DropAction::CopyAction, -1, -1, QModelIndex());
 }
 
-void AdifModelC::copyRows(const QModelIndexList indexes)
+void AdifModel::copyRows(const QModelIndexList indexes)
 {
     auto mimeData = new QMimeData();
-    mimeData->setData("text/plain", model->mimeData(indexes)->data("text/plain"));
-    emit setCilpboard(mimeData); // set clipboard in main thread
+    mimeData->setData("text/plain", this->mimeData(indexes)->data("text/plain"));
+    emit setCilpboard(mimeData); 
 }
 
-void AdifModelC::findNext(QModelIndex current, QString key, QString value, bool isReg)
+void AdifModel::findNextS(QModelIndex current, QString key, QString value, bool isReg)
 {
     auto sv = value.toStdString();
     auto sk = key.toStdString();
     if (!isReg) {
-        auto index = model->findNext(current, [=](const std::string& v) { return v.find(sv) != std::string::npos; }, sk);
+        auto index = this->findNext(current, [=](const std::string& v) { return v.find(sv) != std::string::npos; }, sk);
         emit foundNext(index);
         return;
     }
     QRegularExpression re(value);
     auto match = [=](const std::string& v) { return re.match(QString::fromStdString(v)).hasMatch(); };
-    auto index = model->findNext(current, match, sk);
+    auto index = this->findNext(current, match, sk);
     emit foundNext(index);
 }
 
-void AdifModelC::selectAll(QString key, QString value, bool isReg)
+void AdifModel::selectAll(QString key, QString value, bool isReg)
 {
     auto sv = value.toStdString();
     auto sk = key.toStdString();
     if (!isReg) {
-        auto rows = model->findAll([=](const std::string& v) { return v.find(sv) != std::string::npos; }, sk);
+        auto rows = this->findAll([=](const std::string& v) { return v.find(sv) != std::string::npos; }, sk);
         emit selectRows(rows);
         return;
     }
     QRegularExpression re(value);
     auto match = [=](const std::string& v) { return re.match(QString::fromStdString(v)).hasMatch(); };
-    auto rows = model->findAll(match, sk);
+    auto rows = this->findAll(match, sk);
     emit selectRows(rows);
 }
 
-void AdifModelC::deselectAll(QString key, QString value, bool isReg)
+void AdifModel::deselectAll(QString key, QString value, bool isReg)
 {
     auto sv = value.toStdString();
     auto sk = key.toStdString();
     if (!isReg) {
-        auto rows = model->findAll([=](const std::string& v) { return v.find(sv) != std::string::npos; }, sk);
+        auto rows = this->findAll([=](const std::string& v) { return v.find(sv) != std::string::npos; }, sk);
         emit deselectRows(rows);
         return;
     }
     QRegularExpression re(value);
     auto match = [=](const std::string& v) { return re.match(QString::fromStdString(v)).hasMatch(); };
-    auto rows = model->findAll(match, sk);
+    auto rows = this->findAll(match, sk);
     emit deselectRows(rows);
 }
 
@@ -140,9 +144,9 @@ bool AdifModel::_addHeader(const std::string &header)
     if (iter != rheaders.end() && *iter == h) {
         return false;
     }
-    beginInsertColumns(QModelIndex(), iter - (rheaders.begin() + sheaders.size()), iter - (rheaders.begin() + sheaders.size()));
+    beginInsertColumnsWrap(QModelIndex(), iter - (rheaders.begin() + sheaders.size()), iter - (rheaders.begin() + sheaders.size()));
     rheaders.insert(iter, h);
-    endInsertColumns();
+    endInsertColumnsWrap();
     return true;
 }
 
@@ -235,13 +239,23 @@ AdifModel::AdifModel(QObject *parent) : QAbstractTableModel(parent)
         rheaders.push_back(GRecord::RESOLVE_HEADERS[i]);
         sheaders.insert(GRecord::RESOLVE_HEADERS[i]);
     }
-    control = new AdifModelC(this);
+    // control = new AdifModelC(this);
+    THIS_CONNECT_Q(beginInsertColumnsWrap, beginInsertColumnsWrapS);
+    THIS_CONNECT_Q(endInsertColumnsWrap, endInsertColumnsWrapS);
+    THIS_CONNECT_Q(beginInsertRowsWrap, beginInsertRowsWrapS);
+    THIS_CONNECT_Q(endInsertRowsWrap, endInsertRowsWrapS);
+    // THIS_CONNECT_Q(beginRemoveRowsWrap, beginRemoveRowsWrapS);
+    // THIS_CONNECT_Q(endRemoveRowsWrap, endRemoveRowsWrapS);
+    // THIS_CONNECT_Q(beginRemoveColumnsWrap, beginRemoveColumnsWrapS);
+    // THIS_CONNECT_Q(endRemoveColumnsWrap, endRemoveColumnsWrapS);
+    THIS_CONNECT_Q(beginResetModelWrap, beginResetModelWrapS);
+    THIS_CONNECT_Q(endResetModelWrap, endResetModelWrapS);
 }
 
-AdifModelC *AdifModel::getControl()
-{
-    return control;
-}
+// AdifModelC *AdifModel::getControl()
+// {
+//     return control;
+// }
 
 int AdifModel::rowCount(const QModelIndex &parent) const
 {
@@ -369,7 +383,7 @@ bool AdifModel::dropMimeData(const QMimeData *data, Qt::DropAction action, int r
             if (file.isEmpty()) {
                 continue;
             }
-            emit insertFileSignal(row, file);
+            insertFile(row, file);
         }
         break;
     }
@@ -494,12 +508,16 @@ void AdifModel::_toCsv(std::ostream &stream) const
 
     auto iter2 = records.begin();
     while (true) {
+        auto record = *iter2;
+        for (auto & func : GRecordOutputFilters) {
+            func(record);
+        }
         for (auto h = rheaders.begin(); h != rheaders.end(); ++h) {
             if (h != rheaders.begin()) {
                 stream << ',';
             }
-            auto iter3 = iter2->find(*h);
-            if (iter3 == iter2->end()) {
+            auto iter3 = record.find(*h);
+            if (iter3 == record.end()) {
                 continue;
             }
             stream << iter3->second;
@@ -519,63 +537,103 @@ void AdifModel::_toAdif(std::ostream &stream) const
     }
 }
 
-void AdifModel::openFile(const QString& filename)
+void AdifModel::openFile(QString filename)
 {
-    QFileInfo file(filename);
-    std::ifstream in(file.filesystemAbsoluteFilePath());
-    if (in) {
-        driver.switch_streams(in, std::cerr);
-        if (!parser.parse())
-            setRecords(driver.data.rbegin(), driver.data.rend());
-    }
-    in.close();
+    auto future = GLogConcurrent::makeFuture([=]() {
+        QFileInfo file(filename);
+        std::ifstream in(file.filesystemAbsoluteFilePath());
+        bool parse_res = false;
+        if (in) {
+            driver.switch_streams(in, std::cerr);
+            parse_res = !parser.parse();
+            if (parse_res) {
+                std::unique_lock<std::shared_mutex> lock(mutex);
+                beginResetModelWrap();
+                _setRecords(driver.data.rbegin(), driver.data.rend());
+                endResetModelWrap();
+            }  
+        }
+        in.close();
+        return parse_res;
+    });
+    future.then([=](decltype(future) future){
+        auto open_result = future.result();
+    });
 }
 
-void AdifModel::appendFile(const QString& filename)
+void AdifModel::appendFile(QString filename, bool remove)
 {
-    QFileInfo file(filename);
-    std::ifstream in(file.filesystemAbsoluteFilePath());
-    if (in) {
-        driver.switch_streams(in, std::cerr);
-        if (!parser.parse())
-            addRecords(driver.data.rbegin(), driver.data.rend());
-    }
-    in.close();
+    auto future = GLogConcurrent::makeFuture([=]() {
+        QFileInfo file(filename);
+        std::ifstream in(file.filesystemAbsoluteFilePath());
+        bool parse_res = false;
+        if (in) {
+            driver.switch_streams(in, std::cerr);
+            parse_res = !parser.parse();
+            if (parse_res) {
+                addRecords(driver.data.rbegin(), driver.data.rend());
+            }  
+        }
+        in.close();
+        if (remove) {
+            QFile::remove(QFileInfo(filename).absoluteFilePath());
+        }
+        return parse_res;
+    });
+    future.then([=](decltype(future) future){
+        auto open_result = future.result();
+    });
 }
 
-void AdifModel::insertFile(int row, const QString &filename)
+void AdifModel::insertFile(int row, QString filename)
 {
-    QFileInfo file(filename);
-    std::ifstream in(file.filesystemAbsoluteFilePath());
-    if (in) {
-        driver.switch_streams(in, std::cerr);
-        if (!parser.parse())
-            insertRecords(row, driver.data.rbegin(), driver.data.rend());
-    }
-    in.close();
+    auto future = GLogConcurrent::makeFuture([=](QPromise<bool> & p) {
+        QFileInfo file(filename);
+        std::ifstream in(file.filesystemAbsoluteFilePath());
+        bool parse_res = false;
+        if (in) {
+            driver.switch_streams(in, std::cerr);
+            parse_res = !parser.parse();
+            if (parse_res) {
+                insertRecords(row, driver.data.rbegin(), driver.data.rend());
+            }  
+        }
+        in.close();
+        p.addResult(parse_res);
+    });
+    future.then([=](decltype(future) future){
+        auto open_result = future.result();
+    });
 }
 
-bool AdifModel::saveAs(QString filename) const
+void AdifModel::saveAs(QString filename) const
 {
     if (records.empty()) {
+        return;
+    }
+    auto future = GLogConcurrent::makeFuture([=]() {
+        QFileInfo file(filename);
+        std::ofstream out(file.filesystemAbsoluteFilePath());
+        if (out) {
+            if (filename.endsWith(".csv")) {
+                toCsv(out);
+                out.close();
+                emit saveDone();
+                return true;
+            }
+            if (filename.endsWith(".adi") || filename.endsWith(".adif")) {
+                toAdif(out);
+                out.close();
+                emit saveDone();
+                return true;
+            }
+        }
+        out.close();
         return false;
-    }
-    QFileInfo file(filename);
-    std::ofstream out(file.filesystemAbsoluteFilePath());
-    if (out) {
-        if (filename.endsWith(".csv")) {
-            toCsv(out);
-            out.close();
-            return true;
-        }
-        if (filename.endsWith(".adi") || filename.endsWith(".adif")) {
-            toAdif(out);
-            out.close();
-            return true;
-        }
-    }
-    out.close();
-    return false;
+    });
+    future.then([=](decltype(future) future){
+
+    });
 }
 
 void AdifModel::sortSelectedColumn(int column, Qt::SortOrder order)
@@ -649,4 +707,54 @@ void AdifModel::deleteRows(QModelIndexList indexes)
         endRemoveColumns();
         lock.lock();
     }
+}
+
+void AdifModel::beginInsertColumnsWrapS(QModelIndex parent, int first, int last)
+{
+    beginInsertColumns(parent, first, last);
+}
+
+void AdifModel::endInsertColumnsWrapS()
+{
+    endInsertColumns();
+}
+
+void AdifModel::beginInsertRowsWrapS(QModelIndex parent, int first, int last)
+{
+    beginInsertRows(parent, first, last);
+}
+
+void AdifModel::endInsertRowsWrapS()
+{
+    endInsertRows();
+}
+
+// void AdifModel::beginRemoveRowsWrapS(QModelIndex parent, int first, int last)
+// {
+//     beginRemoveRows(parent, first, last);
+// }
+
+// void AdifModel::endRemoveRowsWrapS()
+// {
+//     endRemoveRows();
+// }
+
+// void AdifModel::beginRemoveColumnsWrapS(QModelIndex parent, int first, int last)
+// {
+//     beginRemoveColumns(parent, first, last);
+// }
+
+// void AdifModel::endRemoveColumnsWrapS()
+// {
+//     endRemoveColumns();
+// }
+
+void AdifModel::beginResetModelWrapS()
+{
+    beginResetModel();
+}
+
+void AdifModel::endResetModelWrapS()
+{
+    endResetModel();
 }

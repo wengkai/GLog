@@ -17,6 +17,11 @@ add_library(${LIB_NAME} STATIC
         ${PARSER_FILES}
 )
 
+if(${FLEX_INCLUDE_DIRS} MATCHES "NOTFOUND$")
+        message(WARNING "FLEX_INCLUDE_DIRS:NOTFOUND")
+else()
 target_include_directories(${LIB_NAME} PUBLIC
         ${FLEX_INCLUDE_DIRS}
+        ${CMAKE_BINARY_DIR}
 )
+endif()
