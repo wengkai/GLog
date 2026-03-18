@@ -50,12 +50,15 @@
     <addaction name="actionMapCallSignInView"/>
     <addaction name="actionConfigure_Cty_dat"/>
     <addaction name="actionAdd_QSO_Manually"/>
+    <addaction name="actionAward"/>
+    <addaction name="actionUpdate_FCC_database"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuSearch"/>
    <addaction name="menuView"/>
    <addaction name="menuTools"/>
   </widget>
+  <widget class="QStatusBar" name="statusBar"/>
   <action name="actionOpen">
    <property name="text">
     <string>Open</string>
@@ -106,6 +109,16 @@
   <action name="actionAdd_QSO_Manually">
    <property name="text">
     <string>Add QSO Manually</string>
+   </property>
+  </action>
+  <action name="actionAward">
+   <property name="text">
+    <string>Award</string>
+   </property>
+  </action>
+  <action name="actionUpdate_FCC_database">
+   <property name="text">
+    <string>Update FCC database</string>
    </property>
   </action>
  </widget>

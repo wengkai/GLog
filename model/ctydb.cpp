@@ -50,6 +50,7 @@ std::pair<bool, QString /*error msg*/> CtyDB::loadDBString(const QString& cty, c
             ent->lon = -s_block[5].trimmed().toDouble(); // Longitude in degrees, + for West, not East
             ent->utc_offset = s_block[6].trimmed().toDouble();
             ent->p_prefix = s_block[7].trimmed();
+            ent->ARRL_sponsored = !ent->p_prefix.startsWith("*");
             auto patterns = s_block[8].trimmed().split(",");
             for (auto& pattern : patterns) {
                 auto m_pattern = pattern.trimmed().toUpper().replace("\n", "").replace("\r", "");

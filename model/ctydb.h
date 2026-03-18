@@ -28,6 +28,7 @@ struct CtyEntry
     qreal lon;                          // Longitude (Degrees East)
     qreal utc_offset;                   // Time Offset from UTC
     QString p_prefix;                   // Primary Prefix
+    bool ARRL_sponsored = false;
 };
 
 

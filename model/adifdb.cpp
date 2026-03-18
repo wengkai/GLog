@@ -1,5 +1,6 @@
 #include "adifdb.h"
 #include "Concurrent.h"
+#include "fccdb.h"
 #include <QFileInfo>
 #include <QUrl>
 #include <QDir>
@@ -19,39 +20,6 @@
 #include <type_traits>
 
 #define THIS_CONNECT_Q(signal, slot) QObject::connect(this, &std::remove_reference_t<decltype(*this)>::signal, this, &std::remove_reference_t<decltype(*this)>::slot, Qt::QueuedConnection)
-
-
-// AdifModelC::AdifModelC(AdifModel *model, QObject *parent) : model(model), QObject(parent)
-// {
-// }
-
-// void AdifModelC::openFile(QString filename)
-// {
-//     model->openFile(filename);
-//     emit modelUpdated();
-// }
-
-// void AdifModelC::appendFile(QString filename, bool remove)
-// {
-//     model->appendFile(filename);
-//     emit modelUpdated();
-//     if (remove) {
-//         QFile::remove(QFileInfo(filename).absoluteFilePath());
-//     }
-// }
-
-// void AdifModelC::insertFile(int row, QString filename)
-// {
-//     model->insertFile(row, filename);
-//     emit modelUpdated();
-// }
-
-// void AdifModelC::saveAs(QString filename)
-// {
-//     if (model->saveAs(filename)) {
-//         emit saveDone();
-//     }
-// }
 
 void AdifModel::newViewWithRows(QModelIndexList indexes)
 {
@@ -491,6 +459,57 @@ void AdifModel::toAdif(std::ostream &stream) const
     auto& m = const_cast<decltype(mutex)&>(mutex);
     std::shared_lock<decltype(mutex)> lock(m);
     _toAdif(stream);
+}
+
+AdifModel::AwardRes AdifModel::diffEntNameCountForAward() const
+{
+    AwardRes res;
+    auto ctydb = CtyDB::instance();
+    std::shared_lock<decltype(ctydb->mutex)> lock0(ctydb->mutex);
+    auto& m = const_cast<decltype(mutex)&>(mutex);
+    std::shared_lock<decltype(mutex)> lock1(m);
+    if (records.empty()) {
+        return res;
+    }
+    std::map<QString, int> counterDXCC;
+    std::map<QString, int> counterWAC_ARRL;
+    std::map<QString, int> counterWAC_NOTARRL;
+    std::map<int, int> counterCQZ;
+    std::map<QString, int> counterWAS;
+    auto fccdb = FccDB::instance();
+    bool WASSearchVaild = fccdb->beginSearch();
+    QString buf;
+    for (auto & record : records) {
+        auto & call = record.at("call");
+        buf = QString::fromUtf8(call.data(), call.size());
+        ctydb->normalizeCallSign(buf);
+        auto result = ctydb->lookUpCallSign(QStringView(buf));
+        if (result.first->vaild && result.first->ARRL_sponsored) {
+            ++counterDXCC[result.first->name];
+        }
+        if (result.first->vaild && result.first->ARRL_sponsored) {
+            ++counterWAC_ARRL[result.first->continent];
+        }
+        if (result.first->vaild) {
+            ++counterWAC_NOTARRL[result.first->continent];
+        }
+        if (result.first->vaild) {
+            ++counterCQZ[result.first->cq];
+        }
+        auto state = fccdb->lookupState(buf);
+        if (state.size() == 2) {
+            ++counterWAS[state];
+        }
+    }
+    if (WASSearchVaild) {
+        fccdb->endSearch();
+        res.WAS = QString::number(counterWAS.size());
+    }
+    res.DXCC = QString::number(counterDXCC.size());
+    res.WAC_ARRL = QString::number(counterWAC_ARRL.size());
+    res.WAC_NOTARRL = QString::number(counterWAC_NOTARRL.size());
+    res.CQZ = QString::number(counterCQZ.size());
+    return res;
 }
 
 void AdifModel::_toCsv(std::ostream &stream) const

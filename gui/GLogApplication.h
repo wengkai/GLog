@@ -4,6 +4,7 @@
 #include <QtWidgets/QMainWindow>
 #include <QTableView>
 #include <QMimeData>
+#include <QMessageBox>
 #include "adifdb.h"
 #include "glogparser.h"
 #include "DropAbleTableView.h"
@@ -34,11 +35,21 @@ public slots:
     void saveAsAction();
     void saveDone();
     void setCilpboard(QMimeData* mimeData);
+    void updateFccDatabase();
 
 signals:
     void openFileActionSignal(QString filename);
     void mergeFileActionSignal(QString filename, bool remove = false);
     void saveAsActionSignal(QString filename);
+    void information(QString title,
+                     QString text,
+                     QMessageBox::StandardButton button0, QMessageBox::StandardButton button1 = QMessageBox::StandardButton::NoButton);
+    void warning(QString title,
+                     QString text,
+                     QMessageBox::StandardButton button0, QMessageBox::StandardButton button1 = QMessageBox::StandardButton::NoButton);
+    void showMessage(QString message, int timeout = 0);
+    void disableAction(QAction * action);
+    void enableAction(QAction * action);
 
 private:
     Ui::GLogApplicationClass ui;

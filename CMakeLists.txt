@@ -12,6 +12,7 @@ find_package(Qt6 6.5
         Network
         SvgWidgets
         OpenGLWidgets
+        Sql
 REQUIRED)
 qt_standard_project_setup()
 
@@ -32,6 +33,9 @@ if (QT_LINK_STATIC)
                 string(REGEX REPLACE "/MD" "/MT" ${flag_var} "${${flag_var}}")
             endif(${flag_var} MATCHES "/MD")
         endforeach(flag_var)
+        set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /LTCG")
+        set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} /LTCG")
+        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /GL")
     endif()
 endif()
 
@@ -130,6 +134,7 @@ target_link_libraries(${PROJECT_NAME}
         Qt6::Network
         Qt6::SvgWidgets
         Qt6::OpenGLWidgets
+        Qt6::Sql
 )
 
 install(TARGETS ${PROJECT_NAME}

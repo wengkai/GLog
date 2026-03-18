@@ -13,15 +13,18 @@ list (APPEND PARSER_FILES ${CMAKE_BINARY_DIR}/driver_lex.cpp)
 
 ADD_FLEX_BISON_DEPENDENCY(MyScanner MyParser)
 
-add_library(${LIB_NAME} STATIC
+qt_add_library(${LIB_NAME} STATIC
         ${PARSER_FILES}
 )
+
+list (APPEND PARSER_INCLUDE_FILES ${CMAKE_BINARY_DIR})
 
 if(${FLEX_INCLUDE_DIRS} MATCHES "NOTFOUND$")
         message(WARNING "FLEX_INCLUDE_DIRS:NOTFOUND")
 else()
-target_include_directories(${LIB_NAME} PUBLIC
-        ${FLEX_INCLUDE_DIRS}
-        ${CMAKE_BINARY_DIR}
-)
+        list (APPEND PARSER_INCLUDE_FILES ${FLEX_INCLUDE_DIRS})
 endif()
+
+target_include_directories(${LIB_NAME} PUBLIC
+        ${PARSER_INCLUDE_FILES}
+)

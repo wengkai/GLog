@@ -15,41 +15,7 @@
 #include <mutex>
 #include <iostream>
 
-class AdifModel;
-
 class MapWidget;
-
-// class AdifModelC : public QObject {
-//     Q_OBJECT
-
-// private:
-//     AdifModel* model;
-
-// public:
-//     explicit AdifModelC(AdifModel* model, QObject* parent = nullptr);
-
-    
-// public slots:
-//     void openFile(QString filename);
-//     void appendFile(QString filename, bool remove = false);
-//     void insertFile(int row, QString filename);
-//     void saveAs(QString filename);
-//     void newViewWithRows(QModelIndexList indexes);
-//     void pasteRows(const QMimeData* mimeData);
-//     void copyRows(const QModelIndexList indexes);
-//     void findNext(QModelIndex current, QString key, QString value, bool isReg = false);
-//     void selectAll(QString key, QString value, bool isReg = false);
-//     void deselectAll(QString key, QString value, bool isReg = false);
-
-// signals:
-//     void modelUpdated();
-//     void saveDone();
-//     void setCilpboard(QMimeData* mimeData);
-//     void foundNext(QModelIndex index);
-//     void selectRows(QList<int> rows);
-//     void deselectRows(QList<int> rows);
-
-// };
 
 class AdifModel : public QAbstractTableModel
 {
@@ -257,6 +223,14 @@ public:
     void toCsv(std::ostream& stream) const;
     void toAdif(std::ostream& stream) const;
 
+    struct AwardRes {
+        QString DXCC = "0";
+        QString WAC_ARRL = "0";
+        QString WAC_NOTARRL = "0";
+        QString CQZ = "0";
+        QString WAS = "Invaild";
+    };
+    AwardRes diffEntNameCountForAward() const;
 
 public slots:
     void deleteRows(QModelIndexList indexes);
