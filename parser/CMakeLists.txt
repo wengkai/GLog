@@ -21,10 +21,9 @@ list (APPEND PARSER_INCLUDE_FILES ${CMAKE_BINARY_DIR})
 
 if(${FLEX_INCLUDE_DIRS} MATCHES "NOTFOUND$")
         unset(FLEX_INCLUDE_DIRS CACHE)
-        get_filename_component(FLEX_BIN_DIR "${FLEX_EXECUTABLE}" DIRECTORY)
         find_path(FLEX_INCLUDE_DIRS 
             NAMES FlexLexer.h
-            HINTS "${FLEX_BIN_DIR}"
+            PATHS "C:/ProgramData/chocolatey/lib/winflexbison3/tools"
         )
 endif()
 

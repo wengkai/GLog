@@ -29,10 +29,10 @@ jobs:
 
       - name: Package AppImage
         run: |
-          . $ENABLE_GCC_TOOLSET && cmake --install build --prefix $PWD/AppDir
-          linuxdeploy --appdir $PWD/AppDir \
+          . $ENABLE_GCC_TOOLSET && cd build && make install DESTDIR=$PWD/AppDir
+          linuxdeploy --appdir $PWD/build/AppDir \
             -d $PWD/linux-deploy/GLog.desktop \
-            -e $PWD/AppDir/usr/bin/GLog \
+            -e $PWD/build/AppDir/usr/bin/GLog \
             -i $PWD/linux-deploy/GLog.png \
             --plugin=qt --output appimage
 
@@ -61,12 +61,13 @@ jobs:
         run: |
           echo "C:\QtCustom\bin" >> $GITHUB_PATH
           ls "C:\ProgramData\chocolatey\lib\winflexbison3\tools\"
-          echo "C:\ProgramData\chocolatey\lib\winflexbison3\tools" >> $GITHUB_PATH
+          $FLEX_HEADER_PATH = "C:\ProgramData\chocolatey\lib\winflexbison3\tools"
+          echo "FLEX_INCLUDE_DIR=$FLEX_HEADER_PATH" >> $GITHUB_ENV
 
       - name: Configure CMake
         shell: cmd
         run: |
-          call C:\QtCustom\bin\qt-cmake.bat -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
+          call C:\QtCustom\bin\qt-cmake.bat -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -FLEX_INCLUDE_DIRS="%FLEX_INCLUDE_DIR%"
 
       - name: Build & Test
         shell: pwsh
