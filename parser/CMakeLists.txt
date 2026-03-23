@@ -25,7 +25,7 @@ if(${FLEX_INCLUDE_DIRS} MATCHES "NOTFOUND$")
             NAMES FlexLexer.h
             HINTS "${FLEX_BIN_DIR}"
         )
-        if(NOT ${FLEX_INCLUDE_DIRS)
+        if(NOT ${FLEX_INCLUDE_DIRS})
             message(WARNING "FLEX_INCLUDE_DIRS:NOTFOUND")
         else()
             list (APPEND PARSER_INCLUDE_FILES ${FLEX_INCLUDE_DIRS})
