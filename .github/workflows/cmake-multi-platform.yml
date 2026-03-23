@@ -29,7 +29,7 @@ jobs:
 
       - name: Package AppImage
         run: |
-          DESTDIR=$PWD/AppDir cmake --install . build 
+          DESTDIR=$PWD/AppDir cmake --install build 
           linuxdeploy --appdir $PWD/AppDir \
             -d $PWD/linux-deploy/GLog.desktop \
             -e $PWD/AppDir/usr/bin/GLog \
@@ -77,8 +77,8 @@ jobs:
       - name: Install & Deploy
         shell: pwsh
         run: |
-          cmake --install build --prefix ./AppDir
-          Compress-Archive -Path ./AppDir/* -DestinationPath GLog-windows-x64.zip
+          cmake --install build --prefix C:/AppDir
+          Compress-Archive -Path C:/AppDir/* -DestinationPath GLog-windows-x64.zip
 
 #      - name: Upload Windows Artifact
 #        uses: actions/upload-artifact@v4
