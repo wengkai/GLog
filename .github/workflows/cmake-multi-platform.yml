@@ -13,6 +13,11 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: lxxl1024/almalinux-qt693-builder:latest
+
+    defaults:
+      run:
+        shell: bash -l {0}
+    
     steps:
       - uses: actions/checkout@v4
 
@@ -55,7 +60,7 @@ jobs:
         shell: pwsh
         run: |
           echo "C:\QtCustom\bin" >> $GITHUB_PATH
-          echo "QT_DIR=C:\QtCustom" >> $GITHUB_ENV
+#          echo "C:\ProgramData\chocolatey\lib\winflexbison3\tools" >> $GITHUB_PATH
 
       - name: Configure CMake
         shell: cmd

@@ -20,7 +20,16 @@ qt_add_library(${LIB_NAME} STATIC
 list (APPEND PARSER_INCLUDE_FILES ${CMAKE_BINARY_DIR})
 
 if(${FLEX_INCLUDE_DIRS} MATCHES "NOTFOUND$")
-        message(WARNING "FLEX_INCLUDE_DIRS:NOTFOUND")
+        get_filename_component(FLEX_BIN_DIR "${FLEX_EXECUTABLE}" DIRECTORY)
+        find_path(FLEX_INCLUDE_DIRS 
+            NAMES FlexLexer.h
+            HINTS "${FLEX_BIN_DIR}"
+        )
+        if(${NOT FLEX_INCLUDE_DIRS)
+            message(WARNING "FLEX_INCLUDE_DIRS:NOTFOUND")
+        else()
+            list (APPEND PARSER_INCLUDE_FILES ${FLEX_INCLUDE_DIRS})
+        endif()
 else()
         list (APPEND PARSER_INCLUDE_FILES ${FLEX_INCLUDE_DIRS})
 endif()
