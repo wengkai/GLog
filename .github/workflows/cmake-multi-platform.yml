@@ -1,0 +1,84 @@
+# This starter workflow is for a CMake project running on multiple platforms. There is a different starter workflow if you just want a single platform.
+# See: https://github.com/actions/starter-workflows/blob/main/ci/cmake-single-platform.yml
+name: CMake on multiple platforms
+
+on:
+  push:
+    branches: [ "main", "test" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    container:
+      image: lxxl1024/almalinux-qt693-builder:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build & Test
+        run: |
+          qt-cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
+          cmake --build build
+#          ctest --test-dir build --output-on-failure
+
+      - name: Package AppImage
+        run: |
+          make install DESTDIR=$PWD/AppDir
+          linuxdeploy --appdir AppDir \
+            -d ./linux-deploy/GLog.desktop \
+            -e AppDir/usr/bin/GLog \
+            -i ./linux-deploy/GLog.png \
+            --plugin=qt --output appimage
+
+#      - name: Upload Linux Artifact
+#        uses: actions/upload-artifact@v4
+#        with:
+#          name: AppImage-Linux
+#          path: ./*.AppImage
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Tools
+        run: choco install winflexbison3 -y
+
+      - name: Download Custom Qt
+        shell: pwsh
+        run: |
+          curl -L -o qt6_custom.zip "https://github.com/llxx2013/qt6windows7/releases/download/6.8.3-msvc-release/6.8.3-msvc-release.zip"
+          Expand-Archive qt6_custom.zip -DestinationPath C:\QtCustom
+
+      - name: Setup Environment
+        shell: pwsh
+        run: |
+          echo "C:\QtCustom\bin" >> $GITHUB_PATH
+          echo "QT_DIR=C:\QtCustom" >> $GITHUB_ENV
+
+      - name: Configure CMake
+        shell: cmd
+        run: |
+          call C:\QtCustom\bin\qt-cmake.bat -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build & Test
+        shell: pwsh
+        run: |
+          cmake --build build --config Release --parallel
+          cd build
+#          ctest -C Release --output-on-failure
+
+      - name: Install & Deploy
+        shell: pwsh
+        run: |
+          cmake --install build --prefix ./AppDir
+          Compress-Archive -Path ./AppDir/* -DestinationPath GLog-windows-x64.zip
+
+#      - name: Upload Windows Artifact
+#        uses: actions/upload-artifact@v4
+#        with:
+#          name: Zip-Windows
+#          path: GLog-windows-x64.zip
+
+          
