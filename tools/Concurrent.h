@@ -48,9 +48,8 @@ template<typename Func, typename Executor = DefaultExecutor, typename = std::ena
 inline auto makeFuture(Func &&f, Executor exec = {}, Make_Future_Without_Context_T = {})
 {
     static_assert(Has_Member_start<Executor, Func>::value, "Executor must have Executor::start(Func)");
-    using ReturnType = typename std::invoke_result_t<Func>;
     using DecayedFunction = typename std::decay_t<Func>;
-    QPromise<ReturnType> promise;
+    QPromise<std::invoke_result_t<DecayedFunction>> promise;
     auto ret = promise.future();
     exec.start([f = static_cast<DecayedFunction>(std::forward<Func>(f)), promise = (std::move(promise))]() mutable {
         try {
@@ -75,6 +74,10 @@ inline auto makeFuture(Func &&f, Executor exec = {}, Make_Future_With_Context_T 
 {
     static_assert(Has_Member_start<Executor, Func>::value, "Executor must have Executor::start(Func)");
     using DecayedFunction = typename std::decay_t<Func>;
+    using ReturnType = std::invoke_result_t<DecayedFunction, QPromise<Type>&>;
+    static_assert(
+        std::is_same_v<void, ReturnType>, 
+        "Bad Runable.");
     QPromise<Type> promise;
     auto ret = promise.future();
     exec.start([f = static_cast<DecayedFunction>(std::forward<Func>(f)), promise = (std::move(promise))]() mutable {
@@ -108,23 +111,27 @@ using Promise_Traits_T = typename Promise_Traits<T>::type;
 template<typename T>
 struct Function_Traits;
 
-template<typename Func, typename PromiseType>
-struct Function_Traits<Func(PromiseType&)> {
+template<typename ReturnType, typename PromiseType>
+struct Function_Traits<ReturnType(PromiseType&)> {
     using type = Promise_Traits_T<PromiseType>;
 };
 
-template<typename Func, typename PromiseType>
-struct Function_Traits<Func(*)(PromiseType&)> {
+template<typename ReturnType, typename PromiseType>
+struct Function_Traits<ReturnType(*)(PromiseType&)> {
     using type = Promise_Traits_T<PromiseType>;
 };
 
-template<typename Func>
-struct Function_Traits{
-    template<typename T, typename R>
-    static T get_type(R (Func::*)(QPromise<T>&) const);
-    template<typename T, typename R>
-    static T get_type(R (Func::*)(QPromise<T>&));
-    using type = decltype(get_type(&Func::operator()));
+template<typename Class>
+struct Function_Traits : Function_Traits<decltype(&Class::operator())> {}; 
+
+template<typename Class, typename ReturnType, typename PromiseType>
+struct Function_Traits<ReturnType(Class::*)(PromiseType&)> { 
+    using type = Promise_Traits_T<PromiseType>;
+};
+
+template<typename Class, typename ReturnType, typename PromiseType>
+struct Function_Traits<ReturnType(Class::*)(PromiseType&) const> { 
+    using type = Promise_Traits_T<PromiseType>;
 };
 
 template<typename Func>
@@ -133,14 +140,7 @@ using Function_Traits_T = typename Function_Traits<Func>::type;
 template<typename Func, typename Executor = DefaultExecutor, typename = std::enable_if_t<!std::is_invocable_v<Func>>>
 inline auto makeFuture(Func &&f, Executor exec = {})
 {
-    static_assert(Has_Member_start<Executor, Func>::value, "Executor must have Executor::start(Func)");
-    using DecayedFunction = std::decay_t<Func>;
-    using Type = Function_Traits_T<DecayedFunction>;
-    using ReturnType = std::invoke_result_t<DecayedFunction, QPromise<Type>&>;
-    static_assert(
-        std::is_same_v<void, ReturnType>, 
-        "Bad Runable.");
-    return makeFuture<Type>(std::forward<Func>(f), exec, Make_Future_With_Context_T{});
+    return makeFuture<Function_Traits_T<std::decay_t<Func>>>(std::forward<Func>(f), exec, Make_Future_With_Context_T{});
 }
 
 }

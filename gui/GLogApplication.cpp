@@ -1,7 +1,6 @@
 #include "GLogApplication.h"
 #include "MultiLineDelegate.h"
 #include "GCommandLineParser.h"
-#include "GlobalNetwork.h"
 #include "ctydb.h"
 #include "Concurrent.h"
 #include "fccdb.h"
@@ -18,13 +17,14 @@
 #include <QProcess>
 #include <QSqlDatabase>
 #include <QSqlQuery>
+#include <QDateTime>
+#include <QTimer>
 #include <fstream>
 
 GLogApplication::GLogApplication(QWidget *parent)
     : QMainWindow(parent)
 {
     ui.setupUi(this);
-    GLogNetwork::init(this);
 
     connect(this, &GLogApplication::information, this, [=](
         QString title,
@@ -111,16 +111,26 @@ GLogApplication::GLogApplication(QWidget *parent)
     });
 
     configureCtyDialog->disableCtyConfigure();
-
-    GLogNetwork::get(CtyDB::DEFAULT_ONLINE_DATA, [=](QNetworkReply * rep) {
+    GLogConcurrent::makeFuture([=](){
+        QEventLoop loop;
+        QNetworkAccessManager manager;
+        QNetworkRequest req(QUrl(QString::fromLatin1(CtyDB::DEFAULT_ONLINE_DATA)));
+        GLogNetwork::setGeneralHeader(req);
+        auto rep = manager.get(req);
+        QObject::connect(rep, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+        loop.exec();
         if (rep->error() == QNetworkReply::NoError) {
             ctydb->loadDB(*rep, CtyDB::DEFAULT_ONLINE_DATA);
         } else {
-            QMessageBox::warning(this, tr("Warning"), tr("Can not fetch cty.dat online. Using build-in one.\nYou should consider to check your network, or add a cty.dat manually."), QMessageBox::StandardButton::Ok);
+            emit warning(tr("Warning"), tr("Can not fetch cty.dat online. Using build-in one.\nYou should consider to check your network, or add a cty.dat manually.\n") + rep->errorString(), QMessageBox::StandardButton::Ok);
             ctydb->loadLocalDB();
         }
+        rep->deleteLater();
+    }).then(this, [=](){
         configureCtyDialog->enableCtyConfigure();
     });
+
+    GLogNetwork::init(this);
 
     connect(ui.actionMapCallSignInView, &QAction::triggered, [=](){
         if (!CtyDB::instance()->ready()) {
@@ -195,6 +205,69 @@ void GLogApplication::saveAsFile(const QString &filename)
     emit saveAsActionSignal(filename);
 }
 
+void GLogApplication::extractZip(const QString& zipPath, const QString& extractDir, QNetworkAccessManager& manager)
+{
+    QDir().mkpath(extractDir);
+    QProcess proc;
+#ifdef Q_OS_WIN
+    proc.start("tar", { "-xf", zipPath, "-C", extractDir });
+    if (!proc.waitForFinished() || proc.exitCode() != 0) {
+        //throw std::runtime_error(tr("Extraction failed").toStdString());
+        QString _7zipbin = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/7zip";
+        QDir().mkpath(_7zipbin);
+        QString _7zrExePath = _7zipbin + "/7zr.exe";
+        QString _7zaExePath = _7zipbin + "/7za.exe";
+
+        auto downloadProgress = [=, &manager](QString url, QString filename) {
+            QFile file(filename);
+            if (!file.exists()) {
+                auto req = QNetworkRequest(QUrl(url));
+                GLogNetwork::setGeneralHeader(req);
+                auto rep = manager.get(req);
+                QEventLoop loop;
+                QObject::connect(rep, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+                loop.exec();
+                if (rep->error() != QNetworkReply::NoError) {
+                    rep->deleteLater();
+                    throw std::runtime_error(tr("Extraction failed").toStdString());
+                }
+                if (!file.open(QIODevice::WriteOnly)) {
+                    rep->deleteLater();
+                    throw std::runtime_error(tr("Extraction failed").toStdString());
+                }
+                file.write(rep->readAll());
+                file.close();
+                rep->deleteLater();
+            }
+        };
+        {
+            QFile _7za_file(_7zaExePath);
+            if (!_7za_file.exists()) {
+                downloadProgress("https://www.7-zip.org/a/7zr.exe", _7zrExePath);
+                QString _7za7zPath = QDir::tempPath() + "/7za.7z";
+                downloadProgress("https://www.7-zip.org/a/7z2600-extra.7z", _7za7zPath);
+                QProcess _7zr_proc;
+                _7zr_proc.start(_7zrExePath, { "x", QDir::toNativeSeparators(_7za7zPath), "-o" + QDir::toNativeSeparators(_7zipbin), "7za.exe", "-y" });
+                if (!_7zr_proc.waitForFinished() || _7zr_proc.exitCode() != 0) {
+                    throw std::runtime_error(tr("Extraction failed").toStdString());
+                }
+            }
+            QProcess _7za_proc;
+            _7za_proc.start(_7zaExePath, { "x", QDir::toNativeSeparators(zipPath), "-o" + QDir::toNativeSeparators(extractDir), "-y" });
+            if (!_7za_proc.waitForFinished() || _7za_proc.exitCode() != 0) {
+                throw std::runtime_error(tr("Extraction failed").toStdString());
+            }
+        }
+    }
+#else
+    proc.start("unzip", { "-o", zipPath, "-d", extractDir });
+    if (!proc.waitForFinished() || proc.exitCode() != 0) {
+        throw std::runtime_error(tr("Extraction failed").toStdString());
+    }
+#endif
+}
+
+
 void GLogApplication::mergeFileAction() 
 {
     mergeFile(QFileDialog::getOpenFileName(this, tr("Open File"), "", tr("Adif Files (*.adi *.adif);;All Files (*.*)")));
@@ -226,35 +299,41 @@ void GLogApplication::setCilpboard(QMimeData *mimeData)
     QMessageBox::information(this, tr("Copy"), tr("Done"), QMessageBox::StandardButton::Ok);
 }
 
-inline QString getFccTempZip() {
-    return QDir::tempPath() + "/l_amat.zip";
-}
-
 void GLogApplication::updateFccDatabase()
 {
-    auto button1 = QMessageBox::question(this, tr("FCC Database"), tr("This action will download complete FCC database (l_amat.zip) and make a simple one for WAS counting.\nDatabase will be save at %1.\nContinue?").arg(FccDB::dbPath()), QMessageBox::StandardButton::Yes | QMessageBox::StandardButton::No);
+    QString dbPath = FccDB::dbPath();
+    auto button1 = QMessageBox::question(this, tr("FCC Database"), tr("This action will download complete FCC database (l_amat.zip) and make a simple one for WAS counting.\nDatabase will be save at %1.\nContinue?").arg(dbPath), QMessageBox::StandardButton::Yes | QMessageBox::StandardButton::No);
     if (button1 == QMessageBox::StandardButton::No) {
-            return;
+        return;
     }
-    QString zipPath = getFccTempZip();
+    bool existsDB = QFile::exists(dbPath);
+    QString oldDBPath = dbPath + "." + QDateTime::currentDateTime().toString("yyyyMMddHHmmss") + ".bak";
+    if (existsDB) {
+        auto oldDB = QFile(dbPath);
+        if (!oldDB.rename(oldDBPath)){
+            emit warning(tr("FCC Database"), tr("Cannot remove old database file"), QMessageBox::StandardButton::Ok);
+            return;
+        }
+    }
+    QString zipPath = QDir::tempPath() + "/l_amat.zip";
     QFileInfo zipInfo(zipPath);
     bool download = true;
     if (zipInfo.exists()) {
-        auto button2 = QMessageBox::question(this, tr("FCC Database"), tr("Found %1.\nSkip download?").arg(getFccTempZip()), QMessageBox::StandardButton::Yes | QMessageBox::StandardButton::No);
+        auto button2 = QMessageBox::question(this, tr("FCC Database"), tr("Found %1.\nSkip download?").arg(zipPath), QMessageBox::StandardButton::Yes | QMessageBox::StandardButton::No);
         if (button2 == QMessageBox::StandardButton::Yes) {
             download = false;
         }
     }
+    QString extractDir = QDir::tempPath() + "/fcc_extract";
     GLogConcurrent::makeFuture([=](QPromise<void> & promise){
         emit disableAction(ui.actionUpdate_FCC_database);
-        QString zipPath = getFccTempZip();
-        QFileInfo zipInfo(zipPath);
+        emit disableAction(ui.actionAward);
+        QNetworkAccessManager manager;
         if (download) {
             emit showMessage(tr("Downloading l_amat.zip"));
             QUrl url("https://data.fcc.gov/download/pub/uls/complete/l_amat.zip");
             auto req = QNetworkRequest(url);
             GLogNetwork::setGeneralHeader(req);
-            QNetworkAccessManager manager;
             QNetworkReply* reply = manager.get(req);
             GLogNetwork::watchGetProcess(reply, [=](QString msg){
                 emit showMessage(tr("Downloading l_amat.zip: %1").arg(msg));
@@ -263,7 +342,9 @@ void GLogApplication::updateFccDatabase()
             QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
             loop.exec();
             if (reply->error() != QNetworkReply::NoError) {
-                throw std::runtime_error(reply->errorString().toStdString());
+                auto err = reply->errorString().toStdString();
+                reply->deleteLater();
+                throw std::runtime_error(err);
             }
             QFile file(zipPath);
             if (file.open(QIODevice::WriteOnly)) {
@@ -274,26 +355,11 @@ void GLogApplication::updateFccDatabase()
             reply->deleteLater();
         }
         emit showMessage(tr("Extracting l_amat.zip"));
-        QString extractDir = QDir::tempPath() + "/fcc_extract";
-        QDir().mkpath(extractDir);
 
-        QProcess proc;
-        proc.start("tar", {"-xf", zipPath, "-C", extractDir});
-        if (!proc.waitForFinished() || proc.exitCode() != 0) {
-            throw std::runtime_error(tr("Extraction failed").toStdString());
-        }
+        extractZip(zipPath, extractDir, manager);
 
         QString hdPath = extractDir + "/HD.dat";
         QString enPath = extractDir + "/EN.dat";
-        QString dbPath = FccDB::dbPath();
-
-        bool exists_db = false;
-        if (QFile::exists(dbPath)) {
-            exists_db = true;
-            // if (!QFile::remove(dbPath)) {
-            //     throw std::runtime_error(tr("Cannot remove old database file").toStdString());
-            // }
-        }
 
         QFileInfo dbInfo(dbPath);
         QDir().mkpath(dbInfo.absoluteDir().absolutePath());
@@ -311,6 +377,9 @@ void GLogApplication::updateFccDatabase()
             int enCount = 0;
             if (enFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
                 while (!enFile.atEnd()) {
+                    if (promise.isCanceled()) {
+                        return;
+                    }
                     if (enCount % 10000 == 0) emit showMessage(tr("Processing EN.dat: %1").arg(enCount));
                     QByteArray line = enFile.readLine();
                     if (!line.startsWith("EN|")) continue;
@@ -348,7 +417,7 @@ void GLogApplication::updateFccDatabase()
             QSqlQuery query(db);
             query.exec("PRAGMA synchronous = OFF;"); 
             query.exec("PRAGMA journal_mode = MEMORY;");
-            if (!exists_db) query.exec("CREATE TABLE licenses (callsign TEXT PRIMARY KEY, state TEXT)");
+            query.exec("CREATE TABLE licenses (callsign TEXT PRIMARY KEY, state TEXT)");
 
             QFile hdFile(hdPath);
             if (hdFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
@@ -367,7 +436,7 @@ void GLogApplication::updateFccDatabase()
                     // Index 1: USI, Index 4: Callsign
                     if (fields.size() > 5) {
                         long long usi = fields[1].toLongLong();
-                        if (usiToState.contains(usi) && !fields[4].isEmpty()) {
+                        if (usiToState.contains(usi) && !fields[4].isEmpty() && fields[5] == "A") {
                             query.addBindValue(QString::fromLatin1(fields[4])); // Callsign
                             query.addBindValue(usiToState[usi]);               // State
                             query.exec();
@@ -383,19 +452,40 @@ void GLogApplication::updateFccDatabase()
                 db.commit();
                 hdFile.close();
                 
-                if (!exists_db) query.exec("CREATE INDEX idx_call ON licenses(callsign)");
+                query.exec("CREATE INDEX idx_call ON licenses(callsign)");
             }
             db.close();
         }
         QSqlDatabase::removeDatabase(connectionName);
 
     }).then([=](){
+        if (existsDB) {
+            QFile::remove(oldDBPath);
+        }
+        QDir(extractDir).removeRecursively();
         emit information(tr("FCC Database"), tr("FCC database updated."), QMessageBox::StandardButton::Ok);
         emit showMessage(tr("Done"), 5000);
         emit enableAction(ui.actionUpdate_FCC_database);
+        emit enableAction(ui.actionAward);
     }).onFailed([=](const std::exception& e){
+        if (existsDB) {
+            auto oldDB = QFile(oldDBPath);
+            oldDB.rename(dbPath);
+        }
+        QDir(extractDir).removeRecursively();
         emit warning(tr("FCC Database"), tr("FCC database failed:%1").arg(e.what()), QMessageBox::StandardButton::Ok);
         emit showMessage(tr("Failed"), 5000);
         emit enableAction(ui.actionUpdate_FCC_database);
+        emit enableAction(ui.actionAward);
+    }).onCanceled([=](){
+        if (existsDB) {
+            auto oldDB = QFile(oldDBPath);
+            oldDB.rename(dbPath);
+        }
+        QDir(extractDir).removeRecursively();
+        emit information(tr("FCC Database"), tr("Update canceled."), QMessageBox::StandardButton::Ok);
+        emit showMessage(tr("Canceled"), 5000);
+        emit enableAction(ui.actionUpdate_FCC_database);
+        emit enableAction(ui.actionAward);
     });
 }

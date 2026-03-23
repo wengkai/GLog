@@ -237,11 +237,10 @@ int AdifModel::columnCount(const QModelIndex &parent) const
 
 QVariant AdifModel::data(const QModelIndex &index, int role) const
 {
-    auto& m = const_cast<decltype(mutex)&>(mutex);
     if (role != Qt::DisplayRole && role != Qt::EditRole)
         return QVariant();
 
-    std::shared_lock<decltype(mutex)> lock(m, std::defer_lock);
+    std::shared_lock<decltype(mutex)> lock(mutex, std::defer_lock);
     if (lock.try_lock()) {
         QVariant ret{};
         if (index.column() < rheaders.size()
@@ -261,12 +260,11 @@ QVariant AdifModel::data(const QModelIndex &index, int role) const
 
 QVariant AdifModel::headerData(int section, Qt::Orientation orientation, int role) const
 {
-    auto& m = const_cast<decltype(mutex)&>(mutex);
     if (role != Qt::DisplayRole)
         return QVariant();
     if (orientation == Qt::Horizontal) {
         QVariant ret{};
-        std::shared_lock<decltype(mutex)> lock(m, std::defer_lock);
+        std::shared_lock<decltype(mutex)> lock(mutex, std::defer_lock);
         if (lock.try_lock()) {
             if (section < rheaders.size()) {
                 return QString::fromStdString(rheaders.at(section));
@@ -282,7 +280,11 @@ bool AdifModel::setData(const QModelIndex &index, const QVariant &value, int rol
         std::unique_lock<decltype(mutex)> lock(mutex);
         auto v = value.toString().toStdString();
         if (index.row() < records.size() && index.column() < rheaders.size()) {
-            records[index.row()][rheaders[index.column()]] = v;
+            auto & field = rheaders[index.column()];
+            if (field == "qso_date" || field == "time_on") {
+                return false;
+            }
+            records[index.row()][field] = v;
             lock.unlock();
             dataChanged(index, index);
             return true;
@@ -312,8 +314,7 @@ QStringList AdifModel::mimeTypes() const
 
 QMimeData *AdifModel::mimeData(const QModelIndexList &indexes) const
 {
-    auto& m = const_cast<decltype(mutex)&>(mutex);
-    std::shared_lock<decltype(mutex)> lock(m);
+    std::shared_lock<decltype(mutex)> lock(mutex);
     QMimeData *mimeData = QAbstractTableModel::mimeData(indexes);
     std::set<int> rows;
     for (auto& index : indexes) {
@@ -442,22 +443,19 @@ void AdifModel::clear()
 
 std::string AdifModel::records2StdString(const std::set<int> &rows) const
 {
-    auto& m = const_cast<decltype(mutex)&>(mutex);
-    std::shared_lock<decltype(mutex)> lock(m);
+    std::shared_lock<decltype(mutex)> lock(mutex);
     return _records2StdString(rows);
 }
 
 void AdifModel::toCsv(std::ostream &stream) const
 {
-    auto& m = const_cast<decltype(mutex)&>(mutex);
-    std::shared_lock<decltype(mutex)> lock(m);
+    std::shared_lock<decltype(mutex)> lock(mutex);
     _toCsv(stream);
 }
 
 void AdifModel::toAdif(std::ostream &stream) const
 {
-    auto& m = const_cast<decltype(mutex)&>(mutex);
-    std::shared_lock<decltype(mutex)> lock(m);
+    std::shared_lock<decltype(mutex)> lock(mutex);
     _toAdif(stream);
 }
 
@@ -466,8 +464,7 @@ AdifModel::AwardRes AdifModel::diffEntNameCountForAward() const
     AwardRes res;
     auto ctydb = CtyDB::instance();
     std::shared_lock<decltype(ctydb->mutex)> lock0(ctydb->mutex);
-    auto& m = const_cast<decltype(mutex)&>(mutex);
-    std::shared_lock<decltype(mutex)> lock1(m);
+    std::shared_lock<decltype(mutex)> lock1(mutex);
     if (records.empty()) {
         return res;
     }
@@ -496,9 +493,11 @@ AdifModel::AwardRes AdifModel::diffEntNameCountForAward() const
         if (result.first->vaild) {
             ++counterCQZ[result.first->cq];
         }
-        auto state = fccdb->lookupState(buf);
-        if (state.size() == 2) {
-            ++counterWAS[state];
+        if (WASSearchVaild) {
+            auto state = fccdb->lookupState(buf);
+            if (state.size() == 2) {
+                ++counterWAS[state];
+            }
         }
     }
     if (WASSearchVaild) {
@@ -552,7 +551,11 @@ void AdifModel::_toCsv(std::ostream &stream) const
 void AdifModel::_toAdif(std::ostream &stream) const
 {
     for (auto& record : records) {
-        stream << record << "\n";
+        auto r = record;
+        for (auto f : GRecordOutputFilters) {
+            f(r);
+        }
+        stream << r << "\n";
     }
 }
 

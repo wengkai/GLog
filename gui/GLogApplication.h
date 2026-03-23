@@ -12,6 +12,7 @@
 #include "MapWidget.h"
 #include "ConfigureCtyDialog.h"
 #include "AddQSODialog.h"
+#include "GlobalNetwork.h"
 #include "ui_GLogApplication.h"
 
 
@@ -27,6 +28,7 @@ public:
     void openFile(const QString& filename);
     void mergeFile(const QString& filename, bool remove = false);
     void saveAsFile(const QString& filename);
+    void extractZip(const QString & zipPath, const QString & extractDir, QNetworkAccessManager & manager);
     
 public slots:
     void openFileAction();

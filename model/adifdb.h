@@ -29,7 +29,7 @@ private:
     std::vector<Record> records{};
     std::set<std::string> sheaders{};
     std::vector<std::string> rheaders{};
-    std::shared_mutex mutex{};
+    mutable std::shared_mutex mutex{};
     //friend class AdifModelC;
     friend class MapWidget;
     // AdifModelC* control = nullptr;

@@ -137,6 +137,18 @@ target_link_libraries(${PROJECT_NAME}
         Qt6::Sql
 )
 
+set(deploy_extra_options "")
+
+if(FORCE_OPENSSL)
+    list(APPEND deploy_extra_options "-force-openssl")
+    message(STATUS "Pass -force-openssl for deployment")
+endif()
+
+if(WIN32)
+    set(CMAKE_INSTALL_UCRT_LIBRARIES TRUE)
+    include(InstallRequiredSystemLibraries)
+endif()
+
 install(TARGETS ${PROJECT_NAME}
     BUNDLE  DESTINATION .
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
@@ -146,6 +158,7 @@ qt_generate_deploy_app_script(
     TARGET ${PROJECT_NAME}
     OUTPUT_SCRIPT deploy_script
     NO_UNSUPPORTED_PLATFORM_ERROR
+    DEPLOY_TOOL_OPTIONS ${deploy_extra_options}
 )
 install(SCRIPT ${deploy_script})
 

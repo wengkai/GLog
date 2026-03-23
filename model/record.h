@@ -80,9 +80,9 @@ static const std::vector<GRecordFilter> GRecordOutputFilters = {
 template<typename Ostream>
 inline Ostream& operator<<(Ostream& stream, const GRecord& record) {
     auto r = record;
-    for (auto & func : GRecordOutputFilters) {
-        func(r);
-    }
+    // for (auto & func : GRecordOutputFilters) {
+    //     func(r);
+    // }
     for (auto& pair : r) {
         if (pair.second.empty()) {
             continue;

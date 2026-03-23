@@ -10,7 +10,12 @@ FccDB *FccDB::instance()
 
 QString FccDB::dbPath()
 {
-    return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/fcc_amateur.db";
+    return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/" + dbFileName();
+}
+
+QString FccDB::dbFileName()
+{
+    return "fcc_amateur.db";
 }
 
 QString FccDB::connNamePrefix()
@@ -21,25 +26,34 @@ QString FccDB::connNamePrefix()
 QString FccDB::lookupState(const QString & callsign) {
     if (callsign.isEmpty()) return QString();
 
-    if (m_cache.contains(callsign)) {
-        return *m_cache.object(callsign);
+    {    
+        std::unique_lock<decltype(mutex_cache)> lock0(mutex_cache);
+        if (auto pres = m_cache.object(callsign); pres) {
+            return *pres;
+        }
     }
 
     auto threadId = quintptr(QThread::currentThreadId());
-    std::shared_lock<decltype(mutex_threadId2Query)> lock(mutex_threadId2Query);
-    auto it = threadId2Query.constFind(threadId);
-    Q_ASSERT(it != threadId2Query.end());
+    QString res;
 
-    auto & query = const_cast<QSqlQuery&>(it.value());
-
-    query.bindValue(":call", callsign);
-
-    if (query.exec() && query.next()) {
-        auto state = query.value(0).toString();
-        m_cache.insert(callsign, new QString(state));
-        return state;
+    {
+        std::shared_lock<decltype(mutex_threadId2Query)> lock(mutex_threadId2Query);
+        auto it = threadId2Query.constFind(threadId);
+        Q_ASSERT(it != threadId2Query.end());
+        auto & query = const_cast<QSqlQuery&>(it.value());
+        query.bindValue(":call", callsign);
+        if ((query.exec() 
+          && query.next())) {
+            res = query.value(0).toString();
+        }
     }
-    return QString();
+
+    {
+        std::unique_lock<decltype(mutex_cache)> lock0(mutex_cache);
+        m_cache.insert(callsign, new QString(res));
+    }
+
+    return res;
 }
 
 bool FccDB::beginSearch()
@@ -63,7 +77,7 @@ bool FccDB::beginSearch()
             return false;
         }
         std::unique_lock<decltype(mutex_threadId2Query)> lock(mutex_threadId2Query);
-        threadId2Query[threadId] = query;
+        threadId2Query.emplace(threadId, std::move(query));
     }
     return true;
 }
@@ -73,7 +87,7 @@ void FccDB::endSearch()
     auto threadId = quintptr(QThread::currentThreadId());
     {
         std::unique_lock<decltype(mutex_threadId2Query)> lock(mutex_threadId2Query);
-        threadId2Query.erase(threadId2Query.constFind(threadId));
+        threadId2Query.remove((threadId));
     }
     auto connName = QString("%1_%2").arg(connNamePrefix()).arg(threadId);
     if (QSqlDatabase::contains(connName)) {

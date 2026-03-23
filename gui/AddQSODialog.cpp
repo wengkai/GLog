@@ -1,6 +1,9 @@
 #include "AddQSODialog.h"
 #include <QTime>
 #include <QDate>
+#include <QRegularExpression>
+#include <QRegularExpressionMatch>
+#include <QMessageBox>
 
 AddQSODialog::AddQSODialog(AdifModel * model, QWidget *parent) : m_model(model), QDialog(parent)
 {
@@ -28,6 +31,21 @@ void AddQSODialog::accept()
         || ui.rstLineEdit->text().isEmpty()
         || ui.rstRcvdLineEdit->text().isEmpty()
     ) {
+        QMessageBox::information(this, tr("Add QSO"), tr("Some empty field(s)."), QMessageBox::StandardButton::Ok);
+        return;
+    }
+    static auto call_regex = QRegularExpression("^([A-Z0-9]+|[A-Z0-9]+\\/[A-Z0-9]+)$");
+    if (!call_regex.match(ui.callSignLineEdit->text()).hasMatch()) {
+        QMessageBox::information(this, tr("Add QSO"), tr("Invaild Call."), QMessageBox::StandardButton::Ok);
+        return;
+    }
+    static auto rst_regex = QRegularExpression("^[+-]?\\d{1,3}$");
+    if (!rst_regex.match(ui.rstLineEdit->text()).hasMatch()) {
+        QMessageBox::information(this, tr("Add QSO"), tr("Invaild Rst."), QMessageBox::StandardButton::Ok);
+        return;
+    }
+    if (!rst_regex.match(ui.rstRcvdLineEdit->text()).hasMatch()) {
+        QMessageBox::information(this, tr("Add QSO"), tr("Invaild Rst Rcvd."), QMessageBox::StandardButton::Ok);
         return;
     }
     // {"qso_date", "time_on", "call", "freq", "mode", "rst_rcvd", "rst_sent"}
