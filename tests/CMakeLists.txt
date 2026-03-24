@@ -23,8 +23,8 @@ if(WIN32)
 
     set_tests_properties(
         HelloCTest 
-            PROPERTIES ENVIRONMENT 
-            "PATH=$<TARGET_FILE_DIR:${PROJECT_SHARED}>;${_qt_bin_dir};$ENV{PATH}"
+            PROPERTIES ENVIRONMENT_MODIFICATION 
+            "PATH=path_list_prepend:$<TARGET_FILE_DIR:${PROJECT_SHARED}>;PATH=path_list_prepend:${_qt_bin_dir}"
     )
 
     message(STATUS "Test Runtime Qt Dir: ${_qt_bin_dir}")
