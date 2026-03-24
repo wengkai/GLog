@@ -17,9 +17,15 @@ target_link_libraries(${HELLO_CTEST} PRIVATE
 add_test(NAME ${HELLO_CTEST} COMMAND ${HELLO_CTEST})
 
 if(WIN32)
+    get_target_property(_qt_core_path Qt6::Core LOCATION)
+    
+    get_filename_component(_qt_bin_dir "${_qt_core_path}" DIRECTORY)
+
     set_tests_properties(
         HelloCTest 
             PROPERTIES ENVIRONMENT 
-            "PATH=$<TARGET_FILE_DIR:${PROJECT_SHARED}>;$ENV{PATH}"
+            "PATH=$<TARGET_FILE_DIR:${PROJECT_SHARED}>;${_qt_bin_dir};$ENV{PATH}"
     )
+
+    message(STATUS "Test Runtime Qt Dir: ${_qt_bin_dir}")
 endif()
