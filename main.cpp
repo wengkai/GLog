@@ -47,8 +47,8 @@ int main(int argc, char* argv[])
 {
     QApplication app(argc, argv);
     app.setApplicationName("GLog");
-    auto window = new GLogApplication;
-    window->show();
+    GLogApplication window;
+    window.show();
     return app.exec();
 }
 

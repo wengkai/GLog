@@ -26,7 +26,7 @@ jobs:
         run: |
           . $ENABLE_GCC_TOOLSET && qt-cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
           . $ENABLE_GCC_TOOLSET && cmake --build build
-#          ctest --test-dir build --output-on-failure
+          QT_QPA_PLATFORM=offscreen ctest --test-dir build --output-on-failure --verbose
 
       - name: Package AppImage
         run: |
@@ -74,7 +74,7 @@ jobs:
         run: |
           cmake --build build --config Release --parallel
           cd build
-#          ctest -C Release --output-on-failure
+          ctest -C Release --output-on-failure --verbose
 
       - name: Install & Deploy
         shell: pwsh

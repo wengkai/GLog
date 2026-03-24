@@ -1,4 +1,5 @@
 #include "ConfigureCtyDialog.h"
+#include "ui_ConfigureCtyDialog.h"
 #include "ctydb.h"
 #include "GlobalNetwork.h"
 #include "Concurrent.h"
@@ -6,21 +7,21 @@
 #include <QFileDialog>
 #include <QUrl>
 
-ConfigureCtyDialog::ConfigureCtyDialog(QWidget* parent) : QDialog(parent)
+ConfigureCtyDialog::ConfigureCtyDialog(QWidget* parent) : QDialog(parent), ui(new Ui::ConfigureCtyDialogClass())
 {
-    ui.setupUi(this);
-    m_ok = ui.buttonBox->button(QDialogButtonBox::StandardButton::Ok);
-    ui.DBhint->setText(tr("Cty.dat:"));
+    ui->setupUi(this);
+    m_ok = ui->buttonBox->button(QDialogButtonBox::StandardButton::Ok);
+    ui->DBhint->setText(tr("Cty.dat:"));
     db_hint = tr("None");
-    disconnect(ui.buttonBox, &QDialogButtonBox::accepted, this, qOverload<>(&QDialog::accept));
-    connect(ui.BrowseButton, &QPushButton::clicked, [=]() {
+    disconnect(ui->buttonBox, &QDialogButtonBox::accepted, this, qOverload<>(&QDialog::accept));
+    connect(ui->BrowseButton, &QPushButton::clicked, [=]() {
         auto localFile = QFileDialog::getOpenFileName(this, tr("Open File"), "", tr("Cty Data Files (*.dat);;All Files (*.*)"));
-        if (!localFile.isEmpty()) ui.lineEdit->setText(QUrl::fromLocalFile(localFile).toString());
+        if (!localFile.isEmpty()) ui->lineEdit->setText(QUrl::fromLocalFile(localFile).toString());
     });
     connect(this, &ConfigureCtyDialog::startLoadDB, this, &ConfigureCtyDialog::applyLoadDB, Qt::QueuedConnection);
     connect(m_ok, &QPushButton::clicked, [=]() {
         disableCtyConfigure();
-        emit startLoadDB(ui.lineEdit->text(), successMsg(), false);
+        emit startLoadDB(ui->lineEdit->text(), successMsg(), false);
     });
     connect(this,  &ConfigureCtyDialog::endLoadDB, this, &ConfigureCtyDialog::onLoadFinished, Qt::QueuedConnection);
 }
@@ -104,6 +105,7 @@ void ConfigureCtyDialog::onLoadFinished(QString msg)
 
 ConfigureCtyDialog::~ConfigureCtyDialog()
 {
+    delete ui;
 }
 
 QString ConfigureCtyDialog::successMsg() const
@@ -126,12 +128,12 @@ void ConfigureCtyDialog::enableCtyConfigure()
 
 int ConfigureCtyDialog::exec()
 {
-    ui.lineEdit->setText(db_hint);
+    ui->lineEdit->setText(db_hint);
     return QDialog::exec();
 }
 
 void ConfigureCtyDialog::setDBhint(QString db_hint)
 {
     this->db_hint = db_hint;
-    ui.lineEdit->setText(db_hint);
+    ui->lineEdit->setText(db_hint);
 }

@@ -2,7 +2,8 @@
 #define ADDQSODIALOG_H
 
 #include "adifdb.h"
-#include "ui_AddQSODialog.h"
+#include <QDialog>
+namespace Ui{ class AddQSODialogClass; };
 
 class AddQSODialog : public QDialog
 {
@@ -16,7 +17,7 @@ protected slots:
     void accept() override;
 
 private:
-    Ui::AddQSODialogClass ui;
+    Ui::AddQSODialogClass * ui = nullptr;
     AdifModel * m_model = nullptr;
 
 };

@@ -1,4 +1,5 @@
 #include "GLogApplication.h"
+#include "ui_GLogApplication.h"
 #include "MultiLineDelegate.h"
 #include "GCommandLineParser.h"
 #include "ctydb.h"
@@ -22,9 +23,9 @@
 #include <fstream>
 
 GLogApplication::GLogApplication(QWidget *parent)
-    : QMainWindow(parent)
+    : QMainWindow(parent), ui(new Ui::GLogApplicationClass())
 {
-    ui.setupUi(this);
+    ui->setupUi(this);
 
     connect(this, &GLogApplication::information, this, [=](
         QString title,
@@ -41,7 +42,7 @@ GLogApplication::GLogApplication(QWidget *parent)
     }, Qt::QueuedConnection);
 
     connect(this, &GLogApplication::showMessage, this, [=](QString message, int timeout){
-        ui.statusBar->showMessage(message, timeout);
+        ui->statusBar->showMessage(message, timeout);
     }, Qt::QueuedConnection);
 
     connect(this, &GLogApplication::enableAction, this, [=](QAction * action){
@@ -54,9 +55,9 @@ GLogApplication::GLogApplication(QWidget *parent)
 
     tableview = new DropAbleTableView(this);
     setCentralWidget(tableview);
-    connect(ui.actionOpen, &QAction::triggered, this, &GLogApplication::openFileAction);
-    connect(ui.actionMerge, &QAction::triggered, this, &GLogApplication::mergeFileAction);
-    connect(ui.actionSave_As, &QAction::triggered, this, &GLogApplication::saveAsAction);
+    connect(ui->actionOpen, &QAction::triggered, this, &GLogApplication::openFileAction);
+    connect(ui->actionMerge, &QAction::triggered, this, &GLogApplication::mergeFileAction);
+    connect(ui->actionSave_As, &QAction::triggered, this, &GLogApplication::saveAsAction);
     model = new AdifModel(this);
     tableview->setModel(model);
     connect(this, &GLogApplication::openFileActionSignal, model, &AdifModel::openFile);
@@ -83,7 +84,7 @@ GLogApplication::GLogApplication(QWidget *parent)
     }
     
     searchBar = new SearchBar(this);
-    connect(ui.actionSearch, &QAction::triggered, searchBar, &SearchBar::show);
+    connect(ui->actionSearch, &QAction::triggered, searchBar, &SearchBar::show);
     connect(searchBar, &SearchBar::findNext, tableview, &DropAbleTableView::findNext);
     connect(searchBar, &SearchBar::selectAll, model, &AdifModel::selectAll);
     connect(searchBar, &SearchBar::deselectAll, model, &AdifModel::deselectAll);
@@ -94,8 +95,8 @@ GLogApplication::GLogApplication(QWidget *parent)
     connect(model, &AdifModel::deselectRows, tableview, &DropAbleTableView::deselectRows);
 
     auto mapWidget = new MapWidget(model, this);
-    connect(ui.actionMap_View, &QAction::triggered, mapWidget, &MapWidget::show);
-    connect(ui.actionMap_View, &QAction::triggered, mapWidget, &MapWidget::dataVisualize);
+    connect(ui->actionMap_View, &QAction::triggered, mapWidget, &MapWidget::show);
+    connect(ui->actionMap_View, &QAction::triggered, mapWidget, &MapWidget::dataVisualize);
 
     auto ctydb = CtyDB::instance();
     connect(ctydb, &CtyDB::dbHintChanged, mapWidget, &MapWidget::initCtyMarkers, Qt::QueuedConnection);
@@ -106,7 +107,7 @@ GLogApplication::GLogApplication(QWidget *parent)
     connect(mapWidget, &MapWidget::initCtyMarkersEnd, configureCtyDialog, &ConfigureCtyDialog::enableCtyConfigure, Qt::QueuedConnection);
     connect(model, &AdifModel::mapCallSignInViewBegin, configureCtyDialog, &ConfigureCtyDialog::disableCtyConfigure, Qt::QueuedConnection);
     connect(model, &AdifModel::mapCallSignInViewEnd, configureCtyDialog, &ConfigureCtyDialog::enableCtyConfigure, Qt::QueuedConnection);
-    connect(ui.actionConfigure_Cty_dat, &QAction::triggered, [=](){
+    connect(ui->actionConfigure_Cty_dat, &QAction::triggered, [=](){
         configureCtyDialog->exec();
     });
 
@@ -132,7 +133,7 @@ GLogApplication::GLogApplication(QWidget *parent)
 
     GLogNetwork::init(this);
 
-    connect(ui.actionMapCallSignInView, &QAction::triggered, [=](){
+    connect(ui->actionMapCallSignInView, &QAction::triggered, [=](){
         if (!CtyDB::instance()->ready()) {
             QMessageBox::warning(this, tr("Warning"), tr("The mapping database has not ready."), QMessageBox::StandardButton::Ok);
             return;
@@ -150,11 +151,11 @@ GLogApplication::GLogApplication(QWidget *parent)
     });
 
     addQSODialog = new AddQSODialog(model, this);
-    connect(ui.actionAdd_QSO_Manually, &QAction::triggered, [=](){
+    connect(ui->actionAdd_QSO_Manually, &QAction::triggered, [=](){
         addQSODialog->exec();
     });
 
-    connect(ui.actionAward, &QAction::triggered, [=](){
+    connect(ui->actionAward, &QAction::triggered, [=](){
         QString display = tr("DXCC: %1/100\nWAC (ARRL): %2/6\nWAC (Non-ARRL): %3/6\nCQ: %4/70\nWAS: %5/50");
         GLogConcurrent::makeFuture([=](){
             auto res = model->diffEntNameCountForAward();
@@ -169,11 +170,13 @@ GLogApplication::GLogApplication(QWidget *parent)
         });
     });
 
-    connect(ui.actionUpdate_FCC_database, &QAction::triggered, this, &GLogApplication::updateFccDatabase);
+    connect(ui->actionUpdate_FCC_database, &QAction::triggered, this, &GLogApplication::updateFccDatabase);
 }
 
 GLogApplication::~GLogApplication()
-{}
+{
+    delete ui;
+}
 
 void GLogApplication::resizeTableView()
 {
@@ -326,8 +329,8 @@ void GLogApplication::updateFccDatabase()
     }
     QString extractDir = QDir::tempPath() + "/fcc_extract";
     GLogConcurrent::makeFuture([=](QPromise<void> & promise){
-        emit disableAction(ui.actionUpdate_FCC_database);
-        emit disableAction(ui.actionAward);
+        emit disableAction(ui->actionUpdate_FCC_database);
+        emit disableAction(ui->actionAward);
         QNetworkAccessManager manager;
         if (download) {
             emit showMessage(tr("Downloading l_amat.zip"));
@@ -465,8 +468,8 @@ void GLogApplication::updateFccDatabase()
         QDir(extractDir).removeRecursively();
         emit information(tr("FCC Database"), tr("FCC database updated."), QMessageBox::StandardButton::Ok);
         emit showMessage(tr("Done"), 5000);
-        emit enableAction(ui.actionUpdate_FCC_database);
-        emit enableAction(ui.actionAward);
+        emit enableAction(ui->actionUpdate_FCC_database);
+        emit enableAction(ui->actionAward);
     }).onFailed([=](const std::exception& e){
         if (existsDB) {
             auto oldDB = QFile(oldDBPath);
@@ -475,8 +478,8 @@ void GLogApplication::updateFccDatabase()
         QDir(extractDir).removeRecursively();
         emit warning(tr("FCC Database"), tr("FCC database failed:%1").arg(e.what()), QMessageBox::StandardButton::Ok);
         emit showMessage(tr("Failed"), 5000);
-        emit enableAction(ui.actionUpdate_FCC_database);
-        emit enableAction(ui.actionAward);
+        emit enableAction(ui->actionUpdate_FCC_database);
+        emit enableAction(ui->actionAward);
     }).onCanceled([=](){
         if (existsDB) {
             auto oldDB = QFile(oldDBPath);
@@ -485,7 +488,7 @@ void GLogApplication::updateFccDatabase()
         QDir(extractDir).removeRecursively();
         emit information(tr("FCC Database"), tr("Update canceled."), QMessageBox::StandardButton::Ok);
         emit showMessage(tr("Canceled"), 5000);
-        emit enableAction(ui.actionUpdate_FCC_database);
-        emit enableAction(ui.actionAward);
+        emit enableAction(ui->actionUpdate_FCC_database);
+        emit enableAction(ui->actionAward);
     });
 }

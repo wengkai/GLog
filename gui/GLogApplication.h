@@ -13,8 +13,7 @@
 #include "ConfigureCtyDialog.h"
 #include "AddQSODialog.h"
 #include "GlobalNetwork.h"
-#include "ui_GLogApplication.h"
-
+namespace Ui{ class GLogApplicationClass; };
 
 class GLogApplication : public QMainWindow
 {
@@ -54,7 +53,7 @@ signals:
     void enableAction(QAction * action);
 
 private:
-    Ui::GLogApplicationClass ui;
+    Ui::GLogApplicationClass * ui;
     DropAbleTableView* tableview = nullptr;
     AdifModel* model = nullptr;
     SearchBar* searchBar = nullptr;

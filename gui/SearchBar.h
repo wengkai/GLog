@@ -3,7 +3,7 @@
 
 #include <QDialog>
 #include <QModelIndex>
-#include "ui_SearchBar.h"
+namespace Ui{ class SearchBarClass; };
 
 class SearchBar : public QDialog
 {
@@ -23,7 +23,7 @@ signals:
     void deselectAll(QString key, QString value, bool isReg);
 
 private:
-    Ui::SearchBarClass ui;
+    Ui::SearchBarClass * ui;
 
 };
 

@@ -4,7 +4,7 @@
 #include "record.h"
 #include "MapGraphicsView.h"
 #include "adifdb.h"
-#include "ui_MapWidget.h"
+namespace Ui{ class MapWidgetClass; };
 
 class MapWidget : public QMainWindow 
 {
@@ -12,7 +12,8 @@ class MapWidget : public QMainWindow
 
 public:
     MapWidget(AdifModel * model, QWidget * parent = nullptr);
-    auto * getMapGraphicsView() { return ui.graphicsView; }
+    ~MapWidget();
+    MapGraphicsView * getMapGraphicsView();
     void clearMarkers();
 
 public slots:
@@ -28,7 +29,7 @@ signals:
     void dataVisualizeRe();
 
 private:
-    Ui::MapWidgetClass ui;
+    Ui::MapWidgetClass * ui;
     QString title;
     QString m_db_hint;
     size_t add_markers_begin = 0;

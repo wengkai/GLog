@@ -15,6 +15,7 @@ find_package(Qt6 6.5
         Sql
 REQUIRED)
 qt_standard_project_setup()
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 get_target_property(MY_QT_TARGET_TYPE Qt6::Core TYPE)
 if (MY_QT_TARGET_TYPE STREQUAL "STATIC_LIBRARY")
@@ -90,28 +91,56 @@ list (APPEND EXTRA_LIBS model)
 add_subdirectory(${ROOT_DIR}/tools)
 list (APPEND EXTRA_LIBS tools)
 
+list (APPEND UI_FILES ${ROOT_DIR}/gui/GLogApplication.ui)
+list (APPEND UI_FILES ${ROOT_DIR}/gui/SearchBar.ui)
+list (APPEND UI_FILES ${ROOT_DIR}/gui/MapWidget.ui)
+list (APPEND UI_FILES ${ROOT_DIR}/gui/ConfigureCtyDialog.ui)
+list (APPEND UI_FILES ${ROOT_DIR}/gui/AddQSODialog.ui)
+
+list (APPEND UI_INCLUDES ${ROOT_DIR}/gui/GLogApplication.h)
+list (APPEND UI_INCLUDES ${ROOT_DIR}/gui/SearchBar.h)
+list (APPEND UI_INCLUDES ${ROOT_DIR}/gui/MapWidget.h)
+list (APPEND UI_INCLUDES ${ROOT_DIR}/gui/ConfigureCtyDialog.h)
+list (APPEND UI_INCLUDES ${ROOT_DIR}/gui/AddQSODialog.h)
+
 set(PROJECT_SOURCES
-        ${ROOT_DIR}/main.cpp
+#        ${ROOT_DIR}/main.cpp
         ${ROOT_DIR}/gui/GLogApplication.cpp
-        ${ROOT_DIR}/gui/GLogApplication.h
-        ${ROOT_DIR}/gui/GLogApplication.ui
         ${ROOT_DIR}/gui/SearchBar.cpp
-        ${ROOT_DIR}/gui/SearchBar.h
-        ${ROOT_DIR}/gui/SearchBar.ui
-        ${ROOT_DIR}/gui/MapWidget.h
         ${ROOT_DIR}/gui/MapWidget.cpp
-        ${ROOT_DIR}/gui/MapWidget.ui
-        ${ROOT_DIR}/gui/ConfigureCtyDialog.h
         ${ROOT_DIR}/gui/ConfigureCtyDialog.cpp
-        ${ROOT_DIR}/gui/ConfigureCtyDialog.ui
-        ${ROOT_DIR}/gui/AddQSODialog.h
         ${ROOT_DIR}/gui/AddQSODialog.cpp
-        ${ROOT_DIR}/gui/AddQSODialog.ui
+        ${UI_FILES}
+        ${UI_INCLUDES}
 )
 
 qt_add_resources(PROJECT_SOURCES assets.qrc)
 
-qt_add_executable(${PROJECT_NAME} ${PROJECT_SOURCES})
+set(PROJECT_SHARED "${PROJECT_NAME}Core")
+
+add_library(${PROJECT_SHARED} SHARED ${PROJECT_SOURCES})
+
+target_link_libraries(${PROJECT_SHARED}
+    PUBLIC
+        ${EXTRA_LIBS}
+        Qt6::Widgets
+        Qt6::Network
+        Qt6::SvgWidgets
+        Qt6::OpenGLWidgets
+        Qt6::Sql
+)
+
+target_include_directories(${PROJECT_SHARED} PUBLIC 
+    ${CMAKE_INCLUDE_CURRENT_DIR}
+)
+
+if(WIN32)
+    set_target_properties(${PROJECT_SHARED} PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
+endif()
+
+qt_add_executable(${PROJECT_NAME} ${ROOT_DIR}/main.cpp)
+
+target_link_libraries(${PROJECT_NAME} PRIVATE ${PROJECT_SHARED})
 
 if (WIN32)
     set_target_properties(${PROJECT_NAME}
@@ -127,15 +156,7 @@ if (APPLE)
     )
 endif()
 
-target_link_libraries(${PROJECT_NAME}
-    PUBLIC
-        ${EXTRA_LIBS}
-        Qt6::Widgets
-        Qt6::Network
-        Qt6::SvgWidgets
-        Qt6::OpenGLWidgets
-        Qt6::Sql
-)
+
 
 set(deploy_extra_options "")
 
@@ -149,7 +170,7 @@ if(WIN32)
     include(InstallRequiredSystemLibraries)
 endif()
 
-install(TARGETS ${PROJECT_NAME}
+install(TARGETS ${PROJECT_NAME} ${PROJECT_SHARED}
     BUNDLE  DESTINATION .
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
@@ -162,8 +183,12 @@ qt_generate_deploy_app_script(
 )
 install(SCRIPT ${deploy_script})
 
-# TODO
+option(BUILD_TESTING "Build the testing suite" ON)
+
+if(BUILD_TESTING)
 enable_testing()
+add_subdirectory(tests)
+endif()
 
 
 

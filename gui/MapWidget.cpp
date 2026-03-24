@@ -1,4 +1,5 @@
 #include "MapWidget.h"
+#include "ui_MapWidget.h"
 #include "ctydb.h"
 #include <QGraphicsEllipseItem>
 #include <QMouseEvent>
@@ -9,11 +10,11 @@
 #include <QOpenGLWidget>
 #include <QActionGroup>
 
-MapWidget::MapWidget(AdifModel * model, QWidget *parent) : m_model(model) ,  QMainWindow(parent)
+MapWidget::MapWidget(AdifModel * model, QWidget *parent) : m_model(model) ,  QMainWindow(parent), ui(new Ui::MapWidgetClass())
 {
-    ui.setupUi(this);
+    ui->setupUi(this);
     title = windowTitle();
-    connect(ui.graphicsView, &MapGraphicsView::mouseMoveTo, [=](qreal x, qreal y) {
+    connect(ui->graphicsView, &MapGraphicsView::mouseMoveTo, [=](qreal x, qreal y) {
         QString xt = x > 0 ? "° E" : "° W";
         QString yt = y > 0 ? "° N" : "° S";
         setWindowTitle(title + "   " + QString::number(qAbs(x)) + xt + ",   " + QString::number(qAbs(y)) + yt);
@@ -23,20 +24,30 @@ MapWidget::MapWidget(AdifModel * model, QWidget *parent) : m_model(model) ,  QMa
 
     connect(this, &MapWidget::dataVisualizeRe, this, &MapWidget::dataVisualize, Qt::QueuedConnection);
 
-    connect(ui.actionDrag_Mode, &QAction::triggered, [=](){
-        ui.graphicsView->setDragMode(QGraphicsView::ScrollHandDrag);
+    connect(ui->actionDrag_Mode, &QAction::triggered, [=](){
+        ui->graphicsView->setDragMode(QGraphicsView::ScrollHandDrag);
     });
-    connect(ui.actionSelect_Mode, &QAction::triggered, [=](){
-        ui.graphicsView->setDragMode(QGraphicsView::RubberBandDrag);
+    connect(ui->actionSelect_Mode, &QAction::triggered, [=](){
+        ui->graphicsView->setDragMode(QGraphicsView::RubberBandDrag);
     });
 
     auto viewDragModeGroup = new QActionGroup(this);
-    viewDragModeGroup->addAction(ui.actionDrag_Mode);
-    viewDragModeGroup->addAction(ui.actionSelect_Mode);
+    viewDragModeGroup->addAction(ui->actionDrag_Mode);
+    viewDragModeGroup->addAction(ui->actionSelect_Mode);
     viewDragModeGroup->setExclusive(true);
 
-    ui.graphicsView->setDragMode(QGraphicsView::ScrollHandDrag);
-    ui.actionDrag_Mode->setChecked(true);
+    ui->graphicsView->setDragMode(QGraphicsView::ScrollHandDrag);
+    ui->actionDrag_Mode->setChecked(true);
+}
+
+MapWidget::~MapWidget()
+{
+    delete ui;
+}
+
+MapGraphicsView *MapWidget::getMapGraphicsView()
+{
+    return ui->graphicsView;
 }
 
 void MapWidget::clearMarkers()
@@ -73,11 +84,11 @@ void MapWidget::initCtyMarkersBatch()
 
         for (auto i = add_markers_begin; i < add_markers_end; ++i) {
             auto & ent = entdb[i];
-            auto maker = ui.graphicsView->createMarker(ent->name, ent->lon, ent->lat);
+            auto maker = ui->graphicsView->createMarker(ent->name, ent->lon, ent->lat);
             Q_ASSERT(i == ent->location_id);
             m_markers[ent->location_id] = maker;
             maker->setVisible(false);
-            ui.graphicsView->addItem(maker);
+            ui->graphicsView->addItem(maker);
         }
         add_markers_begin = add_markers_end;
         break;

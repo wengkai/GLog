@@ -1,7 +1,8 @@
 #ifndef CONFIGURECTYDIALOG_H
 #define CONFIGURECTYDIALOG_H
 
-#include "ui_ConfigureCtyDialog.h"
+#include <QDialog>
+namespace Ui{ class ConfigureCtyDialogClass; };
 
 class ConfigureCtyDialog : public QDialog
 {
@@ -28,7 +29,7 @@ signals:
     void endLoadDB(QString load_hint);
 
 private:
-    Ui::ConfigureCtyDialogClass ui;
+    Ui::ConfigureCtyDialogClass * ui;
     QString db_hint;
     QPushButton * m_ok = nullptr;
     int disable_count = 0;
