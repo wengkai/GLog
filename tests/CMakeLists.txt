@@ -15,3 +15,11 @@ target_link_libraries(${HELLO_CTEST} PRIVATE
 )
 
 add_test(NAME ${HELLO_CTEST} COMMAND ${HELLO_CTEST})
+
+if(WIN32)
+    set_tests_properties(
+        HelloCTest 
+            PROPERTIES ENVIRONMENT 
+            "PATH=$<TARGET_FILE_DIR:${PROJECT_SHARED}>;$ENV{PATH}"
+    )
+endif()

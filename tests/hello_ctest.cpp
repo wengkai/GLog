@@ -36,6 +36,7 @@ private slots:
 };
 
 int main(int argc, char *argv[]) {
+    std::cout << "Current PATH: " << std::getenv("PATH") << std::endl;
     QApplication app(argc, argv);
     TestMainWindow tc;
     int result = QTest::qExec(&tc, argc, argv);
