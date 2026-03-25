@@ -1,11 +1,12 @@
 #ifndef ADDQSODIALOG_H
 #define ADDQSODIALOG_H
 
+#include "app_export.h"
 #include "adifdb.h"
 #include <QDialog>
 namespace Ui{ class AddQSODialogClass; };
 
-class AddQSODialog : public QDialog
+class APP_EXPORT AddQSODialog : public QDialog
 {
     Q_OBJECT
 

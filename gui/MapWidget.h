@@ -1,12 +1,13 @@
 #ifndef MAPWIDGET
 #define MAPWIDGET
 
+#include "app_export.h"
 #include "record.h"
 #include "MapGraphicsView.h"
 #include "adifdb.h"
 namespace Ui{ class MapWidgetClass; };
 
-class MapWidget : public QMainWindow 
+class APP_EXPORT MapWidget : public QMainWindow 
 {
     Q_OBJECT
 

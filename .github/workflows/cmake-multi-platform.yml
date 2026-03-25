@@ -5,7 +5,7 @@ name: CMake on multiple platforms
 on:
   push:
     branches: [ "main" ]
-    tags: [ "v*" ]
+    tags: [ "*" ]
   pull_request:
     branches: [ "main" ]
 
@@ -46,21 +46,32 @@ jobs:
 
   build-windows:
     runs-on: windows-latest
+    env:
+      DOWNLOAD_URL: "https://github.com/llxx2013/qt6windows7/releases/download/6.8.3-msvc-release/6.8.3-msvc-release.zip"
+      TARGET_PATH: "downloads/qt6_custom.zip"
     steps:
       - uses: actions/checkout@v4
 
       - name: Install Tools
         run: choco install winflexbison3 -y
 
-      - name: Download Custom Qt
+      - name: Cache Downloaded File
+        uses: actions/cache@v4
+        id: cache-download
+        with:
+          path: ${{ env.TARGET_PATH }}
+          key: download-${{ env.DOWNLOAD_URL }}
+
+      - if: steps.cache-download.outputs.cache-hit != 'true'
+        name: Download Custom Qt
         shell: pwsh
         run: |
-          curl -L -o qt6_custom.zip "https://github.com/llxx2013/qt6windows7/releases/download/6.8.3-msvc-release/6.8.3-msvc-release.zip"
-          Expand-Archive qt6_custom.zip -DestinationPath C:\QtCustom
+          curl -L -o ${{ env.TARGET_PATH }} ${{ env.DOWNLOAD_URL }}
 
       - name: Setup Environment
         shell: pwsh
         run: |
+          Expand-Archive ${{ env.TARGET_PATH }} -DestinationPath C:\QtCustom
           echo "C:\QtCustom\bin" >> $GITHUB_PATH
           ls "C:\ProgramData\chocolatey\lib\winflexbison3\tools\"
 
@@ -88,11 +99,55 @@ jobs:
         with:
           name: Zip-Windows
           path: GLog-*.zip
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: '6.6.0'
+        host: 'mac'
+        target: 'desktop'
+        modules: 'qtcharts qtsvg'
+
+    - name: Configure CMake
+      run: |
+        cmake -S . -B build \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_PREFIX_PATH=$Qt6_DIR \
+          -DCMAKE_INSTALL_PREFIX=./deploy_out
+
+    - name: Build & Test
+      run: |
+        cmake --build build --config Release
+        cd build
+        ctest -C Release --output-on-failure
+
+    - name: Install & Deploy
+      run: |
+        cmake --install build --config Release --prefix deploy_out
+        AAPP_PATH=$(find deploy_out -name "*.app" -type d -maxdepth 3 | head -n 1)
+        echo "Found App Bundle: $APP_PATH"
+        
+        DMG_NAME="GLog-macOS-${{ github.ref_name }}.dmg"
+        hdiutil create -volname "GLog" -srcfolder "$APP_PATH" -ov -format UDZO "$DMG_NAME"
+    
+    - name: Upload Build Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: macos-app
+        path: *.dmg
 
   release:
     name: Create Release
-    needs: [build-linux, build-windows]
-    if: startsWith(github.ref, 'refs/tags/')
+    needs: [build-linux, build-windows, build-macos]
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -110,6 +165,7 @@ jobs:
           files: |
             ./artifacts/*.AppImage
             ./artifacts/*.zip
+            ./artifacts/*.dmg
           prerelease: ${{ contains(github.ref_name, 'rc') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') || contains(github.ref_name, 'dev') }}
           generate_release_notes: true
         env:

@@ -1,11 +1,12 @@
 #ifndef SEARCHBAR_H
 #define SEARCHBAR_H
 
+#include "app_export.h"
 #include <QDialog>
 #include <QModelIndex>
 namespace Ui{ class SearchBarClass; };
 
-class SearchBar : public QDialog
+class APP_EXPORT SearchBar : public QDialog
 {
     Q_OBJECT
 

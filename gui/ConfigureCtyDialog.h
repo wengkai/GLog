@@ -1,10 +1,11 @@
 #ifndef CONFIGURECTYDIALOG_H
 #define CONFIGURECTYDIALOG_H
 
+#include "app_export.h"
 #include <QDialog>
 namespace Ui{ class ConfigureCtyDialogClass; };
 
-class ConfigureCtyDialog : public QDialog
+class APP_EXPORT ConfigureCtyDialog : public QDialog
 {
     Q_OBJECT
 

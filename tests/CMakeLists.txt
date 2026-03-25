@@ -2,30 +2,45 @@ find_package(Qt6 6.5
     COMPONENTS
         Core
         Test
+        Widgets
 REQUIRED)
 
-set(HELLO_CTEST "HelloCTest")
+macro(add_test_unit test_name)
+    qt_add_executable(${test_name} "${test_name}.cpp")
 
-qt_add_executable(${HELLO_CTEST} hello_ctest.cpp)
+    target_link_libraries(${test_name} PRIVATE 
+        ${PROJECT_SHARED}
+        Qt6::Core
+        Qt6::Test
+        Qt6::Widgets
+    )
 
-target_link_libraries(${HELLO_CTEST} PRIVATE 
-    ${PROJECT_SHARED}
-    Qt6::Core
-    Qt6::Test
-)
+    add_test(NAME ${test_name} COMMAND ${test_name})
 
-add_test(NAME ${HELLO_CTEST} COMMAND ${HELLO_CTEST})
+    list(APPEND TEST_UNITS ${test_name})
+    
+    message(STATUS "Added test unit: ${test_name}")
+endmacro()
+
+add_test_unit(hello_ctest)
+
+add_test_unit(ctydb_test)
 
 if(WIN32)
     get_target_property(_qt_core_path Qt6::Core LOCATION)
     
     get_filename_component(_qt_bin_dir "${_qt_core_path}" DIRECTORY)
 
-    set_tests_properties(
-        HelloCTest 
-            PROPERTIES ENVIRONMENT_MODIFICATION 
-            "PATH=path_list_prepend:$<TARGET_FILE_DIR:${PROJECT_SHARED}>;PATH=path_list_prepend:${_qt_bin_dir}"
+    set(PATH_MODIFICATION
+        "PATH=path_list_prepend:$<TARGET_FILE_DIR:${PROJECT_SHARED}>"
+        "PATH=path_list_prepend:${_qt_bin_dir}"
     )
 
-    message(STATUS "Test Runtime Qt Dir: ${_qt_bin_dir}")
+    set_tests_properties(
+        ${TEST_UNITS}
+            PROPERTIES ENVIRONMENT_MODIFICATION 
+            "${PATH_MODIFICATION}"
+    )
+
+    message(STATUS "Tests Qt Runtime Dir: ${_qt_bin_dir}")
 endif()

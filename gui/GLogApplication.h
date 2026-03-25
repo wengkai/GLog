@@ -1,10 +1,12 @@
 #ifndef GLOG_UI_H
 #define GLOG_UI_H
 
+#include <QtResource>
 #include <QtWidgets/QMainWindow>
 #include <QTableView>
 #include <QMimeData>
 #include <QMessageBox>
+#include "app_export.h"
 #include "adifdb.h"
 #include "glogparser.h"
 #include "DropAbleTableView.h"
@@ -13,9 +15,12 @@
 #include "ConfigureCtyDialog.h"
 #include "AddQSODialog.h"
 #include "GlobalNetwork.h"
+
+inline void initAssetsResource() { Q_INIT_RESOURCE(assets); }
+
 namespace Ui{ class GLogApplicationClass; };
 
-class GLogApplication : public QMainWindow
+class APP_EXPORT GLogApplication : public QMainWindow
 {
     Q_OBJECT
 
@@ -28,6 +33,8 @@ public:
     void mergeFile(const QString& filename, bool remove = false);
     void saveAsFile(const QString& filename);
     void extractZip(const QString & zipPath, const QString & extractDir, QNetworkAccessManager & manager);
+    void initCtyDB(bool show_warning = true);
+    CtyDB * getCtyDBInstance() const;
     
 public slots:
     void openFileAction();
@@ -51,6 +58,7 @@ signals:
     void showMessage(QString message, int timeout = 0);
     void disableAction(QAction * action);
     void enableAction(QAction * action);
+    void initCtyDBDone();
 
 private:
     Ui::GLogApplicationClass * ui;

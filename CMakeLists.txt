@@ -13,6 +13,7 @@ find_package(Qt6 6.5
         SvgWidgets
         OpenGLWidgets
         Sql
+        Test
 REQUIRED)
 qt_standard_project_setup()
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -120,6 +121,8 @@ set(PROJECT_SHARED "${PROJECT_NAME}Core")
 
 add_library(${PROJECT_SHARED} SHARED ${PROJECT_SOURCES})
 
+target_compile_definitions(${PROJECT_SHARED} PRIVATE GLOG_LIB)
+
 target_link_libraries(${PROJECT_SHARED}
     PUBLIC
         ${EXTRA_LIBS}
@@ -136,6 +139,11 @@ target_include_directories(${PROJECT_SHARED} PUBLIC
 
 if(WIN32)
     set_target_properties(${PROJECT_SHARED} PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
+    if(MSVC)
+        set_target_properties(${PROJECT_SHARED} PROPERTIES 
+            LINK_FLAGS "/ignore:4197"
+        )
+    endif()
 endif()
 
 qt_add_executable(${PROJECT_NAME} ${ROOT_DIR}/main.cpp)

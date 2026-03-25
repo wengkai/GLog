@@ -111,25 +111,7 @@ GLogApplication::GLogApplication(QWidget *parent)
         configureCtyDialog->exec();
     });
 
-    configureCtyDialog->disableCtyConfigure();
-    GLogConcurrent::makeFuture([=](){
-        QEventLoop loop;
-        QNetworkAccessManager manager;
-        QNetworkRequest req(QUrl(QString::fromLatin1(CtyDB::DEFAULT_ONLINE_DATA)));
-        GLogNetwork::setGeneralHeader(req);
-        auto rep = manager.get(req);
-        QObject::connect(rep, &QNetworkReply::finished, &loop, &QEventLoop::quit);
-        loop.exec();
-        if (rep->error() == QNetworkReply::NoError) {
-            ctydb->loadDB(*rep, CtyDB::DEFAULT_ONLINE_DATA);
-        } else {
-            emit warning(tr("Warning"), tr("Can not fetch cty.dat online. Using build-in one.\nYou should consider to check your network, or add a cty.dat manually.\n") + rep->errorString(), QMessageBox::StandardButton::Ok);
-            ctydb->loadLocalDB();
-        }
-        rep->deleteLater();
-    }).then(this, [=](){
-        configureCtyDialog->enableCtyConfigure();
-    });
+    initCtyDB();
 
     GLogNetwork::init(this);
 
@@ -270,6 +252,39 @@ void GLogApplication::extractZip(const QString& zipPath, const QString& extractD
 #endif
 }
 
+void GLogApplication::initCtyDB(bool show_warning)
+{
+    qDebug() << "Checking DB initialization. Object Address:" << this
+        << " | Thread:" << QThread::currentThread();
+
+    auto ctydb = CtyDB::instance();
+    configureCtyDialog->disableCtyConfigure();
+    GLogConcurrent::makeFuture([=](){
+        QEventLoop loop;
+        QNetworkAccessManager manager;
+        QNetworkRequest req(QUrl(QString::fromLatin1(CtyDB::DEFAULT_ONLINE_DATA)));
+        GLogNetwork::setGeneralHeader(req);
+        auto rep = manager.get(req);
+        QObject::connect(rep, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+        loop.exec();
+        if (rep->error() == QNetworkReply::NoError) {
+            auto cty = QString(rep->readAll());
+            ctydb->loadDBString(cty, CtyDB::DEFAULT_ONLINE_DATA);
+        } else {
+            if (show_warning) emit warning(tr("Warning"), tr("Can not fetch cty.dat online. Using build-in one.\nYou should consider to check your network, or add a cty.dat manually.\n") + rep->errorString(), QMessageBox::StandardButton::Ok);
+            ctydb->loadLocalDB();
+        }
+        rep->deleteLater();
+    }).then(this, [=](){
+        configureCtyDialog->enableCtyConfigure();
+        emit initCtyDBDone();
+    });
+}
+
+CtyDB *GLogApplication::getCtyDBInstance() const
+{
+    return CtyDB::instance();
+}
 
 void GLogApplication::mergeFileAction() 
 {

@@ -12,31 +12,24 @@ private slots:
     }
 
     void testWindowTitle() {
-        {
-            GLogApplication w;
-            w.setWindowTitle("Test Title");
-            QCOMPARE(w.windowTitle(), QString("Test Title"));
-        }
-        QCoreApplication::processEvents();
+        GLogApplication w;
+        w.setWindowTitle("Test Title");
+        QCOMPARE(w.windowTitle(), QString("Test Title"));
     }
 
     void testLogic() {
-        {
-            GLogApplication w;
-            QVERIFY(w.isVisible() == false);
-            qDebug() << "Successfully created GLogApplication with UI!";
-        }
-        QCoreApplication::processEvents();
+        GLogApplication w;
+        QVERIFY(w.isVisible() == false);
+        qDebug() << "Successfully created GLogApplication with UI!";
     }
 
     void cleanupTestCase() {
         qDebug("Cleaning up...");
-        QCoreApplication::processEvents();
     }
 };
 
 int main(int argc, char *argv[]) {
-    std::cout << "Current PATH: " << std::getenv("PATH") << std::endl;
+    //std::cout << "Current PATH: " << std::getenv("PATH") << std::endl;
     QApplication app(argc, argv);
     TestMainWindow tc;
     int result = QTest::qExec(&tc, argc, argv);
