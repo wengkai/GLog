@@ -201,43 +201,13 @@ else()
     )
 endif()
 
-# if(APPLE)
-#     get_target_property(_qt_bin_dir Qt6::Core LOCATION)
-#     get_filename_component(_qt_bin_dir "${_qt_bin_dir}" DIRECTORY)
-#     find_program(MACDEPLOYQT_EXECUTABLE macdeployqt HINTS "${_qt_bin_dir}")
-#     install(CODE "
-#         message(STATUS \"Running custom macdeployqt...\")
-#         execute_process(
-#             COMMAND \"${MACDEPLOYQT_EXECUTABLE}\" \"\${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}.app\"
-#                     -always-overwrite
-#                     -verbose=1
-#         )
-
-#         message(STATUS \"Cleaning up unused SQL drivers...\")
-#         set(SQL_PLUGINS_DIR \"\${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}.app/Contents/PlugIns/sqldrivers\")
-        
-#         set(UNUSED_DRIVERS 
-#             \"libqsqlodbc.dylib\" 
-#             \"libqsqlpsql.dylib\" 
-#             \"libqsqlmimer.dylib\"
-#         )
-
-#         foreach(DRIVER ${UNUSED_DRIVERS})
-#             if(EXISTS \"\${SQL_PLUGINS_DIR}/\${DRIVER}\")
-#                 message(STATUS \"Removing \${DRIVER} to avoid dependency errors.\")
-#                 file(REMOVE \"\${SQL_PLUGINS_DIR}/\${DRIVER}\")
-#             endif()
-#         endforeach()
-#     " COMPONENT Runtime)
-# else()
-    qt_generate_deploy_app_script(
-        TARGET ${PROJECT_NAME}
-        OUTPUT_SCRIPT deploy_script
-        NO_UNSUPPORTED_PLATFORM_ERROR
-        DEPLOY_TOOL_OPTIONS ${deploy_extra_options}
-    )
-    install(SCRIPT ${deploy_script})
-# endif()
+qt_generate_deploy_app_script(
+    TARGET ${PROJECT_NAME}
+    OUTPUT_SCRIPT deploy_script
+    NO_UNSUPPORTED_PLATFORM_ERROR
+    DEPLOY_TOOL_OPTIONS ${deploy_extra_options}
+)
+install(SCRIPT ${deploy_script})
 
 option(BUILD_TESTING "Build the testing suite" ON)
 

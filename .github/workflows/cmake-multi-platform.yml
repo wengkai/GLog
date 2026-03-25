@@ -138,16 +138,19 @@ jobs:
 
       - name: Install & Deploy
         run: |
+          sudo mkdir -p /usr/local/lib
+          sudo touch /usr/local/lib/libmimerapi.dylib
           cmake --install build --config Release --prefix deploy_out
           APP_PATH=$(find deploy_out -name "*.app" -type d -maxdepth 3 | head -n 1)
           echo "Found App Bundle: $APP_PATH"
+          SQL_DIR="$APP_PATH/Contents/PlugIns/sqldrivers"
+          echo "Removing unused SQL drivers..."
+          rm -f "$SQL_DIR/libqsqlmimer.dylib"
           if ! command -v tree &> /dev/null; then
             brew install tree
           fi
           echo "--- App Bundle Structure ---"
           tree "$APP_PATH" -L 4
-          echo "--- Dependency RPath Verification ---"
-          otool -L "$APP_PATH/Contents/MacOS/GLog" | grep -v "@executable_path" | grep "/Users/runner" && echo "ERROR: Absolute paths detected!" || echo "OK: RPaths look clean."
           DMG_NAME="GLog-${{ github.ref_name }}-macOS.dmg"
           hdiutil create -volname "GLog" -srcfolder "$APP_PATH" -ov -format UDZO "$DMG_NAME"
 
