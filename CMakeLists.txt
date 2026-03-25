@@ -4,7 +4,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 project ("GLog")
 
-find_package(Qt6 6.5
+find_package(Qt6 6.7
     COMPONENTS
         Core
         Gui
