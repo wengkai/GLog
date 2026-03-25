@@ -35,13 +35,13 @@ jobs:
             echo "Installing tree..."
             dnf install -y tree
           fi
-          echo "--- AppDir Structure ---"
-          tree $PWD/AppDir -L 4
           VERSION=${{ github.ref_name }} linuxdeploy --appdir $PWD/AppDir \
             -d $PWD/linux-deploy/GLog.desktop \
             -e $PWD/AppDir/usr/bin/GLog \
             -i $PWD/linux-deploy/GLog.png \
             --plugin=qt --output appimage
+          echo "--- AppDir Structure ---"
+          tree $PWD/AppDir -L 4
 
       - name: Upload Linux Artifact
         uses: actions/upload-artifact@v4
