@@ -164,7 +164,11 @@ if (APPLE)
     )
 endif()
 
-
+if(APPLE)
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        INSTALL_RPATH "@executable_path/../Frameworks"
+    )
+endif()
 
 set(deploy_extra_options "")
 
@@ -178,10 +182,19 @@ if(WIN32)
     include(InstallRequiredSystemLibraries)
 endif()
 
-install(TARGETS ${PROJECT_NAME} ${PROJECT_SHARED}
-    BUNDLE  DESTINATION .
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-)
+if(APPLE)
+    install(TARGETS ${PROJECT_NAME}
+        BUNDLE DESTINATION .
+    )
+    install(TARGETS ${PROJECT_SHARED}
+        LIBRARY DESTINATION ${PROJECT_NAME}.app/Contents/Frameworks
+    )
+else()
+    install(TARGETS ${PROJECT_NAME} ${PROJECT_SHARED}
+        BUNDLE  DESTINATION .
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    )
+endif()
 
 qt_generate_deploy_app_script(
     TARGET ${PROJECT_NAME}
