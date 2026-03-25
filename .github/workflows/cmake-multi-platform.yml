@@ -18,7 +18,7 @@ jobs:
     defaults:
       run:
         shell: bash -l {0}
-    
+
     steps:
       - uses: actions/checkout@v4
 
@@ -30,13 +30,12 @@ jobs:
 
       - name: Package AppImage
         run: |
-          DESTDIR=$PWD/AppDir cmake --install build 
+          DESTDIR=$PWD/AppDir cmake --install build
           VERSION=${{ github.ref_name }} linuxdeploy --appdir $PWD/AppDir \
             -d $PWD/linux-deploy/GLog.desktop \
             -e $PWD/AppDir/usr/bin/GLog \
             -i $PWD/linux-deploy/GLog.png \
             --plugin=qt --output appimage
-#          mv *.AppImage GLog-${{ github.ref_name }}-x86_64.AppImage
 
       - name: Upload Linux Artifact
         uses: actions/upload-artifact@v4
@@ -62,10 +61,11 @@ jobs:
           path: ${{ env.TARGET_PATH }}
           key: download-${{ env.DOWNLOAD_URL }}
 
-      - if: steps.cache-download.outputs.cache-hit != 'true'
-        name: Download Custom Qt
+      - name: Download Custom Qt
+        if: steps.cache-download.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
+          if (!(Test-Path "downloads")) { New-Item -ItemType Directory -Path "downloads" }
           curl -L -o ${{ env.TARGET_PATH }} ${{ env.DOWNLOAD_URL }}
 
       - name: Setup Environment
@@ -99,9 +99,9 @@ jobs:
         with:
           name: Zip-Windows
           path: GLog-*.zip
+
   build-macos:
     runs-on: macos-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -134,10 +134,9 @@ jobs:
           cmake --install build --config Release --prefix deploy_out
           APP_PATH=$(find deploy_out -name "*.app" -type d -maxdepth 3 | head -n 1)
           echo "Found App Bundle: $APP_PATH"
-          
           DMG_NAME="GLog-macOS-${{ github.ref_name }}.dmg"
           hdiutil create -volname "GLog" -srcfolder "$APP_PATH" -ov -format UDZO "$DMG_NAME"
-      
+
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -151,7 +150,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-
     steps:
       - name: Download All Artifacts
         uses: actions/download-artifact@v4
