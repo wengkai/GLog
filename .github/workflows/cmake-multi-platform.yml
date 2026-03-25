@@ -108,6 +108,12 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Install Bison and Flex
+        run: |
+          brew install bison flex
+          echo "$(brew --prefix bison)/bin" >> $GITHUB_PATH
+          echo "$(brew --prefix flex)/bin" >> $GITHUB_PATH
+
       - name: Install Qt
         uses: jurplel/install-qt-action@v3
         with:
@@ -121,7 +127,8 @@ jobs:
           cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH=$Qt6_DIR \
-            -DCMAKE_INSTALL_PREFIX=./deploy_out
+            -DCMAKE_INSTALL_PREFIX=./deploy_out \
+            -DFLEX_INCLUDE_DIRS="$(brew --prefix flex)/include"
 
       - name: Build & Test
         run: |
