@@ -141,7 +141,7 @@ jobs:
           cmake --install build --config Release --prefix deploy_out
           APP_PATH=$(find deploy_out -name "*.app" -type d -maxdepth 3 | head -n 1)
           echo "Found App Bundle: $APP_PATH"
-          DMG_NAME="GLog-macOS-${{ github.ref_name }}.dmg"
+          DMG_NAME="GLog-${{ github.ref_name }}-macOS.dmg"
           hdiutil create -volname "GLog" -srcfolder "$APP_PATH" -ov -format UDZO "$DMG_NAME"
 
       - name: Upload Build Artifact

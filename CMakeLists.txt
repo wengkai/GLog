@@ -165,6 +165,11 @@ if (APPLE)
 endif()
 
 if(APPLE)
+    set_target_properties(${PROJECT_SHARED} PROPERTIES
+        BUILD_WITH_INSTALL_RPATH TRUE
+        INSTALL_NAME_DIR "@rpath"
+    )
+    
     set_target_properties(${PROJECT_NAME} PROPERTIES
         INSTALL_RPATH "@executable_path/../Frameworks"
     )
@@ -196,13 +201,27 @@ else()
     )
 endif()
 
-qt_generate_deploy_app_script(
-    TARGET ${PROJECT_NAME}
-    OUTPUT_SCRIPT deploy_script
-    NO_UNSUPPORTED_PLATFORM_ERROR
-    DEPLOY_TOOL_OPTIONS ${deploy_extra_options}
-)
-install(SCRIPT ${deploy_script})
+if(APPLE)
+    get_target_property(_qt_bin_dir Qt6::Core LOCATION)
+    get_filename_component(_qt_bin_dir "${_qt_bin_dir}" DIRECTORY)
+    find_program(MACDEPLOYQT_EXECUTABLE macdeployqt HINTS "${_qt_bin_dir}")
+    install(CODE "
+        message(STATUS \"Running custom macdeployqt...\")
+        execute_process(
+            COMMAND \"${MACDEPLOYQT_EXECUTABLE}\" \"\${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}.app\"
+                    -always-overwrite
+                    -verbose=1
+        )
+    " COMPONENT Runtime)
+else()
+    qt_generate_deploy_app_script(
+        TARGET ${PROJECT_NAME}
+        OUTPUT_SCRIPT deploy_script
+        NO_UNSUPPORTED_PLATFORM_ERROR
+        DEPLOY_TOOL_OPTIONS ${deploy_extra_options}
+    )
+    install(SCRIPT ${deploy_script})
+endif()
 
 option(BUILD_TESTING "Build the testing suite" ON)
 
