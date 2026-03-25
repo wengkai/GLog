@@ -146,6 +146,8 @@ jobs:
           fi
           echo "--- App Bundle Structure ---"
           tree "$APP_PATH" -L 4
+          echo "--- Dependency RPath Verification ---"
+          otool -L "$APP_PATH/Contents/MacOS/GLog" | grep -v "@executable_path" | grep "/Users/runner" && echo "ERROR: Absolute paths detected!" || echo "OK: RPaths look clean."
           DMG_NAME="GLog-${{ github.ref_name }}-macOS.dmg"
           hdiutil create -volname "GLog" -srcfolder "$APP_PATH" -ov -format UDZO "$DMG_NAME"
 
