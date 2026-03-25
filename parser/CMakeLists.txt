@@ -20,17 +20,23 @@ qt_add_library(${LIB_NAME} STATIC
 list (APPEND PARSER_INCLUDE_FILES ${CMAKE_BINARY_DIR})
 
 if(${FLEX_INCLUDE_DIRS} MATCHES "NOTFOUND$")
+    if(WIN32)
         unset(FLEX_INCLUDE_DIRS CACHE)
         find_path(FLEX_INCLUDE_DIRS 
             NAMES FlexLexer.h
             PATHS "C:/ProgramData/chocolatey/lib/winflexbison3/tools"
         )
+    endif()
 endif()
 
 if(NOT FLEX_INCLUDE_DIRS OR "${FLEX_INCLUDE_DIRS}" MATCHES "NOTFOUND$")
     message(WARNING "FLEX_INCLUDE_DIRS:NOTFOUND")
 else()
-    list(APPEND PARSER_INCLUDE_FILES ${FLEX_INCLUDE_DIRS})
+    if (APPLE)
+        # include FLEX_INCLUDE_DIRS on macos will cause a crash
+    else()
+        list(APPEND PARSER_INCLUDE_FILES ${FLEX_INCLUDE_DIRS})
+    endif()
 endif()
 
 target_include_directories(${LIB_NAME} PUBLIC
