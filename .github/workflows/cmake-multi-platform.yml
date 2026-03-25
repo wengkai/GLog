@@ -139,13 +139,15 @@ jobs:
       - name: Install & Deploy
         run: |
           sudo mkdir -p /usr/local/lib
-          sudo touch /usr/local/lib/libmimerapi.dylib
+          REAL_DYLIB=$(find build -name "libGLogCore.dylib" -type f | head -n 1)
+          sudo cp "$REAL_DYLIB" /usr/local/lib/libmimerapi.dylib
           cmake --install build --config Release --prefix deploy_out
           APP_PATH=$(find deploy_out -name "*.app" -type d -maxdepth 3 | head -n 1)
           echo "Found App Bundle: $APP_PATH"
           SQL_DIR="$APP_PATH/Contents/PlugIns/sqldrivers"
           echo "Removing unused SQL drivers..."
           rm -f "$SQL_DIR/libqsqlmimer.dylib"
+          rm -f "$APP_PATH/Contents/Frameworks/libmimerapi.dylib"
           if ! command -v tree &> /dev/null; then
             brew install tree
           fi
