@@ -13,7 +13,7 @@ jobs:
   build-linux:
     runs-on: ubuntu-latest
     container:
-      image: lxxl1024/almalinux-qt693-builder:latest
+      image: ghcr.io/llxx2013/qt693-builder:main
 
     defaults:
       run:
@@ -31,6 +31,12 @@ jobs:
       - name: Package AppImage
         run: |
           DESTDIR=$PWD/AppDir cmake --install build
+          if ! command -v tree &> /dev/null; then
+            echo "Installing tree..."
+            dnf install -y tree
+          fi
+          echo "--- AppDir Structure ---"
+          tree $PWD/AppDir -L 4
           VERSION=${{ github.ref_name }} linuxdeploy --appdir $PWD/AppDir \
             -d $PWD/linux-deploy/GLog.desktop \
             -e $PWD/AppDir/usr/bin/GLog \
@@ -91,6 +97,8 @@ jobs:
         shell: pwsh
         run: |
           cmake --install build --prefix C:/AppDir
+          echo "--- AppDir Structure ---"
+          Get-ChildItem -Path C:/AppDir -Recurse -Depth 3 | Select-Object FullName
           $fileName = "GLog-${{ github.ref_name }}-windows-x64.zip"
           Compress-Archive -Path C:/AppDir/* -DestinationPath $fileName
 
