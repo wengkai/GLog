@@ -212,6 +212,22 @@ if(APPLE)
                     -always-overwrite
                     -verbose=1
         )
+
+        message(STATUS \"Cleaning up unused SQL drivers...\")
+        set(SQL_PLUGINS_DIR \"\${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}.app/Contents/PlugIns/sqldrivers\")
+        
+        set(UNUSED_DRIVERS 
+            \"libqsqlodbc.dylib\" 
+            \"libqsqlpsql.dylib\" 
+            \"libqsqlmimer.dylib\"
+        )
+
+        foreach(DRIVER ${UNUSED_DRIVERS})
+            if(EXISTS \"\${SQL_PLUGINS_DIR}/\${DRIVER}\")
+                message(STATUS \"Removing \${DRIVER} to avoid dependency errors.\")
+                file(REMOVE \"\${SQL_PLUGINS_DIR}/\${DRIVER}\")
+            endif()
+        endforeach()
     " COMPONENT Runtime)
 else()
     qt_generate_deploy_app_script(
