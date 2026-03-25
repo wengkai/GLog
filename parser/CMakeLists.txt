@@ -19,7 +19,7 @@ qt_add_library(${LIB_NAME} STATIC
 
 list (APPEND PARSER_INCLUDE_FILES ${CMAKE_BINARY_DIR})
 
-if(${FLEX_INCLUDE_DIRS} MATCHES "NOTFOUND$")
+if(NOT FLEX_INCLUDE_DIRS OR NOT EXISTS "${FLEX_INCLUDE_DIRS}/FlexLexer.h")
     if(WIN32)
         unset(FLEX_INCLUDE_DIRS CACHE)
         find_path(FLEX_INCLUDE_DIRS 
@@ -27,18 +27,27 @@ if(${FLEX_INCLUDE_DIRS} MATCHES "NOTFOUND$")
             PATHS "C:/ProgramData/chocolatey/lib/winflexbison3/tools"
         )
     endif()
-endif()
-
-if(NOT FLEX_INCLUDE_DIRS OR "${FLEX_INCLUDE_DIRS}" MATCHES "NOTFOUND$")
-    message(WARNING "FLEX_INCLUDE_DIRS:NOTFOUND")
-else()
-    if (APPLE)
-        # include FLEX_INCLUDE_DIRS on macos will cause a crash
-    else()
-        list(APPEND PARSER_INCLUDE_FILES ${FLEX_INCLUDE_DIRS})
+    if(APPLE)
+        unset(FLEX_INCLUDE_DIRS CACHE)
+        execute_process(
+            COMMAND brew --prefix flex 
+            OUTPUT_VARIABLE 
+            FLEX_PREFIX 
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+        if(FLEX_PREFIX AND EXISTS "${FLEX_PREFIX}/include/FlexLexer.h")
+            set(FLEX_INCLUDE_DIRS "${FLEX_PREFIX}/include")
+        endif()
     endif()
 endif()
 
+if(NOT FLEX_INCLUDE_DIRS OR NOT EXISTS "${FLEX_INCLUDE_DIRS}/FlexLexer.h")
+    message(WARNING "FLEX_INCLUDE_DIRS:NOTFOUND")
+else()
+    list(APPEND PARSER_INCLUDE_FILES ${FLEX_INCLUDE_DIRS})
+endif()
+
 target_include_directories(${LIB_NAME} PUBLIC
+    BEFORE
         ${PARSER_INCLUDE_FILES}
 )
