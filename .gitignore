@@ -10,3 +10,4 @@ CMakePresets.json
 CMakeUserPresets.json
 CMakeLists.txt.user
 *.log
+AppDir/

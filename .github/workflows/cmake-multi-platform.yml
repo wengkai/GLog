@@ -9,6 +9,9 @@ on:
   pull_request:
     branches: [ "main" ]
 
+permissions:
+  contents: read
+
 jobs:
   build-linux:
     runs-on: ubuntu-latest
@@ -20,34 +23,66 @@ jobs:
         shell: bash -l {0}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Build & Test
         run: |
-          . $ENABLE_GCC_TOOLSET && qt-cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
-          . $ENABLE_GCC_TOOLSET && cmake --build build
+          . $ENABLE_GCC_TOOLSET && qt-cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=/usr \
+            -DCMAKE_INSTALL_LIBDIR=lib
+          . $ENABLE_GCC_TOOLSET && cmake --build build --parallel
           QT_QPA_PLATFORM=offscreen ctest --test-dir build --output-on-failure --verbose
 
       - name: Package AppImage
+        env:
+          VERSION: ${{ github.ref_name }}
+          EXTRA_PLATFORM_PLUGINS: "libqwayland-egl.so;libqwayland-generic.so"
+          EXTRA_QT_MODULES: "waylandcompositor"
         run: |
           DESTDIR=$PWD/AppDir cmake --install build
           if ! command -v tree &> /dev/null; then
             echo "Installing tree..."
             dnf install -y tree
           fi
-          VERSION=${{ github.ref_name }} linuxdeploy --appdir $PWD/AppDir \
+
+          linuxdeploy --appdir $PWD/AppDir \
             -d $PWD/linux-deploy/GLog.desktop \
             -e $PWD/AppDir/usr/bin/GLog \
             -i $PWD/linux-deploy/GLog.png \
-            --plugin=qt --output appimage
+            --plugin=qt 
+
+          echo "Processing translations..."
+          TRANS_DIR="$PWD/AppDir/usr/translations"
+          if [ -d "$TRANS_DIR" ]; then
+            pushd "$TRANS_DIR"
+            for base_file in qtbase_*.qm; do
+              if [ -f "$base_file" ]; then
+                target_file="${base_file/qtbase_/qt_}"
+                echo "Linking $target_file -> $base_file"
+                ln -sf "$base_file" "$target_file"
+              fi
+            done
+            popd
+          fi
+
           echo "--- AppDir Structure ---"
           tree $PWD/AppDir -L 4
 
+          linuxdeploy --appdir $PWD/AppDir --output appimage
+
+          APPIMAGE_BIN=$(ls GLog-*.AppImage | head -n 1)
+          TAR_NAME="${APPIMAGE_BIN%.AppImage}.tar.xz"
+          tar -cJf "$TAR_NAME" -C "$PWD/AppDir" .
+
       - name: Upload Linux Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: AppImage-Linux
-          path: ./*.AppImage
+          name: Linux-Deploy
+          path: |
+            ./*.AppImage
+            ./*.tar.xz
+          compression-level: 0
 
   build-windows:
     runs-on: windows-latest
@@ -55,13 +90,13 @@ jobs:
       DOWNLOAD_URL: "https://github.com/llxx2013/qt6windows7/releases/download/6.8.3-msvc-release/6.8.3-msvc-release.zip"
       TARGET_PATH: "downloads/qt6_custom.zip"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Tools
-        run: choco install winflexbison3 -y
+        run: choco install winflexbison3 nsis -y
 
       - name: Cache Downloaded File
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         id: cache-download
         with:
           path: ${{ env.TARGET_PATH }}
@@ -79,40 +114,80 @@ jobs:
         run: |
           Expand-Archive ${{ env.TARGET_PATH }} -DestinationPath C:\QtCustom
           echo "C:\QtCustom\bin" >> $GITHUB_PATH
+          echo "C:\Program Files (x86)\NSIS" >> $GITHUB_PATH
           ls "C:\ProgramData\chocolatey\lib\winflexbison3\tools\"
+          ls "C:\Program Files (x86)\NSIS"
+          ls "C:\ProgramData\chocolatey\lib\nsis"
 
       - name: Configure CMake
         shell: cmd
         run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           call C:\QtCustom\bin\qt-cmake.bat -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DFLEX_INCLUDE_DIRS="C:\ProgramData\chocolatey\lib\winflexbison3\tools"
 
       - name: Build & Test
-        shell: pwsh
+        shell: cmd
         run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           cmake --build build --config Release --parallel
           cd build
           ctest -C Release --output-on-failure --verbose
 
-      - name: Install & Deploy
-        shell: pwsh
+      - name: Install, Compress and Generate NSIS
+        shell: cmd
         run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+
           cmake --install build --prefix C:/AppDir
-          echo "--- AppDir Structure ---"
-          Get-ChildItem -Path C:/AppDir -Recurse -Depth 3 | Select-Object FullName
-          $fileName = "GLog-${{ github.ref_name }}-windows-x64.zip"
-          Compress-Archive -Path C:/AppDir/* -DestinationPath $fileName
+          echo --- AppDir Structure ---
+          dir /s C:\AppDir
+
+          set "VERSION=${{ github.ref_name }}"
+          set "ZIP_NAME=GLog-%VERSION%-windows-x64.zip"
+          set "EXE_NAME=GLog-%VERSION%-Installer-x64.exe"
+
+          powershell -Command "Compress-Archive -Path C:\AppDir\* -DestinationPath %ZIP_NAME% -Force"
+
+          (
+            echo !include "MUI2.nsh"
+            echo Name "GLog %VERSION%"
+            echo OutFile "%EXE_NAME%"
+            echo InstallDir "$PROGRAMFILES64\GLog"
+            echo RequestExecutionLevel admin
+            echo !insertmacro MUI_PAGE_WELCOME
+            echo !insertmacro MUI_PAGE_DIRECTORY
+            echo !insertmacro MUI_PAGE_INSTFILES
+            echo !insertmacro MUI_PAGE_FINISH
+            echo !insertmacro MUI_UNPAGE_CONFIRM
+            echo !insertmacro MUI_UNPAGE_INSTFILES
+            echo !insertmacro MUI_LANGUAGE "English"
+            echo Section "MainSection" SEC01
+            echo   SetOutPath "$INSTDIR"
+            echo   File /r "C:\AppDir\*"
+            echo   CreateShortCut "$SMPROGRAMS\GLog.lnk" "$INSTDIR\bin\GLog.exe"
+            echo   WriteUninstaller "$INSTDIR\Uninstall.exe"
+            echo SectionEnd
+            echo Section "Uninstall"
+            echo   Delete "$SMPROGRAMS\GLog.lnk"
+            echo   RMDir /r "$INSTDIR"
+            echo SectionEnd
+          ) > installer.nsi
+
+          "C:\Program Files (x86)\NSIS\makensis.exe" installer.nsi
 
       - name: Upload Windows Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: Zip-Windows
-          path: GLog-*.zip
+          name: Windows-Deploy
+          path: |
+            GLog-*.zip
+            GLog-*-Installer-x64.exe
 
   build-macos:
     runs-on: macos-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -123,7 +198,7 @@ jobs:
           echo "$(brew --prefix flex)/bin" >> $GITHUB_PATH
 
       - name: Install Qt
-        uses: jurplel/install-qt-action@v3
+        uses: jurplel/install-qt-action@v4
         with:
           version: '6.8.3'
           host: 'mac'
@@ -140,22 +215,17 @@ jobs:
 
       - name: Build & Test
         run: |
-          cmake --build build --config Release
+          cmake --build build --config Release --parallel
           cd build
-          ctest -C Release --output-on-failure
+          ctest -C Release --output-on-failure --verbose
 
       - name: Install & Deploy
         run: |
-          sudo mkdir -p /usr/local/lib
-          REAL_DYLIB=$(find build -name "libGLogCore.dylib" -type f | head -n 1)
-          sudo cp "$REAL_DYLIB" /usr/local/lib/libmimerapi.dylib
           cmake --install build --config Release --prefix deploy_out
+          find deploy_out -name "libqsqlmimer.dylib" -delete
+          
           APP_PATH=$(find deploy_out -name "*.app" -type d -maxdepth 3 | head -n 1)
           echo "Found App Bundle: $APP_PATH"
-          SQL_DIR="$APP_PATH/Contents/PlugIns/sqldrivers"
-          echo "Removing unused SQL drivers..."
-          rm -f "$SQL_DIR/libqsqlmimer.dylib"
-          rm -f "$APP_PATH/Contents/Frameworks/libmimerapi.dylib"
           if ! command -v tree &> /dev/null; then
             brew install tree
           fi
@@ -165,9 +235,9 @@ jobs:
           hdiutil create -volname "GLog" -srcfolder "$APP_PATH" -ov -format UDZO "$DMG_NAME"
 
       - name: Upload Build Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: macos-app
+          name: MacOS-Deploy
           path: ./*.dmg
 
   release:
@@ -179,7 +249,7 @@ jobs:
       contents: write
     steps:
       - name: Download All Artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: ./artifacts/
           merge-multiple: true
@@ -191,6 +261,8 @@ jobs:
             ./artifacts/*.AppImage
             ./artifacts/*.zip
             ./artifacts/*.dmg
+            ./artifacts/*.tar.xz
+            ./artifacts/*.exe
           prerelease: ${{ contains(github.ref_name, 'rc') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') || contains(github.ref_name, 'dev') }}
           generate_release_notes: true
         env:

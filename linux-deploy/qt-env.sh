@@ -1,2 +1,0 @@
-export PATH=$QT_DIR/bin:$PATH
-export LD_LIBRARY_PATH=$QT_DIR/lib:$QT_DIR/lib64:$LD_LIBRARY_PATH

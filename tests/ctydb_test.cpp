@@ -80,7 +80,7 @@ private slots:
 int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
     CtyDBTest tc;
-    SystemUtils::quick_exit_program(QTest::qExec(&tc, argc, argv));
+    return QTest::qExec(&tc, argc, argv);
 }
 
 #include "ctydb_test.moc"

@@ -1,0 +1,3 @@
+[submodule "linux-deploy/docker"]
+	path = linux-deploy/docker
+	url = https://github.com/llxx2013/almalinux-qt693-builder.git

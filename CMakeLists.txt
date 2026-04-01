@@ -15,6 +15,21 @@ find_package(Qt6 6.7
         Sql
         Test
 REQUIRED)
+
+set(EXTRA_LIBS "")
+
+if(LINUX OR UNIX AND NOT APPLE AND NOT ANDROID)
+    message(STATUS "Detecting Wayland support for Qt6...")
+    find_package(Qt6 COMPONENTS WaylandClient QUIET)
+    if(Qt6WaylandClient_FOUND)
+        message(STATUS "Qt6 Wayland support found. Adding to EXTRA_LIBS.")
+        list(APPEND EXTRA_LIBS Qt6::WaylandClient)
+        add_definitions(-DHAS_WAYLAND_SUPPORT)
+    else()
+        message(WARNING "Qt6 WaylandClient NOT found. Application will rely on X11/XCB.")
+    endif()
+endif()
+
 qt_standard_project_setup()
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
@@ -182,11 +197,6 @@ if(FORCE_OPENSSL)
     message(STATUS "Pass -force-openssl for deployment")
 endif()
 
-if(WIN32)
-    set(CMAKE_INSTALL_UCRT_LIBRARIES TRUE)
-    include(InstallRequiredSystemLibraries)
-endif()
-
 if(APPLE)
     install(TARGETS ${PROJECT_NAME}
         BUNDLE DESTINATION .
@@ -195,10 +205,17 @@ if(APPLE)
         LIBRARY DESTINATION ${PROJECT_NAME}.app/Contents/Frameworks
     )
 else()
+    include(GNUInstallDirs)
     install(TARGETS ${PROJECT_NAME} ${PROJECT_SHARED}
-        BUNDLE  DESTINATION .
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     )
+endif()
+
+if(WIN32)
+    set(CMAKE_INSTALL_UCRT_LIBRARIES TRUE)
+    include(InstallRequiredSystemLibraries)
+    list(APPEND deploy_extra_options "${CMAKE_INSTALL_BINDIR}/${PROJECT_SHARED}.dll")
 endif()
 
 qt_generate_deploy_app_script(

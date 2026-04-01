@@ -32,8 +32,6 @@ int main(int argc, char *argv[]) {
     //std::cout << "Current PATH: " << std::getenv("PATH") << std::endl;
     QApplication app(argc, argv);
     TestMainWindow tc;
-    int result = QTest::qExec(&tc, argc, argv);
-    std::cout << "Test completed, forcing exit..." << std::endl;
-    SystemUtils::quick_exit_program(result); 
+    return QTest::qExec(&tc, argc, argv);
 }
 #include "hello_ctest.moc"

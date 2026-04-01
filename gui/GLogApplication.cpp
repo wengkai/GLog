@@ -157,6 +157,7 @@ GLogApplication::GLogApplication(QWidget *parent)
 
 GLogApplication::~GLogApplication()
 {
+    QThreadPool::globalInstance()->waitForDone();
     delete ui;
 }
 

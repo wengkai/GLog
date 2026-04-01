@@ -45,6 +45,19 @@ void export_csv(void);
 
 int main(int argc, char* argv[])
 {
+    
+#ifdef HAS_WAYLAND_SUPPORT
+    const char* sessionType = std::getenv("XDG_SESSION_TYPE");
+    if (sessionType && std::string(sessionType) == "wayland") {
+        qDebug() << "Wayland session detected, setting platform to wayland;xcb";
+        qputenv("QT_QPA_PLATFORM", "wayland;xcb");
+    } else {
+        qDebug() << "X11 or unknown session detected, using default platform.";
+    }
+#else
+    qDebug() << "Application built without Wayland support.";
+#endif
+    
     QApplication app(argc, argv);
     app.setApplicationName("GLog");
     GLogApplication window;
