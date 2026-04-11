@@ -10,7 +10,7 @@ QNetworkAccessManager *GLogNetwork::instance() {
 }
 
 void GLogNetwork::init(QObject *parent) {
-    if (!manager) {
+    if (manager == nullptr) {
         manager = new QNetworkAccessManager(parent);
     }
 }

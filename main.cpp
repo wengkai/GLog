@@ -58,10 +58,10 @@ int main(int argc, char *argv[]) {
 #endif
 
     QApplication app(argc, argv);
-    app.setApplicationName("GLog");
+    QApplication::setApplicationName("GLog");
     GLogApplication window;
     window.show();
-    return app.exec();
+    return QApplication::exec();
 }
 
 /*

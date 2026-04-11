@@ -57,7 +57,7 @@ void DropAbleTableView::tryNewSelectedRowsView() {
 void DropAbleTableView::tryPasteRows() {
     auto *clipboard = QGuiApplication::clipboard();
     const auto *mimeData = clipboard->mimeData();
-    if (mimeData) {
+    if (mimeData != nullptr) {
         auto button = QMessageBox::question(this, tr("Paste"), tr("Paste rows from clipboard?"),
                                             QMessageBox::StandardButton::Yes |
                                                 QMessageBox::StandardButton::No);
@@ -76,8 +76,8 @@ void DropAbleTableView::tryCopySelectedRows() {
 
 GHeaderView *DropAbleTableView::getHeaderView() { return headerview; }
 
-void DropAbleTableView::findNext(QString key, QString value, bool isReg) {
-    if (!model()->rowCount()) {
+void DropAbleTableView::findNext(const QString &key, const QString &value, bool isReg) {
+    if (model()->rowCount() == 0) {
         emit selected();
         return;
     }
@@ -118,7 +118,7 @@ void DropAbleTableView::foundNext(QModelIndex index) {
     emit selected();
 }
 
-void DropAbleTableView::selectRows(QList<int> rows) {
+void DropAbleTableView::selectRows(const QList<int> &rows) {
     m_selection = selectionModel()->selection();
     auto *m_model = model();
     auto columnCount = m_model->columnCount();
@@ -134,7 +134,7 @@ void DropAbleTableView::selectRows(QList<int> rows) {
     });
 }
 
-void DropAbleTableView::deselectRows(QList<int> rows) {
+void DropAbleTableView::deselectRows(const QList<int> &rows) {
     m_selection = selectionModel()->selection();
     auto *m_model = model();
     auto columnCount = m_model->columnCount();

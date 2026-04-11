@@ -125,7 +125,7 @@ void MapWidget::dataVisualize() {
     for (auto &record : m_model->records) {
         auto call = record["call"]->get();
         buf = QString::fromUtf8(call.data(), call.size());
-        ctydb->normalizeCallSign(buf);
+        CtyDB::normalizeCallSign(buf);
         auto result = ctydb->lookUpCallSign(QStringView(buf));
         if (result.first->vaild) {
             ++m_position_count[result.first->location_id];

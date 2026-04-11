@@ -93,13 +93,14 @@ MapGraphicsView::MapGraphicsView(QWidget *parent)
 QPointF MapGraphicsView::mapLonAndLat(const qreal &lon, const qreal &lat) const {
     qreal x = (180.0 + lon) * (maxX() / 360.0);
     qreal y = (90.0 - lat) * (maxY() / 180.0);
-    return QPointF(x, y);
+    return {x, y};
 }
 
 MarkerItem *MapGraphicsView::createMarker(const QString &title, const qreal &lon, const qreal &lat,
                                           const qreal &size) const {
     auto marker_center = mapLonAndLat(lon, lat);
-    auto sx = marker_center.x(), sy = marker_center.y();
+    auto sx = marker_center.x();
+    auto sy = marker_center.y();
     auto *marker = new MarkerItem(title, size);
     marker->setPos(sx, sy);
     marker->setZValue(2.0);

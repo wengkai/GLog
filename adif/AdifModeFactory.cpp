@@ -12,7 +12,7 @@ bool AdifMode::set(const std::string &newValue) {
     }
 
     std::string targetMode = newValue;
-    std::string targetSubMode = "";
+    std::string targetSubMode;
 
     auto it = ADIF::MODE_MAP.find(newValue);
     if (it != ADIF::MODE_MAP.end() && it->second.import_only) {
@@ -111,9 +111,13 @@ bool AdifSubMode::set(const std::string &newValue) {
 bool AdifModeFactory::check(const std::string &mode, const std::string &submode) {
 
     auto it = ADIF::MODE_MAP.find(mode);
-    if (it == ADIF::MODE_MAP.end()) return false;
+    if (it == ADIF::MODE_MAP.end()) {
+        return false;
+    }
 
-    if (submode.empty()) return true;
+    if (submode.empty()) {
+        return true;
+    }
 
     const auto &subList = it->second.submodes;
     return std::find(subList.begin(), subList.end(), submode) != subList.end();

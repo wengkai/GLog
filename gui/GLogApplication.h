@@ -33,10 +33,10 @@ class APP_EXPORT GLogApplication : public QMainWindow {
     void openFile(const QString &filename);
     void mergeFile(const QString &filename, bool remove = false);
     void saveAsFile(const QString &filename);
-    void extractZip(const QString &zipPath, const QString &extractDir,
-                    QNetworkAccessManager &manager);
+    static void extractZip(const QString &zipPath, const QString &extractDir,
+                           QNetworkAccessManager &manager);
     void initCtyDB(bool show_warning = true);
-    CtyDB *getCtyDBInstance() const;
+    static CtyDB *getCtyDBInstance();
 
   public slots:
     void openFileAction();

@@ -17,7 +17,7 @@ QString FccDB::connNamePrefix() { return "fcc_search_connection"; }
 
 QString FccDB::lookupState(const QString &callsign) {
     if (callsign.isEmpty()) {
-        return QString();
+        return {};
     }
 
     {

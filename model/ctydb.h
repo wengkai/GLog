@@ -49,8 +49,8 @@ class CtyDB : public QObject {
     }
     static QString normalizeCallSign(const QString &call);
     static void normalizeCallSign(QString &call);
-    std::shared_ptr<CtyEntry> overrideEnt(const QString &m_pattern, std::shared_ptr<CtyEntry> ent,
-                                          std::size_t &prefixEnd);
+    static std::shared_ptr<CtyEntry>
+    overrideEnt(const QString &m_pattern, std::shared_ptr<CtyEntry> ent, std::size_t &prefixEnd);
     static CtyDB *instance();
     std::pair<bool, QString /*error msg*/> loadDB(QIODevice &device, const QString &db_hint);
     std::pair<bool, QString /*error msg*/> loadDBString(const QString &cty, const QString &db_hint);

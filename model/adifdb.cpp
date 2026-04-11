@@ -31,7 +31,7 @@
     QObject::connect(this, &std::remove_reference_t<decltype(*this)>::signal, this,                \
                      &std::remove_reference_t<decltype(*this)>::slot, Qt::QueuedConnection)
 
-void AdifModel::newViewWithRows(QModelIndexList indexes) {
+void AdifModel::newViewWithRows(const QModelIndexList &indexes) const {
     auto *mineData = mimeData(indexes);
     auto text = mineData->data("text/plain");
     QTemporaryFile tempFile;
@@ -52,13 +52,14 @@ void AdifModel::pasteRows(const QMimeData *mimeData) {
     dropMimeData(mimeData, Qt::DropAction::CopyAction, -1, -1, QModelIndex());
 }
 
-void AdifModel::copyRows(const QModelIndexList indexes) {
+void AdifModel::copyRows(const QModelIndexList &indexes) {
     auto *mimeData = new QMimeData();
     mimeData->setData("text/plain", this->mimeData(indexes)->data("text/plain"));
     emit setCilpboard(mimeData);
 }
 
-void AdifModel::findNextS(QModelIndex current, QString key, QString value, bool isReg) {
+void AdifModel::findNextS(QModelIndex current, const QString &key, const QString &value,
+                          bool isReg) {
     auto sv = value.toStdString();
     auto sk = key.toStdString();
     if (!isReg) {
@@ -75,7 +76,7 @@ void AdifModel::findNextS(QModelIndex current, QString key, QString value, bool 
     emit foundNext(index);
 }
 
-void AdifModel::selectAll(QString key, QString value, bool isReg) {
+void AdifModel::selectAll(const QString &key, const QString &value, bool isReg) {
     auto sv = value.toStdString();
     auto sk = key.toStdString();
     if (!isReg) {
@@ -92,7 +93,7 @@ void AdifModel::selectAll(QString key, QString value, bool isReg) {
     emit selectRows(rows);
 }
 
-void AdifModel::deselectAll(QString key, QString value, bool isReg) {
+void AdifModel::deselectAll(const QString &key, const QString &value, bool isReg) {
     auto sv = value.toStdString();
     auto sk = key.toStdString();
     if (!isReg) {
@@ -183,7 +184,7 @@ void AdifModel::mapCallSignInView(bool keepOrigin) {
     for (auto &record : records) {
         auto call = record["call"]->get();
         buf = QString::fromUtf8(call.data(), call.size());
-        ctydb->normalizeCallSign(buf);
+        CtyDB::normalizeCallSign(buf);
         auto result = ctydb->lookUpCallSign(QStringView(buf));
         if (result.first->vaild) {
             record.addOrSetPair(testField, (result.first->name + result.second).toStdString());
@@ -211,9 +212,9 @@ void AdifModel::_clear() {
 }
 
 AdifModel::AdifModel(QObject *parent) : QAbstractTableModel(parent) {
-    for (int i = 0; i < GRecord::RESOLVE_HEADERS_COUNT; ++i) {
-        rheaders.emplace_back(GRecord::RESOLVE_HEADERS[i]);
-        sheaders.insert(GRecord::RESOLVE_HEADERS[i]);
+    for (auto i : GRecord::RESOLVE_HEADERS) {
+        rheaders.emplace_back(i);
+        sheaders.insert(i);
     }
     // control = new AdifModelC(this);
     THIS_CONNECT_Q(beginInsertColumnsWrap, beginInsertColumnsWrapS);
@@ -246,7 +247,7 @@ AdifModel::AdifModel(QObject *parent) : QAbstractTableModel(parent) {
         })
             .then(this,
                   [=]() {
-                      if (driver.GetErrorMessages().size()) {
+                      if (!driver.GetErrorMessages().empty()) {
                           QMessageBox::warning(
                               nullptr, tr("Warning"),
                               tr("%1 errors found").arg(driver.GetErrorMessages().size()),
@@ -271,7 +272,7 @@ int AdifModel::columnCount(const QModelIndex &parent) const { return rheaders.si
 
 QVariant AdifModel::data(const QModelIndex &index, int role) const {
     if (role != Qt::DisplayRole && role != Qt::EditRole) {
-        return QVariant();
+        return {};
     }
 
     std::shared_lock<decltype(mutex)> lock(mutex, std::defer_lock);
@@ -287,12 +288,12 @@ QVariant AdifModel::data(const QModelIndex &index, int role) const {
         }
     }
 
-    return QVariant();
+    return {};
 }
 
 QVariant AdifModel::headerData(int section, Qt::Orientation orientation, int role) const {
     if (role != Qt::DisplayRole) {
-        return QVariant();
+        return {};
     }
     if (orientation == Qt::Horizontal) {
         QVariant ret{};
@@ -361,7 +362,7 @@ bool AdifModel::dropMimeData(const QMimeData *data, Qt::DropAction action, int r
             auto s = data->text().toStdString();
             std::stringstream stream(s);
             driver.switch_streams(stream, std::cerr);
-            if (!parser.parse()) {
+            if (parser.parse() == 0) {
                 insertRecords(row, driver.data.rbegin(), driver.data.rend());
                 return true;
             }
@@ -498,7 +499,7 @@ AdifModel::AwardRes AdifModel::diffEntNameCountForAward() const {
     for (const auto &record : records) {
         auto call = record.at("call")->get();
         buf = QString::fromUtf8(call.data(), call.size());
-        ctydb->normalizeCallSign(buf);
+        CtyDB::normalizeCallSign(buf);
         auto result = ctydb->lookUpCallSign(QStringView(buf));
         if (result.first->vaild && result.first->ARRL_sponsored) {
             ++counterDXCC[result.first->name];
@@ -569,14 +570,14 @@ void AdifModel::_toCsv(std::ostream &stream) const {
 void AdifModel::_toAdif(std::ostream &stream) const {
     for (const auto &record : records) {
         auto r = record;
-        for (auto f : GRecordOutputFilters) {
+        for (const auto &f : GRecordOutputFilters) {
             f(r);
         }
         stream << r << "\n";
     }
 }
 
-void AdifModel::openFile(QString filename) {
+void AdifModel::openFile(const QString &filename) {
     GLogConcurrent::makeFuture([=]() {
         QFileInfo file(filename);
         std::ifstream in(file.filesystemAbsoluteFilePath());
@@ -599,7 +600,7 @@ void AdifModel::openFile(QString filename) {
     })
         .then(this,
               [=]() {
-                  if (driver.GetErrorMessages().size()) {
+                  if (!driver.GetErrorMessages().empty()) {
                       QMessageBox::warning(
                           nullptr, tr("Warning"),
                           tr("%1 errors found").arg(driver.GetErrorMessages().size()),
@@ -611,7 +612,7 @@ void AdifModel::openFile(QString filename) {
         });
 }
 
-void AdifModel::appendFile(QString filename, bool remove) {
+void AdifModel::appendFile(const QString &filename, bool remove) {
     GLogConcurrent::makeFuture([=]() {
         QFileInfo file(filename);
         std::ifstream in(file.filesystemAbsoluteFilePath());
@@ -634,7 +635,7 @@ void AdifModel::appendFile(QString filename, bool remove) {
     })
         .then(this,
               [=]() {
-                  if (driver.GetErrorMessages().size()) {
+                  if (!driver.GetErrorMessages().empty()) {
                       QMessageBox::warning(
                           nullptr, tr("Warning"),
                           tr("%1 errors found").arg(driver.GetErrorMessages().size()),
@@ -646,7 +647,7 @@ void AdifModel::appendFile(QString filename, bool remove) {
         });
 }
 
-void AdifModel::insertFile(int row, QString filename) {
+void AdifModel::insertFile(int row, const QString &filename) {
     GLogConcurrent::makeFuture([=]() {
         QFileInfo file(filename);
         std::ifstream in(file.filesystemAbsoluteFilePath());
@@ -666,7 +667,7 @@ void AdifModel::insertFile(int row, QString filename) {
     })
         .then(this,
               [=]() {
-                  if (driver.GetErrorMessages().size()) {
+                  if (!driver.GetErrorMessages().empty()) {
                       QMessageBox::warning(
                           nullptr, tr("Warning"),
                           tr("%1 errors found").arg(driver.GetErrorMessages().size()),
@@ -678,7 +679,7 @@ void AdifModel::insertFile(int row, QString filename) {
         });
 }
 
-void AdifModel::saveAs(QString filename) const {
+void AdifModel::saveAs(const QString &filename) const {
     if (records.empty()) {
         return;
     }
@@ -702,7 +703,7 @@ void AdifModel::saveAs(QString filename) const {
         out.close();
         return false;
     });
-    future.then([=](decltype(future) future) {
+    future.then([=](const decltype(future) &future) {
 
     });
 }

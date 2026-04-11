@@ -13,15 +13,15 @@ class APP_EXPORT ConfigureCtyDialog : public QDialog {
   public:
     ConfigureCtyDialog(QWidget *parent = nullptr);
     ~ConfigureCtyDialog();
-    QString successMsg() const;
+    static QString successMsg();
 
   public slots:
-    void setDBhint(QString db_hint);
+    void setDBhint(const QString &db_hint);
     void disableCtyConfigure();
     int exec() override;
     void enableCtyConfigure();
-    void applyLoadDB(QString db_hint, QString load_hint, bool rollBack = false);
-    void onLoadFinished(QString msg);
+    void applyLoadDB(const QString &db_hint, const QString &load_hint, bool rollBack = false);
+    void onLoadFinished(const QString &msg);
 
   protected slots:
 

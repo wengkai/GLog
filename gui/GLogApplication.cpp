@@ -15,6 +15,7 @@
 #include <QTimer>
 #include <QVBoxLayout>
 #include <fstream>
+#include <utility>
 #include "Concurrent.h"
 #include "GCommandLineParser.h"
 #include "MultiLineDelegate.h"
@@ -28,7 +29,7 @@ GLogApplication::GLogApplication(QWidget *parent)
 
     connect(
         this, &GLogApplication::information, this,
-        [=](QString title, QString text, QMessageBox::StandardButton button0,
+        [=](const QString &title, const QString &text, QMessageBox::StandardButton button0,
             QMessageBox::StandardButton button1) {
             QMessageBox::information(this, title, text, button0, button1);
         },
@@ -36,7 +37,7 @@ GLogApplication::GLogApplication(QWidget *parent)
 
     connect(
         this, &GLogApplication::warning, this,
-        [=](QString title, QString text, QMessageBox::StandardButton button0,
+        [=](const QString &title, const QString &text, QMessageBox::StandardButton button0,
             QMessageBox::StandardButton button1) {
             QMessageBox::warning(this, title, text, button0, button1);
         },
@@ -44,7 +45,7 @@ GLogApplication::GLogApplication(QWidget *parent)
 
     connect(
         this, &GLogApplication::showMessage, this,
-        [=](QString message, int timeout) { ui->statusBar->showMessage(message, timeout); },
+        [=](const QString &message, int timeout) { ui->statusBar->showMessage(message, timeout); },
         Qt::QueuedConnection);
 
     connect(
@@ -171,7 +172,7 @@ GLogApplication::GLogApplication(QWidget *parent)
                 .arg(res.CQZ)
                 .arg(res.WAS);
         }).then([=](QString result) {
-            emit information(tr("Award"), result, QMessageBox::StandardButton::Ok);
+            emit information(tr("Award"), std::move(result), QMessageBox::StandardButton::Ok);
         });
     });
 
@@ -222,7 +223,7 @@ void GLogApplication::extractZip(const QString &zipPath, const QString &extractD
         QString _7zrExePath = _7zipbin + "/7zr.exe";
         QString _7zaExePath = _7zipbin + "/7za.exe";
 
-        auto downloadProgress = [=, &manager](QString url, QString filename) {
+        auto downloadProgress = [=, &manager](const QString &url, const QString &filename) {
             QFile file(filename);
             if (!file.exists()) {
                 auto req = QNetworkRequest(QUrl(url));
@@ -308,7 +309,7 @@ void GLogApplication::initCtyDB(bool show_warning) {
     });
 }
 
-CtyDB *GLogApplication::getCtyDBInstance() const { return CtyDB::instance(); }
+CtyDB *GLogApplication::getCtyDBInstance() { return CtyDB::instance(); }
 
 void GLogApplication::mergeFileAction() {
     mergeFile(QFileDialog::getOpenFileName(this, tr("Open File"), "",
@@ -381,7 +382,7 @@ void GLogApplication::updateFccDatabase() {
             auto req = QNetworkRequest(url);
             GLogNetwork::setGeneralHeader(req);
             QNetworkReply *reply = manager.get(req);
-            GLogNetwork::watchGetProcess(reply, [=](QString msg) {
+            GLogNetwork::watchGetProcess(reply, [=](const QString &msg) {
                 emit showMessage(tr("Downloading l_amat.zip: %1").arg(msg));
             });
             QEventLoop loop;

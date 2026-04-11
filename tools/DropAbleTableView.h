@@ -22,10 +22,10 @@ class DropAbleTableView : public QTableView {
 
   public slots:
     void customContextMenu(const QPoint &pos);
-    void findNext(QString key, QString value, bool isReg);
+    void findNext(const QString &key, const QString &value, bool isReg);
     void foundNext(QModelIndex index);
-    void selectRows(QList<int> rows);
-    void deselectRows(QList<int> rows);
+    void selectRows(const QList<int> &rows);
+    void deselectRows(const QList<int> &rows);
     void setMSelection(QItemSelectionModel::SelectionFlag command);
 
   signals:

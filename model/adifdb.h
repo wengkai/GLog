@@ -226,16 +226,16 @@ class AdifModel : public QAbstractTableModel {
     void sortSelectedColumn(int column, Qt::SortOrder order);
     void removeSelectedColumn(int column);
     void mapCallSignInView(bool keepOrigin);
-    void openFile(QString filename);
-    void appendFile(QString filename, bool remove);
-    void insertFile(int row, QString filename);
-    void saveAs(QString filename) const;
-    void newViewWithRows(QModelIndexList indexes);
+    void openFile(const QString &filename);
+    void appendFile(const QString &filename, bool remove);
+    void insertFile(int row, const QString &filename);
+    void saveAs(const QString &filename) const;
+    void newViewWithRows(const QModelIndexList &indexes) const;
     void pasteRows(const QMimeData *mimeData);
-    void copyRows(const QModelIndexList indexes);
-    void findNextS(QModelIndex current, QString key, QString value, bool isReg);
-    void selectAll(QString key, QString value, bool isReg = false);
-    void deselectAll(QString key, QString value, bool isReg = false);
+    void copyRows(const QModelIndexList &indexes);
+    void findNextS(QModelIndex current, const QString &key, const QString &value, bool isReg);
+    void selectAll(const QString &key, const QString &value, bool isReg = false);
+    void deselectAll(const QString &key, const QString &value, bool isReg = false);
 
   signals:
     // void appendFileSignal(QString filename);

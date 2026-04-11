@@ -31,7 +31,8 @@ ConfigureCtyDialog::ConfigureCtyDialog(QWidget *parent)
             Qt::QueuedConnection);
 }
 
-void ConfigureCtyDialog::applyLoadDB(QString db_hint, QString load_hint, bool rollBack) {
+void ConfigureCtyDialog::applyLoadDB(const QString &db_hint, const QString &load_hint,
+                                     bool rollBack) {
     if (!rollBack && db_hint == this->db_hint) {
         enableCtyConfigure();
         accept();
@@ -99,7 +100,7 @@ void ConfigureCtyDialog::applyLoadDB(QString db_hint, QString load_hint, bool ro
     });
 }
 
-void ConfigureCtyDialog::onLoadFinished(QString msg) {
+void ConfigureCtyDialog::onLoadFinished(const QString &msg) {
     QMessageBox::information(this, tr("Load"), msg);
     enableCtyConfigure();
     if (msg == successMsg()) {
@@ -109,7 +110,7 @@ void ConfigureCtyDialog::onLoadFinished(QString msg) {
 
 ConfigureCtyDialog::~ConfigureCtyDialog() { delete ui; }
 
-QString ConfigureCtyDialog::successMsg() const { return tr("Success."); }
+QString ConfigureCtyDialog::successMsg() { return tr("Success."); }
 
 void ConfigureCtyDialog::disableCtyConfigure() {
     ++disable_count;
@@ -129,7 +130,7 @@ int ConfigureCtyDialog::exec() {
     return QDialog::exec();
 }
 
-void ConfigureCtyDialog::setDBhint(QString db_hint) {
+void ConfigureCtyDialog::setDBhint(const QString &db_hint) {
     this->db_hint = db_hint;
     ui->lineEdit->setText(db_hint);
 }
