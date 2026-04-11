@@ -1,8 +1,7 @@
 #include "GCommandLineParser.h"
 #include <QCommandLineOption>
 
-GCommandLineParser::GCommandLineParser()
-{
+GCommandLineParser::GCommandLineParser() {
     addHelpOption();
     addVersionOption();
     addOption(QCommandLineOption("i", "Input file(s)", "input-file"));

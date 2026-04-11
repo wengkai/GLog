@@ -11,3 +11,4 @@ CMakeUserPresets.json
 CMakeLists.txt.user
 *.log
 AppDir/
+__pycache__/

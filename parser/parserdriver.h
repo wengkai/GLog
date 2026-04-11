@@ -1,28 +1,33 @@
 #ifndef GLOG_PARSER_DRIVER_H
 #define GLOG_PARSER_DRIVER_H
 
+#include <map>
 #include <string>
 #include <vector>
-#include <map>
 
 namespace GLOG_PARSER {
 class Parser;
 };
 
 class ParserDriver {
-  friend class GLOG_PARSER::Parser;
- public:
-  std::string GLogParserGetErrorMessage() { return glog_parser_error_message_; };
+    friend class GLOG_PARSER::Parser;
 
-  std::vector<std::vector<std::pair<std::string, std::string>>> data;
+  public:
+    auto GetErrorMessages() { return glog_parser_error_messages_; };
 
- private:
-  std::string glog_parser_error_message_;
+    std::vector<std::vector<std::pair<std::string, std::string>>> data;
 
- protected:
-  void GLogParserSetError(std::string msg) {glog_parser_error_message_ = msg;}
+    void ClearErrors() {
+        glog_parser_error_messages_.clear();
+        look_for_eor_ = false;
+    }
 
+  private:
+    std::vector<std::string> glog_parser_error_messages_;
+
+  protected:
+    void SetError(std::string msg) { glog_parser_error_messages_.push_back(msg); }
+    bool look_for_eor_ = false;
 };
 
-
-#endif //GLOG_PARSER_DRIVER_H
+#endif // GLOG_PARSER_DRIVER_H

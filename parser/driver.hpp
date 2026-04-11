@@ -1,8 +1,8 @@
 #ifndef GLOG_PARSE_DRIVER
 #define GLOG_PARSE_DRIVER
 
-#include "parserdriver.h"
 #include <cstring>
+#include "parserdriver.h"
 
 #ifndef YY_BUF_SIZE
 #ifdef __ia64__
@@ -21,20 +21,24 @@ namespace GLOG_PARSER {
 #ifndef CLASS_SCANNER
 #define CLASS_SCANNER
 class GLogParserDriver : public yyFlexLexer, public ParserDriver {
- public:
-  GLogParserDriver(std::istream &arg_yyin, std::ostream &arg_yyout)
-        : yyFlexLexer(arg_yyin, arg_yyout) { std::memset(buf, 0, sizeof(buf)); }
-  GLogParserDriver(std::istream *arg_yyin = nullptr, std::ostream *arg_yyout = nullptr)
-        : yyFlexLexer(arg_yyin, arg_yyout) { std::memset(buf, 0, sizeof(buf)); }
-  int lex(Parser::semantic_type *yylval); 
+  public:
+    GLogParserDriver(std::istream &arg_yyin, std::ostream &arg_yyout)
+        : yyFlexLexer(arg_yyin, arg_yyout) {
+        std::memset(buf, 0, sizeof(buf));
+    }
+    GLogParserDriver(std::istream *arg_yyin = nullptr, std::ostream *arg_yyout = nullptr)
+        : yyFlexLexer(arg_yyin, arg_yyout) {
+        std::memset(buf, 0, sizeof(buf));
+    }
+    int lex(Parser::semantic_type *yylval);
 
- private:
-     char buf[YY_BUF_SIZE];
+  private:
+    char buf[YY_BUF_SIZE];
 };
 #else
 class GLogParserDriver;
 #endif
- 
-} // namespace MY_NAMESPACE
+
+} // namespace GLOG_PARSER
 
 #endif

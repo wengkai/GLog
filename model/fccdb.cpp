@@ -1,34 +1,28 @@
 #include "fccdb.h"
-#include <QThread>
 #include <QFile>
+#include <QThread>
 
-FccDB *FccDB::instance()
-{
-    static auto fccdb = new FccDB();
+FccDB *FccDB::instance() {
+    static auto *fccdb = new FccDB();
     return fccdb;
 }
 
-QString FccDB::dbPath()
-{
+QString FccDB::dbPath() {
     return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/" + dbFileName();
 }
 
-QString FccDB::dbFileName()
-{
-    return "fcc_amateur.db";
-}
+QString FccDB::dbFileName() { return "fcc_amateur.db"; }
 
-QString FccDB::connNamePrefix()
-{
-    return "fcc_search_connection";
-}
+QString FccDB::connNamePrefix() { return "fcc_search_connection"; }
 
-QString FccDB::lookupState(const QString & callsign) {
-    if (callsign.isEmpty()) return QString();
+QString FccDB::lookupState(const QString &callsign) {
+    if (callsign.isEmpty()) {
+        return QString();
+    }
 
-    {    
+    {
         std::unique_lock<decltype(mutex_cache)> lock0(mutex_cache);
-        if (auto pres = m_cache.object(callsign); pres) {
+        if (auto *pres = m_cache.object(callsign); pres) {
             return *pres;
         }
     }
@@ -40,10 +34,9 @@ QString FccDB::lookupState(const QString & callsign) {
         std::shared_lock<decltype(mutex_threadId2Query)> lock(mutex_threadId2Query);
         auto it = threadId2Query.constFind(threadId);
         Q_ASSERT(it != threadId2Query.end());
-        auto & query = const_cast<QSqlQuery&>(it.value());
+        auto &query = const_cast<QSqlQuery &>(it.value());
         query.bindValue(":call", callsign);
-        if ((query.exec() 
-          && query.next())) {
+        if ((query.exec() && query.next())) {
             res = query.value(0).toString();
         }
     }
@@ -56,16 +49,19 @@ QString FccDB::lookupState(const QString & callsign) {
     return res;
 }
 
-bool FccDB::beginSearch()
-{
-    if (!QFile::exists(dbPath())) return false;
+bool FccDB::beginSearch() {
+    if (!QFile::exists(dbPath())) {
+        return false;
+    }
     auto threadId = quintptr(QThread::currentThreadId());
     auto connName = QString("%1_%2").arg(connNamePrefix()).arg(threadId);
     if (!QSqlDatabase::contains(connName)) {
         auto db = QSqlDatabase::addDatabase("QSQLITE", connName);
         db.setDatabaseName(dbPath());
         db.setConnectOptions("QSQLITE_OPEN_READONLY");
-        if (!db.open()) return false;
+        if (!db.open()) {
+            return false;
+        }
         QSqlQuery query(db);
         query.exec("PRAGMA synchronous = OFF;");
         query.exec("PRAGMA journal_mode = WAL;");
@@ -82,8 +78,7 @@ bool FccDB::beginSearch()
     return true;
 }
 
-void FccDB::endSearch()
-{
+void FccDB::endSearch() {
     auto threadId = quintptr(QThread::currentThreadId());
     {
         std::unique_lock<decltype(mutex_threadId2Query)> lock(mutex_threadId2Query);

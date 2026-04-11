@@ -1,19 +1,18 @@
 #include "DropAbleTableView.h"
-#include "MultiLineDelegate.h"
-#include "GHeaderView.h"
-#include "Concurrent.h"
+#include <QAbstractItemModel>
+#include <QApplication>
+#include <QClipboard>
 #include <QDropEvent>
 #include <QKeyEvent>
-#include <QAbstractItemModel>
-#include <QMessageBox>
-#include <QClipboard>
-#include <QApplication>
-#include <QMimeData>
 #include <QMenu>
+#include <QMessageBox>
+#include <QMimeData>
 #include <exception>
+#include "Concurrent.h"
+#include "GHeaderView.h"
+#include "MultiLineDelegate.h"
 
-DropAbleTableView::DropAbleTableView(QWidget *parent) : QTableView(parent)
-{
+DropAbleTableView::DropAbleTableView(QWidget *parent) : QTableView(parent) {
     setItemDelegate(new MultiLineDelegate(this));
     headerview = new GHeaderView(Qt::Orientation::Horizontal, this);
     setHorizontalHeader(headerview);
@@ -25,59 +24,59 @@ DropAbleTableView::DropAbleTableView(QWidget *parent) : QTableView(parent)
     setDragDropOverwriteMode(false);
     setDropIndicatorShown(true);
     setContextMenuPolicy(Qt::ContextMenuPolicy::CustomContextMenu);
-    connect(this, &DropAbleTableView::customContextMenuRequested, this, &DropAbleTableView::customContextMenu);
-    connect(this, &DropAbleTableView::setMSelectionSignal, this, &DropAbleTableView::setMSelection, Qt::QueuedConnection);
+    connect(this, &DropAbleTableView::customContextMenuRequested, this,
+            &DropAbleTableView::customContextMenu);
+    connect(this, &DropAbleTableView::setMSelectionSignal, this, &DropAbleTableView::setMSelection,
+            Qt::QueuedConnection);
 }
 
-void DropAbleTableView::tryDeleteSelectedRows()
-{
+void DropAbleTableView::tryDeleteSelectedRows() {
     auto rows = selectionModel()->selectedRows();
     if (!rows.empty()) {
-        auto button = QMessageBox::question(this, tr("Delete"), tr("Delete selected row(s)?"), QMessageBox::StandardButton::Yes | QMessageBox::StandardButton::No);
+        auto button = QMessageBox::question(this, tr("Delete"), tr("Delete selected row(s)?"),
+                                            QMessageBox::StandardButton::Yes |
+                                                QMessageBox::StandardButton::No);
         if (button == QMessageBox::StandardButton::Yes) {
             emit deleteRowsSignal(rows);
         }
     }
 }
 
-void DropAbleTableView::tryNewSelectedRowsView()
-{
+void DropAbleTableView::tryNewSelectedRowsView() {
     auto rows = selectionModel()->selectedRows();
     if (!rows.empty()) {
-        auto button = QMessageBox::question(this, tr("New view"), tr("Create new view with selected row(s)?"), QMessageBox::StandardButton::Yes | QMessageBox::StandardButton::No);
+        auto button = QMessageBox::question(
+            this, tr("New view"), tr("Create new view with selected row(s)?"),
+            QMessageBox::StandardButton::Yes | QMessageBox::StandardButton::No);
         if (button == QMessageBox::StandardButton::Yes) {
             emit newViewWithRowsSignal(rows);
         }
     }
 }
 
-void DropAbleTableView::tryPasteRows()
-{
-    auto clipboard = QGuiApplication::clipboard();
-    auto mimeData = clipboard->mimeData();
+void DropAbleTableView::tryPasteRows() {
+    auto *clipboard = QGuiApplication::clipboard();
+    const auto *mimeData = clipboard->mimeData();
     if (mimeData) {
-        auto button = QMessageBox::question(this, tr("Paste"), tr("Paste rows from clipboard?"), QMessageBox::StandardButton::Yes | QMessageBox::StandardButton::No);
+        auto button = QMessageBox::question(this, tr("Paste"), tr("Paste rows from clipboard?"),
+                                            QMessageBox::StandardButton::Yes |
+                                                QMessageBox::StandardButton::No);
         if (button == QMessageBox::StandardButton::Yes) {
             emit pasteRowsSignal(mimeData);
         }
     }
 }
 
-void DropAbleTableView::tryCopySelectedRows()
-{
+void DropAbleTableView::tryCopySelectedRows() {
     auto rows = selectionModel()->selectedRows();
     if (!rows.empty()) {
         emit copyRowsSignal(rows);
     }
 }
 
-GHeaderView *DropAbleTableView::getHeaderView()
-{
-    return headerview;
-}
+GHeaderView *DropAbleTableView::getHeaderView() { return headerview; }
 
-void DropAbleTableView::findNext(QString key, QString value, bool isReg)
-{
+void DropAbleTableView::findNext(QString key, QString value, bool isReg) {
     if (!model()->rowCount()) {
         emit selected();
         return;
@@ -104,14 +103,14 @@ void DropAbleTableView::findNext(QString key, QString value, bool isReg)
             current = QModelIndex();
         }
     }
-    
+
     emit findNextSignal(current, key, value, isReg);
 }
 
-void DropAbleTableView::foundNext(QModelIndex index)
-{
+void DropAbleTableView::foundNext(QModelIndex index) {
     if (index.isValid()) {
-        selectionModel()->setCurrentIndex(index, QItemSelectionModel::SelectionFlag::ClearAndSelect);
+        selectionModel()->setCurrentIndex(index,
+                                          QItemSelectionModel::SelectionFlag::ClearAndSelect);
         scrollTo(index, QAbstractItemView::ScrollHint::PositionAtCenter);
     } else {
         QMessageBox::information(this, tr("Find"), tr("No more matching record found."));
@@ -119,53 +118,47 @@ void DropAbleTableView::foundNext(QModelIndex index)
     emit selected();
 }
 
-void DropAbleTableView::selectRows(QList<int> rows)
-{
+void DropAbleTableView::selectRows(QList<int> rows) {
     m_selection = selectionModel()->selection();
-    auto m_model = model();
+    auto *m_model = model();
     auto columnCount = m_model->columnCount();
     // QItemSelection::merge can be time consuming when there are many rows to be selected
-    auto mergeSub = GLogConcurrent::makeFuture([=](){
-        for (auto& row : rows) {
+    auto mergeSub = GLogConcurrent::makeFuture([=]() {
+        for (const auto &row : rows) {
             auto index = m_model->index(row, 0);
             auto index2 = m_model->index(row, columnCount - 1);
-            m_selection.merge(QItemSelection(index, index2), QItemSelectionModel::SelectionFlag::Select);
+            m_selection.merge(QItemSelection(index, index2),
+                              QItemSelectionModel::SelectionFlag::Select);
         }
         emit setMSelectionSignal(QItemSelectionModel::SelectionFlag::ClearAndSelect);
     });
 }
 
-void DropAbleTableView::deselectRows(QList<int> rows)
-{
+void DropAbleTableView::deselectRows(QList<int> rows) {
     m_selection = selectionModel()->selection();
-    auto m_model = model();
+    auto *m_model = model();
     auto columnCount = m_model->columnCount();
     // QItemSelection::merge can be time consuming when there are many rows to be selected
-    auto mergeSub = GLogConcurrent::makeFuture([=](){
-        for (auto& row : rows) {
+    auto mergeSub = GLogConcurrent::makeFuture([=]() {
+        for (const auto &row : rows) {
             auto index = m_model->index(row, 0);
             auto index2 = m_model->index(row, columnCount - 1);
-            m_selection.merge(QItemSelection(index, index2), QItemSelectionModel::SelectionFlag::Deselect);
+            m_selection.merge(QItemSelection(index, index2),
+                              QItemSelectionModel::SelectionFlag::Deselect);
         }
         emit setMSelectionSignal(QItemSelectionModel::SelectionFlag::ClearAndSelect);
     });
 }
 
-void DropAbleTableView::setMSelection(QItemSelectionModel::SelectionFlag command)
-{
+void DropAbleTableView::setMSelection(QItemSelectionModel::SelectionFlag command) {
     selectionModel()->select(m_selection, command);
     emit selected();
 }
 
-void DropAbleTableView::dropEvent(QDropEvent *event)
-{
-    QTableView::dropEvent(event);
-}
+void DropAbleTableView::dropEvent(QDropEvent *event) { QTableView::dropEvent(event); }
 
-void DropAbleTableView::keyPressEvent(QKeyEvent *event)
-{
-    switch (event->key())
-    {
+void DropAbleTableView::keyPressEvent(QKeyEvent *event) {
+    switch (event->key()) {
     case Qt::Key::Key_Delete:
     case Qt::Key::Key_Backspace:
         tryDeleteSelectedRows();
@@ -178,31 +171,23 @@ void DropAbleTableView::keyPressEvent(QKeyEvent *event)
 
 void DropAbleTableView::customContextMenu(const QPoint &pos) {
     auto index = indexAt(pos);
-    auto contextMenu = new QMenu(this);
+    auto *contextMenu = new QMenu(this);
     if (index.isValid()) {
-        if (!selectionModel()->selectedRows().empty()){
+        if (!selectionModel()->selectedRows().empty()) {
             QAction *actionDelete = contextMenu->addAction(tr("delete row(s)"));
-            connect(actionDelete, &QAction::triggered, this, [=]() {
-                tryDeleteSelectedRows();
-            });
+            connect(actionDelete, &QAction::triggered, this, [=]() { tryDeleteSelectedRows(); });
             QAction *actionNewView = contextMenu->addAction(tr("new view with row(s)"));
-            connect(actionNewView, &QAction::triggered, this, [=]() {
-                tryNewSelectedRowsView();
-            });
+            connect(actionNewView, &QAction::triggered, this, [=]() { tryNewSelectedRowsView(); });
             QAction *actionCopy = contextMenu->addAction(tr("copy row(s)"));
-            connect(actionCopy, &QAction::triggered, this, [=]() {
-                tryCopySelectedRows();
-            });
+            connect(actionCopy, &QAction::triggered, this, [=]() { tryCopySelectedRows(); });
         }
         QAction *actionCopyCell = contextMenu->addAction(tr("copy cell content"));
-        connect(actionCopyCell, &QAction::triggered, this, [=]() {      
+        connect(actionCopyCell, &QAction::triggered, this, [=]() {
             auto data = model()->data(index).toString();
             QApplication::clipboard()->setText(data);
         });
     }
     QAction *actionPaste = contextMenu->addAction(tr("paste"));
-    connect(actionPaste, &QAction::triggered, this, [=]() {        
-        tryPasteRows();
-    });
+    connect(actionPaste, &QAction::triggered, this, [=]() { tryPasteRows(); });
     contextMenu->exec(mapToGlobal(pos));
 }

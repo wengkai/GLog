@@ -19,12 +19,18 @@ macro(add_test_unit test_name)
 
     list(APPEND TEST_UNITS ${test_name})
     
-    message(STATUS "Added test unit: ${test_name}")
+    # message(STATUS "Added test unit: ${test_name}")
 endmacro()
 
-add_test_unit(hello_ctest)
+file(GLOB TEST_SOURCES "*.cpp")
 
-add_test_unit(ctydb_test)
+foreach(test_file_path ${TEST_SOURCES})
+    get_filename_component(test_name_with_ext ${test_file_path} NAME)
+    
+    string(REPLACE ".cpp" "" test_name ${test_name_with_ext})
+    
+    add_test_unit(${test_name})
+endforeach()
 
 if(WIN32)
     get_target_property(_qt_core_path Qt6::Core LOCATION)

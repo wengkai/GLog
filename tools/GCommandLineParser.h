@@ -3,9 +3,8 @@
 
 #include <QCommandLineParser>
 
-class GCommandLineParser : public QCommandLineParser
-{
-public:
+class GCommandLineParser : public QCommandLineParser {
+  public:
     GCommandLineParser();
 };
 

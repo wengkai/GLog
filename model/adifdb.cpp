@@ -1,29 +1,38 @@
 #include "adifdb.h"
-#include "Concurrent.h"
-#include "fccdb.h"
-#include <QFileInfo>
-#include <QUrl>
-#include <QDir>
-#include <QTemporaryDir>
-#include <QTemporaryFile>
-#include <QProcess>
-#include <QCoreApplication>
 #include <QApplication>
 #include <QClipboard>
-#include <QRegularExpression>
+#include <QCoreApplication>
+#include <QDir>
+#include <QFileInfo>
 #include <QMessageBox>
-#include <fstream>
-#include <sstream>
-#include <cstdlib>
-#include <iostream>
+#include <QProcess>
+#include <QRegularExpression>
+#include <QTemporaryDir>
+#include <QTemporaryFile>
+#include <QUrl>
 #include <algorithm>
+#include <cstdlib>
+#include <fstream>
+#include <iostream>
+#include <sstream>
 #include <type_traits>
+#include "Concurrent.h"
+#include "fccdb.h"
 
-#define THIS_CONNECT_Q(signal, slot) QObject::connect(this, &std::remove_reference_t<decltype(*this)>::signal, this, &std::remove_reference_t<decltype(*this)>::slot, Qt::QueuedConnection)
+#ifdef _WIN32
+#include <io.h>
+#define IS_PIPED (!_isatty(_fileno(stdin)))
+#else
+#include <unistd.h>
+#define IS_PIPED (!isatty(fileno(stdin)))
+#endif
 
-void AdifModel::newViewWithRows(QModelIndexList indexes)
-{
-    auto mineData = mimeData(indexes);
+#define THIS_CONNECT_Q(signal, slot)                                                               \
+    QObject::connect(this, &std::remove_reference_t<decltype(*this)>::signal, this,                \
+                     &std::remove_reference_t<decltype(*this)>::slot, Qt::QueuedConnection)
+
+void AdifModel::newViewWithRows(QModelIndexList indexes) {
+    auto *mineData = mimeData(indexes);
     auto text = mineData->data("text/plain");
     QTemporaryFile tempFile;
     tempFile.setAutoRemove(false);
@@ -39,72 +48,74 @@ void AdifModel::newViewWithRows(QModelIndexList indexes)
     }
 }
 
-void AdifModel::pasteRows(const QMimeData *mimeData)
-{
+void AdifModel::pasteRows(const QMimeData *mimeData) {
     dropMimeData(mimeData, Qt::DropAction::CopyAction, -1, -1, QModelIndex());
 }
 
-void AdifModel::copyRows(const QModelIndexList indexes)
-{
-    auto mimeData = new QMimeData();
+void AdifModel::copyRows(const QModelIndexList indexes) {
+    auto *mimeData = new QMimeData();
     mimeData->setData("text/plain", this->mimeData(indexes)->data("text/plain"));
-    emit setCilpboard(mimeData); 
+    emit setCilpboard(mimeData);
 }
 
-void AdifModel::findNextS(QModelIndex current, QString key, QString value, bool isReg)
-{
+void AdifModel::findNextS(QModelIndex current, QString key, QString value, bool isReg) {
     auto sv = value.toStdString();
     auto sk = key.toStdString();
     if (!isReg) {
-        auto index = this->findNext(current, [=](const std::string& v) { return v.find(sv) != std::string::npos; }, sk);
+        auto index = this->findNext(
+            current, [=](const std::string &v) { return v.find(sv) != std::string::npos; }, sk);
         emit foundNext(index);
         return;
     }
     QRegularExpression re(value);
-    auto match = [=](const std::string& v) { return re.match(QString::fromStdString(v)).hasMatch(); };
+    auto match = [=](const std::string &v) {
+        return re.match(QString::fromStdString(v)).hasMatch();
+    };
     auto index = this->findNext(current, match, sk);
     emit foundNext(index);
 }
 
-void AdifModel::selectAll(QString key, QString value, bool isReg)
-{
+void AdifModel::selectAll(QString key, QString value, bool isReg) {
     auto sv = value.toStdString();
     auto sk = key.toStdString();
     if (!isReg) {
-        auto rows = this->findAll([=](const std::string& v) { return v.find(sv) != std::string::npos; }, sk);
+        auto rows = this->findAll(
+            [=](const std::string &v) { return v.find(sv) != std::string::npos; }, sk);
         emit selectRows(rows);
         return;
     }
     QRegularExpression re(value);
-    auto match = [=](const std::string& v) { return re.match(QString::fromStdString(v)).hasMatch(); };
+    auto match = [=](const std::string &v) {
+        return re.match(QString::fromStdString(v)).hasMatch();
+    };
     auto rows = this->findAll(match, sk);
     emit selectRows(rows);
 }
 
-void AdifModel::deselectAll(QString key, QString value, bool isReg)
-{
+void AdifModel::deselectAll(QString key, QString value, bool isReg) {
     auto sv = value.toStdString();
     auto sk = key.toStdString();
     if (!isReg) {
-        auto rows = this->findAll([=](const std::string& v) { return v.find(sv) != std::string::npos; }, sk);
+        auto rows = this->findAll(
+            [=](const std::string &v) { return v.find(sv) != std::string::npos; }, sk);
         emit deselectRows(rows);
         return;
     }
     QRegularExpression re(value);
-    auto match = [=](const std::string& v) { return re.match(QString::fromStdString(v)).hasMatch(); };
+    auto match = [=](const std::string &v) {
+        return re.match(QString::fromStdString(v)).hasMatch();
+    };
     auto rows = this->findAll(match, sk);
     emit deselectRows(rows);
 }
 
-bool AdifModel::addHeader(const std::string &header)
-{
+bool AdifModel::addHeader(const std::string &header) {
     std::unique_lock<decltype(mutex)> lock(mutex);
     return _addHeader(header);
 }
 
-bool AdifModel::_addHeader(const std::string &header)
-{
-    auto& h = header;
+bool AdifModel::_addHeader(const std::string &header) {
+    const auto &h = header;
     if (sheaders.find(h) != sheaders.end()) {
         return false;
     }
@@ -112,16 +123,16 @@ bool AdifModel::_addHeader(const std::string &header)
     if (iter != rheaders.end() && *iter == h) {
         return false;
     }
-    beginInsertColumnsWrap(QModelIndex(), iter - (rheaders.begin() + sheaders.size()), iter - (rheaders.begin() + sheaders.size()));
+    beginInsertColumnsWrap(QModelIndex(), iter - (rheaders.begin() + sheaders.size()),
+                           iter - (rheaders.begin() + sheaders.size()));
     rheaders.insert(iter, h);
     endInsertColumnsWrap();
     return true;
 }
 
-std::string AdifModel::_records2StdString(const std::set<int> &rows) const
-{
-    std::stringstream stream {};
-    for (auto& row : rows) {
+std::string AdifModel::_records2StdString(const std::set<int> &rows) const {
+    std::stringstream stream{};
+    for (const auto &row : rows) {
         if (0 <= row && row < records.size()) {
             stream << records[row] << "\n";
         }
@@ -129,61 +140,60 @@ std::string AdifModel::_records2StdString(const std::set<int> &rows) const
     return stream.str();
 }
 
-std::vector<std::string> AdifModel::getDefaultSortModel(const std::string &field)
-{
-    std::vector<std::string> ret {field};
+std::vector<std::string> AdifModel::getDefaultSortModel(const std::string &field) {
+    std::vector<std::string> ret{field};
     if (field == "qso_date") {
-        ret.push_back("time_on");
+        ret.emplace_back("time_on");
         return ret;
     }
     if (field == "time_on") {
-        ret.push_back("qso_date");
+        ret.emplace_back("qso_date");
         return ret;
     }
-    ret.push_back("qso_date");
-    ret.push_back("time_on");
+    ret.emplace_back("qso_date");
+    ret.emplace_back("time_on");
     return ret;
 }
 
-void AdifModel::mapCallSignInView(bool keepOrigin)
-{
+void AdifModel::mapCallSignInView(bool keepOrigin) {
     if (records.empty()) {
         return;
     }
     std::string testField = "z_glog_resolved_1";
     addHeader(testField);
-    auto ctydb = CtyDB::instance();
+    auto *ctydb = CtyDB::instance();
     emit mapCallSignInViewBegin();
     std::shared_lock<decltype(ctydb->mutex)> lock0(ctydb->mutex);
     std::unique_lock<decltype(mutex)> lock1(mutex);
-    
+
     int failCount = 0;
     int confictCount = 0;
-    auto writeByKeepOriginFlag = [&](std::string& dest, const std::string& s) {
-        if (!dest.empty() && dest != s) {
+    auto writeByKeepOriginFlag = [&](Record &dest, const std::string &key,
+                                     const std::string &value) {
+        if (auto iter = dest.find(key); iter != dest.end() && iter->second->get() != value) {
             ++confictCount;
-            if (keepOrigin)
+            if (keepOrigin) {
                 return;
+            }
         }
-        dest = s;
+        dest.addOrSetPair(key, value);
     };
-    
+
     QString buf;
-    for (auto& record : records) {
-        auto & call = record["call"];
+    for (auto &record : records) {
+        auto call = record["call"]->get();
         buf = QString::fromUtf8(call.data(), call.size());
         ctydb->normalizeCallSign(buf);
         auto result = ctydb->lookUpCallSign(QStringView(buf));
         if (result.first->vaild) {
-            record[testField] = (result.first->name + result.second).toStdString();
+            record.addOrSetPair(testField, (result.first->name + result.second).toStdString());
             // CQZ, ITUZ, CONT, COUNTRY
-            writeByKeepOriginFlag(record["cqz"], QString::number(result.first->cq).toStdString());
-            writeByKeepOriginFlag(record["ituz"], QString::number(result.first->itu).toStdString());
-            writeByKeepOriginFlag(record["cont"], result.first->continent.toStdString());
-            writeByKeepOriginFlag(record["country"], result.first->name.toStdString());
-        }
-        else {
-            record[testField] = result.second.toStdString();
+            writeByKeepOriginFlag(record, "cqz", QString::number(result.first->cq).toStdString());
+            writeByKeepOriginFlag(record, "ituz", QString::number(result.first->itu).toStdString());
+            writeByKeepOriginFlag(record, "cont", result.first->continent.toStdString());
+            writeByKeepOriginFlag(record, "country", result.first->name.toStdString());
+        } else {
+            record.addOrSetPair(testField, result.second.toStdString());
             ++failCount;
         }
     }
@@ -193,18 +203,16 @@ void AdifModel::mapCallSignInView(bool keepOrigin)
     emit mapCallSignInViewEnd(failCount, confictCount);
 }
 
-void AdifModel::_clear()
-{
+void AdifModel::_clear() {
     records.clear();
     while (rheaders.size() > GRecord::RESOLVE_HEADERS_COUNT) {
         rheaders.pop_back();
     }
 }
 
-AdifModel::AdifModel(QObject *parent) : QAbstractTableModel(parent)
-{
+AdifModel::AdifModel(QObject *parent) : QAbstractTableModel(parent) {
     for (int i = 0; i < GRecord::RESOLVE_HEADERS_COUNT; ++i) {
-        rheaders.push_back(GRecord::RESOLVE_HEADERS[i]);
+        rheaders.emplace_back(GRecord::RESOLVE_HEADERS[i]);
         sheaders.insert(GRecord::RESOLVE_HEADERS[i]);
     }
     // control = new AdifModelC(this);
@@ -218,6 +226,38 @@ AdifModel::AdifModel(QObject *parent) : QAbstractTableModel(parent)
     // THIS_CONNECT_Q(endRemoveColumnsWrap, endRemoveColumnsWrapS);
     THIS_CONNECT_Q(beginResetModelWrap, beginResetModelWrapS);
     THIS_CONNECT_Q(endResetModelWrap, endResetModelWrapS);
+
+    if (IS_PIPED &&
+        (std::cin.rdbuf()->in_avail() > 0 || std::cin.peek() != std::char_traits<char>::eof())) {
+        GLogConcurrent::makeFuture([=]() {
+            bool parse_res = false;
+            driver.switch_streams(std::cin, std::cerr);
+            driver.ClearErrors();
+            parse_res = !parser.parse();
+            if (parse_res) {
+                std::unique_lock<std::shared_mutex> lock(mutex);
+                beginResetModelWrap();
+                _setRecords(driver.data.rbegin(), driver.data.rend());
+                endResetModelWrap();
+            }
+            if (!parse_res) {
+                throw std::runtime_error(driver.GetErrorMessages().back());
+            }
+        })
+            .then(this,
+                  [=]() {
+                      if (driver.GetErrorMessages().size()) {
+                          QMessageBox::warning(
+                              nullptr, tr("Warning"),
+                              tr("%1 errors found").arg(driver.GetErrorMessages().size()),
+                              QMessageBox::StandardButton::Ok);
+                      }
+                  })
+            .onFailed(this, [=](const std::exception &e) {
+                QMessageBox::critical(nullptr, tr("Error"), e.what(),
+                                      QMessageBox::StandardButton::Ok);
+            });
+    }
 }
 
 // AdifModelC *AdifModel::getControl()
@@ -225,32 +265,24 @@ AdifModel::AdifModel(QObject *parent) : QAbstractTableModel(parent)
 //     return control;
 // }
 
-int AdifModel::rowCount(const QModelIndex &parent) const
-{
-    return records.size();
-}
+int AdifModel::rowCount(const QModelIndex &parent) const { return records.size(); }
 
-int AdifModel::columnCount(const QModelIndex &parent) const
-{
-    return rheaders.size();
-}
+int AdifModel::columnCount(const QModelIndex &parent) const { return rheaders.size(); }
 
-QVariant AdifModel::data(const QModelIndex &index, int role) const
-{
-    if (role != Qt::DisplayRole && role != Qt::EditRole)
+QVariant AdifModel::data(const QModelIndex &index, int role) const {
+    if (role != Qt::DisplayRole && role != Qt::EditRole) {
         return QVariant();
+    }
 
     std::shared_lock<decltype(mutex)> lock(mutex, std::defer_lock);
     if (lock.try_lock()) {
         QVariant ret{};
-        if (index.column() < rheaders.size()
-            && index.row() < records.size()
-            )  {
-            auto& k = rheaders.at(index.column());
-            auto& r = records.at(index.row());
+        if (index.column() < rheaders.size() && index.row() < records.size()) {
+            const auto &k = rheaders.at(index.column());
+            const auto &r = records.at(index.row());
             auto iter = r.find(k);
             if (iter != r.end()) {
-                return QString::fromStdString(iter->second);
+                return QString::fromStdString(iter->second->get());
             }
         }
     }
@@ -258,10 +290,10 @@ QVariant AdifModel::data(const QModelIndex &index, int role) const
     return QVariant();
 }
 
-QVariant AdifModel::headerData(int section, Qt::Orientation orientation, int role) const
-{
-    if (role != Qt::DisplayRole)
+QVariant AdifModel::headerData(int section, Qt::Orientation orientation, int role) const {
+    if (role != Qt::DisplayRole) {
         return QVariant();
+    }
     if (orientation == Qt::Horizontal) {
         QVariant ret{};
         std::shared_lock<decltype(mutex)> lock(mutex, std::defer_lock);
@@ -270,54 +302,50 @@ QVariant AdifModel::headerData(int section, Qt::Orientation orientation, int rol
                 return QString::fromStdString(rheaders.at(section));
             }
         }
-    } 
+    }
     return section + 1;
 }
 
-bool AdifModel::setData(const QModelIndex &index, const QVariant &value, int role)
-{
+bool AdifModel::setData(const QModelIndex &index, const QVariant &value, int role) {
     if (role == Qt::EditRole) {
         std::unique_lock<decltype(mutex)> lock(mutex);
         auto v = value.toString().toStdString();
         if (index.row() < records.size() && index.column() < rheaders.size()) {
-            auto & field = rheaders[index.column()];
+            auto &field = rheaders[index.column()];
             if (field == "qso_date" || field == "time_on") {
                 return false;
             }
-            records[index.row()][field] = v;
+            auto res = records[index.row()].addOrSetPair(field, v);
             lock.unlock();
             dataChanged(index, index);
-            return true;
+            return res;
         }
     }
 
     return false;
 }
 
-Qt::ItemFlags AdifModel::flags(const QModelIndex &index) const
-{
-    return QAbstractTableModel::flags(index) | Qt::ItemIsEditable | Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled;
+Qt::ItemFlags AdifModel::flags(const QModelIndex &index) const {
+    return QAbstractTableModel::flags(index) | Qt::ItemIsEditable | Qt::ItemIsDragEnabled |
+           Qt::ItemIsDropEnabled;
 }
 
-Qt::DropActions AdifModel::supportedDropActions() const
-{
+Qt::DropActions AdifModel::supportedDropActions() const {
     return QAbstractTableModel::supportedDropActions() | Qt::DropAction::MoveAction;
 }
 
-QStringList AdifModel::mimeTypes() const
-{
+QStringList AdifModel::mimeTypes() const {
     auto ret = QAbstractTableModel::mimeTypes();
     ret.append("text/plain");
     ret.append("text/uri-list");
     return ret;
 }
 
-QMimeData *AdifModel::mimeData(const QModelIndexList &indexes) const
-{
+QMimeData *AdifModel::mimeData(const QModelIndexList &indexes) const {
     std::shared_lock<decltype(mutex)> lock(mutex);
     QMimeData *mimeData = QAbstractTableModel::mimeData(indexes);
     std::set<int> rows;
-    for (auto& index : indexes) {
+    for (const auto &index : indexes) {
         if (index.isValid()) {
             rows.insert(index.row());
         }
@@ -326,12 +354,10 @@ QMimeData *AdifModel::mimeData(const QModelIndexList &indexes) const
     return mimeData;
 }
 
-bool AdifModel::dropMimeData(const QMimeData *data, Qt::DropAction action, int row, int column, const QModelIndex &parent)
-{
+bool AdifModel::dropMimeData(const QMimeData *data, Qt::DropAction action, int row, int column,
+                             const QModelIndex &parent) {
     while (data->hasText()) {
-        if ((0 <= row && row <= records.size())
-            || row == -1 && column == -1
-            ) {
+        if ((0 <= row && row <= records.size()) || row == -1 && column == -1) {
             auto s = data->text().toStdString();
             std::stringstream stream(s);
             driver.switch_streams(stream, std::cerr);
@@ -359,8 +385,7 @@ bool AdifModel::dropMimeData(const QMimeData *data, Qt::DropAction action, int r
     return QAbstractTableModel::dropMimeData(data, action, row, column, parent);
 }
 
-bool AdifModel::insertRows(int row, int count, const QModelIndex &parent)
-{
+bool AdifModel::insertRows(int row, int count, const QModelIndex &parent) {
     // std::unique_lock<decltype(mutex)> lock(mutex);
     // if (count > 0 && row >= 0 && row <= records.size()) {
     //     beginInsertRows(parent, row, row + count - 1);
@@ -372,8 +397,7 @@ bool AdifModel::insertRows(int row, int count, const QModelIndex &parent)
     return false;
 }
 
-bool AdifModel::removeRows(int row, int count, const QModelIndex &parent)
-{
+bool AdifModel::removeRows(int row, int count, const QModelIndex &parent) {
     std::unique_lock<decltype(mutex)> lock(mutex);
     if (row >= 0 && count > 0 && row + count <= records.size()) {
         beginRemoveRows(parent, row, row + count - 1);
@@ -385,55 +409,54 @@ bool AdifModel::removeRows(int row, int count, const QModelIndex &parent)
     return false;
 }
 
-bool AdifModel::moveRows(const QModelIndex &sourceParent, int sourceRow, int count, const QModelIndex &destinationParent, int destinationChild)
-{
+bool AdifModel::moveRows(const QModelIndex &sourceParent, int sourceRow, int count,
+                         const QModelIndex &destinationParent, int destinationChild) {
     std::unique_lock<decltype(mutex)> lock(mutex);
-    if (! beginMoveRows(sourceParent, sourceRow, sourceRow + count - 1, destinationParent, destinationChild)) {
+    if (!beginMoveRows(sourceParent, sourceRow, sourceRow + count - 1, destinationParent,
+                       destinationChild)) {
         endMoveRows();
         return false;
     }
     if (destinationChild > sourceRow) {
-        std::rotate(records.begin() + sourceRow, records.begin() + sourceRow + count, records.begin() + destinationChild);
+        std::rotate(records.begin() + sourceRow, records.begin() + sourceRow + count,
+                    records.begin() + destinationChild);
     }
     if (destinationChild < sourceRow) {
-        std::rotate(records.begin() + destinationChild, records.begin() + sourceRow, records.begin() + sourceRow + count);
+        std::rotate(records.begin() + destinationChild, records.begin() + sourceRow,
+                    records.begin() + sourceRow + count);
     }
     lock.unlock();
     endMoveRows();
     return true;
 }
 
-void AdifModel::sort(int column, Qt::SortOrder order)
-{
+void AdifModel::sort(int column, Qt::SortOrder order) {
     std::unique_lock<decltype(mutex)> lock(mutex);
     if (0 <= column && column < rheaders.size()) {
-        auto& col = rheaders[column];
+        auto &col = rheaders[column];
         std::vector<std::string> fields = getDefaultSortModel(col);
-        auto less = [=](const decltype(records)::value_type& a, const decltype(records)::value_type& b)->bool {
+        auto less = [=](const decltype(records)::value_type &a,
+                        const decltype(records)::value_type &b) -> bool {
             return GRecord::less(a, b, fields);
         };
         beginResetModel();
         if (order == Qt::AscendingOrder) {
-            std::sort(records.begin(), records.end(), [=](const decltype(records)::value_type& a, const decltype(records)::value_type& b)->bool {
-                return less(a, b);
-            });
+            std::sort(records.begin(), records.end(),
+                      [=](const decltype(records)::value_type &a,
+                          const decltype(records)::value_type &b) -> bool { return less(a, b); });
         } else {
-            std::sort(records.begin(), records.end(), [=](const decltype(records)::value_type& a, const decltype(records)::value_type& b)->bool {
-                return less(b, a);
-            });
+            std::sort(records.begin(), records.end(),
+                      [=](const decltype(records)::value_type &a,
+                          const decltype(records)::value_type &b) -> bool { return less(b, a); });
         }
         lock.unlock();
         endResetModel();
     }
-    
 }
 
-AdifModel::~AdifModel()
-{
-}
+AdifModel::~AdifModel() = default;
 
-void AdifModel::clear()
-{
+void AdifModel::clear() {
     std::unique_lock<decltype(mutex)> lock(mutex);
     beginResetModel();
     _clear();
@@ -441,28 +464,24 @@ void AdifModel::clear()
     endResetModel();
 }
 
-std::string AdifModel::records2StdString(const std::set<int> &rows) const
-{
+std::string AdifModel::records2StdString(const std::set<int> &rows) const {
     std::shared_lock<decltype(mutex)> lock(mutex);
     return _records2StdString(rows);
 }
 
-void AdifModel::toCsv(std::ostream &stream) const
-{
+void AdifModel::toCsv(std::ostream &stream) const {
     std::shared_lock<decltype(mutex)> lock(mutex);
     _toCsv(stream);
 }
 
-void AdifModel::toAdif(std::ostream &stream) const
-{
+void AdifModel::toAdif(std::ostream &stream) const {
     std::shared_lock<decltype(mutex)> lock(mutex);
     _toAdif(stream);
 }
 
-AdifModel::AwardRes AdifModel::diffEntNameCountForAward() const
-{
+AdifModel::AwardRes AdifModel::diffEntNameCountForAward() const {
     AwardRes res;
-    auto ctydb = CtyDB::instance();
+    auto *ctydb = CtyDB::instance();
     std::shared_lock<decltype(ctydb->mutex)> lock0(ctydb->mutex);
     std::shared_lock<decltype(mutex)> lock1(mutex);
     if (records.empty()) {
@@ -473,11 +492,11 @@ AdifModel::AwardRes AdifModel::diffEntNameCountForAward() const
     std::map<QString, int> counterWAC_NOTARRL;
     std::map<int, int> counterCQZ;
     std::map<QString, int> counterWAS;
-    auto fccdb = FccDB::instance();
+    auto *fccdb = FccDB::instance();
     bool WASSearchVaild = fccdb->beginSearch();
     QString buf;
-    for (auto & record : records) {
-        auto & call = record.at("call");
+    for (const auto &record : records) {
+        auto call = record.at("call")->get();
         buf = QString::fromUtf8(call.data(), call.size());
         ctydb->normalizeCallSign(buf);
         auto result = ctydb->lookUpCallSign(QStringView(buf));
@@ -511,8 +530,7 @@ AdifModel::AwardRes AdifModel::diffEntNameCountForAward() const
     return res;
 }
 
-void AdifModel::_toCsv(std::ostream &stream) const
-{
+void AdifModel::_toCsv(std::ostream &stream) const {
     auto iter1 = rheaders.begin();
     while (true) {
         stream << *iter1;
@@ -527,7 +545,7 @@ void AdifModel::_toCsv(std::ostream &stream) const
     auto iter2 = records.begin();
     while (true) {
         auto record = *iter2;
-        for (auto & func : GRecordOutputFilters) {
+        for (const auto &func : GRecordOutputFilters) {
             func(record);
         }
         for (auto h = rheaders.begin(); h != rheaders.end(); ++h) {
@@ -548,9 +566,8 @@ void AdifModel::_toCsv(std::ostream &stream) const
     }
 }
 
-void AdifModel::_toAdif(std::ostream &stream) const
-{
-    for (auto& record : records) {
+void AdifModel::_toAdif(std::ostream &stream) const {
+    for (const auto &record : records) {
         auto r = record;
         for (auto f : GRecordOutputFilters) {
             f(r);
@@ -559,77 +576,109 @@ void AdifModel::_toAdif(std::ostream &stream) const
     }
 }
 
-void AdifModel::openFile(QString filename)
-{
-    auto future = GLogConcurrent::makeFuture([=]() {
+void AdifModel::openFile(QString filename) {
+    GLogConcurrent::makeFuture([=]() {
         QFileInfo file(filename);
         std::ifstream in(file.filesystemAbsoluteFilePath());
         bool parse_res = false;
         if (in) {
             driver.switch_streams(in, std::cerr);
+            driver.ClearErrors();
             parse_res = !parser.parse();
             if (parse_res) {
                 std::unique_lock<std::shared_mutex> lock(mutex);
                 beginResetModelWrap();
                 _setRecords(driver.data.rbegin(), driver.data.rend());
                 endResetModelWrap();
-            }  
+            }
         }
         in.close();
-        return parse_res;
-    });
-    future.then([=](decltype(future) future){
-        auto open_result = future.result();
-    });
+        if (!parse_res) {
+            throw std::runtime_error(driver.GetErrorMessages().back());
+        }
+    })
+        .then(this,
+              [=]() {
+                  if (driver.GetErrorMessages().size()) {
+                      QMessageBox::warning(
+                          nullptr, tr("Warning"),
+                          tr("%1 errors found").arg(driver.GetErrorMessages().size()),
+                          QMessageBox::StandardButton::Ok);
+                  }
+              })
+        .onFailed(this, [=](const std::exception &e) {
+            QMessageBox::critical(nullptr, tr("Error"), e.what(), QMessageBox::StandardButton::Ok);
+        });
 }
 
-void AdifModel::appendFile(QString filename, bool remove)
-{
-    auto future = GLogConcurrent::makeFuture([=]() {
+void AdifModel::appendFile(QString filename, bool remove) {
+    GLogConcurrent::makeFuture([=]() {
         QFileInfo file(filename);
         std::ifstream in(file.filesystemAbsoluteFilePath());
         bool parse_res = false;
         if (in) {
             driver.switch_streams(in, std::cerr);
+            driver.ClearErrors();
             parse_res = !parser.parse();
             if (parse_res) {
                 addRecords(driver.data.rbegin(), driver.data.rend());
-            }  
+            }
         }
         in.close();
         if (remove) {
             QFile::remove(QFileInfo(filename).absoluteFilePath());
         }
-        return parse_res;
-    });
-    future.then([=](decltype(future) future){
-        auto open_result = future.result();
-    });
+        if (!parse_res) {
+            throw std::runtime_error(driver.GetErrorMessages().back());
+        }
+    })
+        .then(this,
+              [=]() {
+                  if (driver.GetErrorMessages().size()) {
+                      QMessageBox::warning(
+                          nullptr, tr("Warning"),
+                          tr("%1 errors found").arg(driver.GetErrorMessages().size()),
+                          QMessageBox::StandardButton::Ok);
+                  }
+              })
+        .onFailed(this, [=](const std::exception &e) {
+            QMessageBox::critical(nullptr, tr("Error"), e.what(), QMessageBox::StandardButton::Ok);
+        });
 }
 
-void AdifModel::insertFile(int row, QString filename)
-{
-    auto future = GLogConcurrent::makeFuture([=](QPromise<bool> & p) {
+void AdifModel::insertFile(int row, QString filename) {
+    GLogConcurrent::makeFuture([=]() {
         QFileInfo file(filename);
         std::ifstream in(file.filesystemAbsoluteFilePath());
         bool parse_res = false;
         if (in) {
             driver.switch_streams(in, std::cerr);
+            driver.ClearErrors();
             parse_res = !parser.parse();
             if (parse_res) {
                 insertRecords(row, driver.data.rbegin(), driver.data.rend());
-            }  
+            }
         }
         in.close();
-        p.addResult(parse_res);
-    });
-    future.then([=](decltype(future) future){
-        auto open_result = future.result();
-    });
+        if (!parse_res) {
+            throw std::runtime_error(driver.GetErrorMessages().back());
+        }
+    })
+        .then(this,
+              [=]() {
+                  if (driver.GetErrorMessages().size()) {
+                      QMessageBox::warning(
+                          nullptr, tr("Warning"),
+                          tr("%1 errors found").arg(driver.GetErrorMessages().size()),
+                          QMessageBox::StandardButton::Ok);
+                  }
+              })
+        .onFailed(this, [=](const std::exception &e) {
+            QMessageBox::critical(nullptr, tr("Error"), e.what(), QMessageBox::StandardButton::Ok);
+        });
 }
 
-void AdifModel::saveAs(QString filename) const
-{
+void AdifModel::saveAs(QString filename) const {
     if (records.empty()) {
         return;
     }
@@ -653,25 +702,21 @@ void AdifModel::saveAs(QString filename) const
         out.close();
         return false;
     });
-    future.then([=](decltype(future) future){
+    future.then([=](decltype(future) future) {
 
     });
 }
 
-void AdifModel::sortSelectedColumn(int column, Qt::SortOrder order)
-{
-    sort(column, order);
-}
+void AdifModel::sortSelectedColumn(int column, Qt::SortOrder order) { sort(column, order); }
 
-void AdifModel::removeSelectedColumn(int column)
-{
+void AdifModel::removeSelectedColumn(int column) {
     std::unique_lock<decltype(mutex)> lock(mutex);
     if (column < sheaders.size() || column >= rheaders.size()) {
         return;
     }
     beginRemoveColumns(QModelIndex(), column, column);
     auto field = rheaders.at(column);
-    for (auto& record : records) {
+    for (auto &record : records) {
         auto iter = record.find(field);
         if (iter != record.end()) {
             record.erase(iter);
@@ -682,18 +727,19 @@ void AdifModel::removeSelectedColumn(int column)
     endRemoveColumns();
 }
 
-void AdifModel::deleteRows(QModelIndexList indexes)
-{
+void AdifModel::deleteRows(QModelIndexList indexes) {
     if (indexes.empty()) {
         return;
     }
-    std::sort(indexes.begin(), indexes.end(), [=](const QModelIndex& a, const QModelIndex& b) { return a.row() < b.row(); });
+    std::sort(indexes.begin(), indexes.end(),
+              [=](const QModelIndex &a, const QModelIndex &b) { return a.row() < b.row(); });
     std::unique_lock<decltype(mutex)> lock(mutex);
     auto idx = indexes.size() - 1;
     int deletebegin = indexes.at(idx).row();
     int deleteend = deletebegin + 1;
     while (true) {
-        if (idx > 0 && indexes.at(idx - 1).row() >= 0 && indexes.at(idx - 1).row() == deletebegin - 1) {
+        if (idx > 0 && indexes.at(idx - 1).row() >= 0 &&
+            indexes.at(idx - 1).row() == deletebegin - 1) {
             --deletebegin;
             --idx;
             continue;
@@ -713,7 +759,7 @@ void AdifModel::deleteRows(QModelIndexList indexes)
     auto iter = (rheaders.begin() + sheaders.size());
     while (iter != rheaders.end()) {
         bool vaild = false;
-        for (auto& record : records) {
+        for (auto &record : records) {
             if (record.find(*iter) != record.end()) {
                 vaild = true;
                 break;
@@ -723,7 +769,8 @@ void AdifModel::deleteRows(QModelIndexList indexes)
             ++iter;
             continue;
         }
-        beginRemoveColumns(QModelIndex(), iter - (rheaders.begin() + sheaders.size()), iter - (rheaders.begin() + sheaders.size()));
+        beginRemoveColumns(QModelIndex(), iter - (rheaders.begin() + sheaders.size()),
+                           iter - (rheaders.begin() + sheaders.size()));
         iter = rheaders.erase(iter);
         lock.unlock();
         endRemoveColumns();
@@ -731,25 +778,17 @@ void AdifModel::deleteRows(QModelIndexList indexes)
     }
 }
 
-void AdifModel::beginInsertColumnsWrapS(QModelIndex parent, int first, int last)
-{
+void AdifModel::beginInsertColumnsWrapS(QModelIndex parent, int first, int last) {
     beginInsertColumns(parent, first, last);
 }
 
-void AdifModel::endInsertColumnsWrapS()
-{
-    endInsertColumns();
-}
+void AdifModel::endInsertColumnsWrapS() { endInsertColumns(); }
 
-void AdifModel::beginInsertRowsWrapS(QModelIndex parent, int first, int last)
-{
+void AdifModel::beginInsertRowsWrapS(QModelIndex parent, int first, int last) {
     beginInsertRows(parent, first, last);
 }
 
-void AdifModel::endInsertRowsWrapS()
-{
-    endInsertRows();
-}
+void AdifModel::endInsertRowsWrapS() { endInsertRows(); }
 
 // void AdifModel::beginRemoveRowsWrapS(QModelIndex parent, int first, int last)
 // {
@@ -771,12 +810,6 @@ void AdifModel::endInsertRowsWrapS()
 //     endRemoveColumns();
 // }
 
-void AdifModel::beginResetModelWrapS()
-{
-    beginResetModel();
-}
+void AdifModel::beginResetModelWrapS() { beginResetModel(); }
 
-void AdifModel::endResetModelWrapS()
-{
-    endResetModel();
-}
+void AdifModel::endResetModelWrapS() { endResetModel(); }

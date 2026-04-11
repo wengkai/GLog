@@ -1,37 +1,38 @@
 #include "MapWidget.h"
-#include "ui_MapWidget.h"
-#include "ctydb.h"
-#include <QGraphicsEllipseItem>
-#include <QMouseEvent>
-#include <QWheelEvent>
-#include <QMessageBox>
+#include <QActionGroup>
 #include <QBrush>
 #include <QFont>
+#include <QGraphicsEllipseItem>
+#include <QMessageBox>
+#include <QMouseEvent>
 #include <QOpenGLWidget>
-#include <QActionGroup>
+#include <QWheelEvent>
+#include "ctydb.h"
+#include "ui_MapWidget.h"
 
-MapWidget::MapWidget(AdifModel * model, QWidget *parent) : m_model(model) ,  QMainWindow(parent), ui(new Ui::MapWidgetClass())
-{
+MapWidget::MapWidget(AdifModel *model, QWidget *parent)
+    : m_model(model), QMainWindow(parent), ui(new Ui::MapWidgetClass()) {
     ui->setupUi(this);
     title = windowTitle();
     connect(ui->graphicsView, &MapGraphicsView::mouseMoveTo, [=](qreal x, qreal y) {
         QString xt = x > 0 ? "° E" : "° W";
         QString yt = y > 0 ? "° N" : "° S";
-        setWindowTitle(title + "   " + QString::number(qAbs(x)) + xt + ",   " + QString::number(qAbs(y)) + yt);
+        setWindowTitle(title + "   " + QString::number(qAbs(x)) + xt + ",   " +
+                       QString::number(qAbs(y)) + yt);
     });
 
-    connect(this, &MapWidget::initCtyMarkersCon, this, &MapWidget::initCtyMarkersBatch, Qt::QueuedConnection);
+    connect(this, &MapWidget::initCtyMarkersCon, this, &MapWidget::initCtyMarkersBatch,
+            Qt::QueuedConnection);
 
-    connect(this, &MapWidget::dataVisualizeRe, this, &MapWidget::dataVisualize, Qt::QueuedConnection);
+    connect(this, &MapWidget::dataVisualizeRe, this, &MapWidget::dataVisualize,
+            Qt::QueuedConnection);
 
-    connect(ui->actionDrag_Mode, &QAction::triggered, [=](){
-        ui->graphicsView->setDragMode(QGraphicsView::ScrollHandDrag);
-    });
-    connect(ui->actionSelect_Mode, &QAction::triggered, [=](){
-        ui->graphicsView->setDragMode(QGraphicsView::RubberBandDrag);
-    });
+    connect(ui->actionDrag_Mode, &QAction::triggered,
+            [=]() { ui->graphicsView->setDragMode(QGraphicsView::ScrollHandDrag); });
+    connect(ui->actionSelect_Mode, &QAction::triggered,
+            [=]() { ui->graphicsView->setDragMode(QGraphicsView::RubberBandDrag); });
 
-    auto viewDragModeGroup = new QActionGroup(this);
+    auto *viewDragModeGroup = new QActionGroup(this);
     viewDragModeGroup->addAction(ui->actionDrag_Mode);
     viewDragModeGroup->addAction(ui->actionSelect_Mode);
     viewDragModeGroup->setExclusive(true);
@@ -40,26 +41,18 @@ MapWidget::MapWidget(AdifModel * model, QWidget *parent) : m_model(model) ,  QMa
     ui->actionDrag_Mode->setChecked(true);
 }
 
-MapWidget::~MapWidget()
-{
-    delete ui;
-}
+MapWidget::~MapWidget() { delete ui; }
 
-MapGraphicsView *MapWidget::getMapGraphicsView()
-{
-    return ui->graphicsView;
-}
+MapGraphicsView *MapWidget::getMapGraphicsView() { return ui->graphicsView; }
 
-void MapWidget::clearMarkers()
-{
+void MapWidget::clearMarkers() {
     qDeleteAll(m_markers);
     m_markers.clear();
     m_position_count.clear();
 }
 
-void MapWidget::initCtyMarkersBatch()
-{
-    auto ctydb = CtyDB::instance();
+void MapWidget::initCtyMarkersBatch() {
+    auto *ctydb = CtyDB::instance();
     std::shared_lock<decltype(ctydb->mutex)> lock0(ctydb->mutex, std::defer_lock);
 
     while (lock0.try_lock()) {
@@ -67,7 +60,7 @@ void MapWidget::initCtyMarkersBatch()
             add_markers_begin = 0;
             m_db_hint = ctydb->getDBHint();
         }
-        auto & entdb = ctydb->getVEnts();
+        const auto &entdb = ctydb->getVEnts();
         auto add_markers_end = std::min(add_markers_begin + 50, entdb.size());
         if (add_markers_begin >= add_markers_end) {
             m_markers_ready = true;
@@ -83,8 +76,8 @@ void MapWidget::initCtyMarkersBatch()
         }
 
         for (auto i = add_markers_begin; i < add_markers_end; ++i) {
-            auto & ent = entdb[i];
-            auto maker = ui->graphicsView->createMarker(ent->name, ent->lon, ent->lat);
+            const auto &ent = entdb[i];
+            auto *maker = ui->graphicsView->createMarker(ent->name, ent->lon, ent->lat);
             Q_ASSERT(i == ent->location_id);
             m_markers[ent->location_id] = maker;
             maker->setVisible(false);
@@ -97,7 +90,8 @@ void MapWidget::initCtyMarkersBatch()
     emit initCtyMarkersCon(); // connect to initCtyMarkersBatch (Qt::QueuedConnection)
 }
 
-void MapWidget::initCtyMarkers() // connect(ctydb, &CtyDB::dbHintChanged, mapWidget, &MapWidget::initCtyMarkers);
+void MapWidget::initCtyMarkers() // connect(ctydb, &CtyDB::dbHintChanged, mapWidget,
+                                 // &MapWidget::initCtyMarkers);
 {
     emit initCtyMarkersBegin();
     m_markers_ready = false;
@@ -106,8 +100,7 @@ void MapWidget::initCtyMarkers() // connect(ctydb, &CtyDB::dbHintChanged, mapWid
     initCtyMarkersBatch();
 }
 
-void MapWidget::dataVisualize()
-{
+void MapWidget::dataVisualize() {
     if (!m_markers_ready) {
         emit dataVisualizeRe();
         return;
@@ -115,7 +108,7 @@ void MapWidget::dataVisualize()
 
     m_position_count.assign(m_position_count.size(), 0);
 
-    auto ctydb = CtyDB::instance();
+    auto *ctydb = CtyDB::instance();
     std::shared_lock<decltype(ctydb->mutex)> lock0(ctydb->mutex, std::defer_lock);
     if (!lock0.try_lock()) {
         emit dataVisualizeRe();
@@ -129,8 +122,8 @@ void MapWidget::dataVisualize()
 
     Q_ASSERT(ctydb->getVEnts().size() == m_position_count.size());
     QString buf;
-    for (auto& record : m_model->records) {
-        auto & call = record["call"];
+    for (auto &record : m_model->records) {
+        auto call = record["call"]->get();
         buf = QString::fromUtf8(call.data(), call.size());
         ctydb->normalizeCallSign(buf);
         auto result = ctydb->lookUpCallSign(QStringView(buf));
@@ -140,10 +133,12 @@ void MapWidget::dataVisualize()
     }
 
     for (int i = 0; i < m_markers.size(); ++i) {
-        if (auto* marker = m_markers[i]) {
+        if (auto *marker = m_markers[i]) {
             int count = m_position_count[i];
             marker->setVisible(count > 0);
-            if (count > 0) marker->setPointOpacity(std::min(0.2 + count * 0.05, 1.0));
+            if (count > 0) {
+                marker->setPointOpacity(std::min(0.2 + (count * 0.05), 1.0));
+            }
         }
     }
 }

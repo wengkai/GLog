@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.22)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_SKIP_AUTOGEN_COMPLIANCE_CHECK ON)
 
 project ("GLog")
 
@@ -70,7 +72,10 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     message(STATUS "CC:GNU")
 else ()
-    message(WARNING "CC:others")
+    message(STATUS "CC:others")
+    if (WIN32)
+        add_compile_options("-Wno-deprecated-declarations")
+    endif ()
 endif()
 
 if (UNIX)
@@ -87,7 +92,8 @@ endif()
 
 set(ROOT_DIR ${PROJECT_SOURCE_DIR})
 
-# list (APPEND INCLUDES_DIR "${ROOT_DIR}/adif")
+list (APPEND INCLUDES_DIR "${ROOT_DIR}/adif")
+list (APPEND INCLUDES_DIR "${ROOT_DIR}/adif/constants")
 list (APPEND INCLUDES_DIR "${ROOT_DIR}/parser")
 list (APPEND INCLUDES_DIR "${ROOT_DIR}/gui")
 list (APPEND INCLUDES_DIR "${ROOT_DIR}/model")
@@ -97,9 +103,8 @@ include_directories(
     ${INCLUDES_DIR}
 )
 
-# add_subdirectory(${ROOT_DIR}/adif)
-# list (APPEND EXTRA_LIBS adif)
-
+add_subdirectory(${ROOT_DIR}/adif)
+list (APPEND EXTRA_LIBS adif)
 add_subdirectory(${ROOT_DIR}/parser)
 list (APPEND EXTRA_LIBS parser)
 add_subdirectory(${ROOT_DIR}/model)

@@ -1,39 +1,41 @@
-#include "GLogApplication.h"
-#include "GlobalNetwork.h"
-#include "test_utils.h"
 #include <QtTest>
 #include <QCoreApplication>
+#include <QEventLoop>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
-#include <QEventLoop>
 #include <QSslSocket>
 #include <iostream>
+#include "GLogApplication.h"
+#include "GlobalNetwork.h"
+#include "test_utils.h"
 
 class CtyDBTest : public QObject {
     Q_OBJECT
 
     bool networkOk = false;
-    CtyDB * ctydb = nullptr;
+    CtyDB *ctydb = nullptr;
 
-private slots:
+  private slots:
     void initTestCase() {
         qDebug("Initializing Test Suite...");
         {
             QNetworkAccessManager manager;
             auto req = QNetworkRequest(QUrl("https://www.country-files.com/"));
             GLogNetwork::setGeneralHeader(req);
-            QNetworkReply* reply = manager.get(req);
+            QNetworkReply *reply = manager.get(req);
             QEventLoop loop;
             QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
-        
+
             QTimer::singleShot(5000, &loop, &QEventLoop::quit);
             loop.exec();
 
             if (reply->isFinished() && reply->error() == QNetworkReply::NoError) {
                 networkOk = true;
             } else {
-                if (reply->isRunning()) reply->abort();
+                if (reply->isRunning()) {
+                    reply->abort();
+                }
             }
             reply->deleteLater();
         }
@@ -45,7 +47,7 @@ private slots:
             QEventLoop loop;
             bool done = false;
             GLogApplication w;
-            QObject::connect(&w, &GLogApplication::initCtyDBDone, [&](){
+            QObject::connect(&w, &GLogApplication::initCtyDBDone, [&]() {
                 loop.quit();
                 done = true;
             });
@@ -75,7 +77,6 @@ private slots:
         QCoreApplication::processEvents();
     }
 };
-
 
 int main(int argc, char *argv[]) {
     QApplication app(argc, argv);

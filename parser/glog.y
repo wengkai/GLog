@@ -19,13 +19,28 @@
         class GLogParserDriver;
     } // namespace GLOG_PARSER
     #include "parserdriver.h"
+    // NOLINTBEGIN
+    // STL first
+    #include <optional>
+    #include <regex>
+    #include <algorithm>
+    #include <string_view>
+    #include <charconv>
+    #include <exception>
+    #include <memory>
 } // %code requires
+
+%code provides {
+    // NOLINTEND
+}
  
 %code
 {
     #include "driver.hpp"
     
     #define yylex(x) driver->lex(x)
+    #include "AdifDataTypes.h"
+    // NOLINTBEGIN
 }
 
 %token EOR EOH
@@ -45,15 +60,24 @@ ADIF:
   | RECORDS { 
     driver->data = std::move($1); 
   }
+  | error EOH RECORDS {
+    yyerrok;
+    driver->data = std::move($3);
+  }
   ;
 
 RECORDS:
   RECORD { 
     ($$).push_back($1); 
   }
-  | RECORD RECORDS { 
-    ($2).push_back($1);
-    $$ = std::move($2);
+  | RECORDS RECORD { 
+    ($1).push_back($2);
+    $$ = std::move($1);
+  }
+  | RECORDS error {
+    error("parse record failed");
+    yyerrok;
+    $$ = std::move($1);
   }
   ;
 
@@ -67,9 +91,14 @@ PAIRS:
   PAIR { 
     ($$).push_back($1); 
   }
-  | PAIR PAIRS { 
-    ($2).push_back($1); 
-    $$ = std::move($2);
+  | PAIRS PAIR { 
+    ($1).push_back($2); 
+    $$ = std::move($1);
+  }
+  | PAIRS error {
+    error("parse pair failed");
+    yyerrok;
+    $$ = std::move($1);
   }
   ;
 
@@ -77,5 +106,6 @@ PAIRS:
 %%
 
 void GLOG_PARSER::Parser::error(const std::string& msg) {
-    driver->GLogParserSetError(const_cast<char *>(msg.c_str()));
+    driver->SetError(const_cast<char *>(msg.c_str()));
 }
+// NOLINTEND

@@ -6,8 +6,8 @@
 // #include <sqlite3.h>
 #include <fstream>
 
-#include "GLogApplication.h"
 #include <QtWidgets/QApplication>
+#include "GLogApplication.h"
 
 using namespace std;
 // using namespace adif;
@@ -43,11 +43,10 @@ void input(void);
 void export_csv(void);
 */
 
-int main(int argc, char* argv[])
-{
-    
+int main(int argc, char *argv[]) {
+
 #ifdef HAS_WAYLAND_SUPPORT
-    const char* sessionType = std::getenv("XDG_SESSION_TYPE");
+    const char *sessionType = std::getenv("XDG_SESSION_TYPE");
     if (sessionType && std::string(sessionType) == "wayland") {
         qDebug() << "Wayland session detected, setting platform to wayland;xcb";
         qputenv("QT_QPA_PLATFORM", "wayland;xcb");
@@ -57,7 +56,7 @@ int main(int argc, char* argv[])
 #else
     qDebug() << "Application built without Wayland support.";
 #endif
-    
+
     QApplication app(argc, argv);
     app.setApplicationName("GLog");
     GLogApplication window;
@@ -82,7 +81,7 @@ void save_db(void)
     out.close();
 }
 
-int menu(void) 
+int menu(void)
 {
     int ret = 0;
     do {
@@ -132,7 +131,7 @@ void load_adif(void)
         switch (choice) {
         case 'A':
         case 'a':
-            return MERGE_ADD;    
+            return MERGE_ADD;
         case 'S':
         case 's':
             return MERGE_SKIP;
@@ -256,14 +255,14 @@ void input(void)
     if ( !qth.empty() ) {
         rec.set_field("qth", qth);
     }
-    
+
     string comment;
     cout << "comment:";
     getline(cin, comment);
     if ( !comment.empty() ) {
         rec.set_field("comment", comment);
     }
-    
+
     lastRecord = rec;
     theDB.add(rec);
     cout << rec.to_string() << endl;
