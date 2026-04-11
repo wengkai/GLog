@@ -74,7 +74,7 @@ void DropAbleTableView::tryCopySelectedRows() {
     }
 }
 
-GHeaderView *DropAbleTableView::getHeaderView() { return headerview; }
+auto DropAbleTableView::getHeaderView() -> GHeaderView * { return headerview; }
 
 void DropAbleTableView::findNext(const QString &key, const QString &value, bool isReg) {
     if (model()->rowCount() == 0) {

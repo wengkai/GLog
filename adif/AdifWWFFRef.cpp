@@ -1,6 +1,6 @@
 #include "AdifWWFFRef.h"
 
-bool AdifWWFFRef::set(const std::string &newValue) {
+auto AdifWWFFRef::set(const std::string &newValue) -> bool {
     if (check(newValue)) {
         m_rawValue = newValue;
         for (char &c : m_rawValue) {

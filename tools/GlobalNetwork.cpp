@@ -4,7 +4,7 @@ namespace GLogNetwork {
 QNetworkAccessManager *manager = nullptr;
 }
 
-QNetworkAccessManager *GLogNetwork::instance() {
+auto GLogNetwork::instance() -> QNetworkAccessManager * {
     Q_ASSERT(manager);
     return manager;
 }
@@ -24,7 +24,7 @@ void GLogNetwork::setGeneralHeader(QNetworkRequest &req) {
     req.setRawHeader("Referer", host.toUtf8());
 }
 
-QNetworkReply *GLogNetwork::get(const QString &url) {
+auto GLogNetwork::get(const QString &url) -> QNetworkReply * {
     Q_ASSERT(manager);
     auto req = QNetworkRequest(QUrl(url));
     setGeneralHeader(req);

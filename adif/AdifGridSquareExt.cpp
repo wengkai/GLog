@@ -1,6 +1,6 @@
 #include "AdifGridSquareExt.h"
 
-bool AdifGridSquareExt::set(const std::string &newValue) {
+auto AdifGridSquareExt::set(const std::string &newValue) -> bool {
     if (check(newValue)) {
         m_rawValue = newValue;
 

@@ -110,12 +110,12 @@ void AdifModel::deselectAll(const QString &key, const QString &value, bool isReg
     emit deselectRows(rows);
 }
 
-bool AdifModel::addHeader(const std::string &header) {
+auto AdifModel::addHeader(const std::string &header) -> bool {
     std::unique_lock<decltype(mutex)> lock(mutex);
     return _addHeader(header);
 }
 
-bool AdifModel::_addHeader(const std::string &header) {
+auto AdifModel::_addHeader(const std::string &header) -> bool {
     const auto &h = header;
     if (sheaders.find(h) != sheaders.end()) {
         return false;
@@ -131,7 +131,7 @@ bool AdifModel::_addHeader(const std::string &header) {
     return true;
 }
 
-std::string AdifModel::_records2StdString(const std::set<int> &rows) const {
+auto AdifModel::_records2StdString(const std::set<int> &rows) const -> std::string {
     std::stringstream stream{};
     for (const auto &row : rows) {
         if (0 <= row && row < records.size()) {
@@ -141,7 +141,7 @@ std::string AdifModel::_records2StdString(const std::set<int> &rows) const {
     return stream.str();
 }
 
-std::vector<std::string> AdifModel::getDefaultSortModel(const std::string &field) {
+auto AdifModel::getDefaultSortModel(const std::string &field) -> std::vector<std::string> {
     std::vector<std::string> ret{field};
     if (field == "qso_date") {
         ret.emplace_back("time_on");
@@ -266,11 +266,11 @@ AdifModel::AdifModel(QObject *parent) : QAbstractTableModel(parent) {
 //     return control;
 // }
 
-int AdifModel::rowCount(const QModelIndex &parent) const { return int(records.size()); }
+auto AdifModel::rowCount(const QModelIndex &parent) const -> int { return int(records.size()); }
 
-int AdifModel::columnCount(const QModelIndex &parent) const { return int(rheaders.size()); }
+auto AdifModel::columnCount(const QModelIndex &parent) const -> int { return int(rheaders.size()); }
 
-QVariant AdifModel::data(const QModelIndex &index, int role) const {
+auto AdifModel::data(const QModelIndex &index, int role) const -> QVariant {
     if (role != Qt::DisplayRole && role != Qt::EditRole) {
         return {};
     }
@@ -291,7 +291,7 @@ QVariant AdifModel::data(const QModelIndex &index, int role) const {
     return {};
 }
 
-QVariant AdifModel::headerData(int section, Qt::Orientation orientation, int role) const {
+auto AdifModel::headerData(int section, Qt::Orientation orientation, int role) const -> QVariant {
     if (role != Qt::DisplayRole) {
         return {};
     }
@@ -307,7 +307,7 @@ QVariant AdifModel::headerData(int section, Qt::Orientation orientation, int rol
     return section + 1;
 }
 
-bool AdifModel::setData(const QModelIndex &index, const QVariant &value, int role) {
+auto AdifModel::setData(const QModelIndex &index, const QVariant &value, int role) -> bool {
     if (role == Qt::EditRole) {
         std::unique_lock<decltype(mutex)> lock(mutex);
         auto v = value.toString().toStdString();
@@ -326,23 +326,23 @@ bool AdifModel::setData(const QModelIndex &index, const QVariant &value, int rol
     return false;
 }
 
-Qt::ItemFlags AdifModel::flags(const QModelIndex &index) const {
+auto AdifModel::flags(const QModelIndex &index) const -> Qt::ItemFlags {
     return QAbstractTableModel::flags(index) | Qt::ItemIsEditable | Qt::ItemIsDragEnabled |
            Qt::ItemIsDropEnabled;
 }
 
-Qt::DropActions AdifModel::supportedDropActions() const {
+auto AdifModel::supportedDropActions() const -> Qt::DropActions {
     return QAbstractTableModel::supportedDropActions() | Qt::DropAction::MoveAction;
 }
 
-QStringList AdifModel::mimeTypes() const {
+auto AdifModel::mimeTypes() const -> QStringList {
     auto ret = QAbstractTableModel::mimeTypes();
     ret.append("text/plain");
     ret.append("text/uri-list");
     return ret;
 }
 
-QMimeData *AdifModel::mimeData(const QModelIndexList &indexes) const {
+auto AdifModel::mimeData(const QModelIndexList &indexes) const -> QMimeData * {
     std::shared_lock<decltype(mutex)> lock(mutex);
     QMimeData *mimeData = QAbstractTableModel::mimeData(indexes);
     std::set<int> rows;
@@ -355,8 +355,8 @@ QMimeData *AdifModel::mimeData(const QModelIndexList &indexes) const {
     return mimeData;
 }
 
-bool AdifModel::dropMimeData(const QMimeData *data, Qt::DropAction action, int row, int column,
-                             const QModelIndex &parent) {
+auto AdifModel::dropMimeData(const QMimeData *data, Qt::DropAction action, int row, int column,
+                             const QModelIndex &parent) -> bool {
     while (data->hasText()) {
         if ((0 <= row && row <= records.size()) || row == -1 && column == -1) {
             auto s = data->text().toStdString();
@@ -386,7 +386,7 @@ bool AdifModel::dropMimeData(const QMimeData *data, Qt::DropAction action, int r
     return QAbstractTableModel::dropMimeData(data, action, row, column, parent);
 }
 
-bool AdifModel::insertRows(int row, int count, const QModelIndex &parent) {
+auto AdifModel::insertRows(int row, int count, const QModelIndex &parent) -> bool {
     // std::unique_lock<decltype(mutex)> lock(mutex);
     // if (count > 0 && row >= 0 && row <= records.size()) {
     //     beginInsertRows(parent, row, row + count - 1);
@@ -398,7 +398,7 @@ bool AdifModel::insertRows(int row, int count, const QModelIndex &parent) {
     return false;
 }
 
-bool AdifModel::removeRows(int row, int count, const QModelIndex &parent) {
+auto AdifModel::removeRows(int row, int count, const QModelIndex &parent) -> bool {
     std::unique_lock<decltype(mutex)> lock(mutex);
     if (row >= 0 && count > 0 && row + count <= records.size()) {
         beginRemoveRows(parent, row, row + count - 1);
@@ -410,8 +410,8 @@ bool AdifModel::removeRows(int row, int count, const QModelIndex &parent) {
     return false;
 }
 
-bool AdifModel::moveRows(const QModelIndex &sourceParent, int sourceRow, int count,
-                         const QModelIndex &destinationParent, int destinationChild) {
+auto AdifModel::moveRows(const QModelIndex &sourceParent, int sourceRow, int count,
+                         const QModelIndex &destinationParent, int destinationChild) -> bool {
     std::unique_lock<decltype(mutex)> lock(mutex);
     if (!beginMoveRows(sourceParent, sourceRow, sourceRow + count - 1, destinationParent,
                        destinationChild)) {
@@ -465,7 +465,7 @@ void AdifModel::clear() {
     endResetModel();
 }
 
-std::string AdifModel::records2StdString(const std::set<int> &rows) const {
+auto AdifModel::records2StdString(const std::set<int> &rows) const -> std::string {
     std::shared_lock<decltype(mutex)> lock(mutex);
     return _records2StdString(rows);
 }
@@ -480,7 +480,7 @@ void AdifModel::toAdif(std::ostream &stream) const {
     _toAdif(stream);
 }
 
-AdifModel::AwardRes AdifModel::diffEntNameCountForAward() const {
+auto AdifModel::diffEntNameCountForAward() const -> AdifModel::AwardRes {
     AwardRes res;
     auto *ctydb = CtyDB::instance();
     std::shared_lock<decltype(ctydb->mutex)> lock0(ctydb->mutex);

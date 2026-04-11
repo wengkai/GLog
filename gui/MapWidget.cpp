@@ -43,7 +43,7 @@ MapWidget::MapWidget(AdifModel *model, QWidget *parent)
 
 MapWidget::~MapWidget() { delete ui; }
 
-MapGraphicsView *MapWidget::getMapGraphicsView() { return ui->graphicsView; }
+auto MapWidget::getMapGraphicsView() -> MapGraphicsView * { return ui->graphicsView; }
 
 void MapWidget::clearMarkers() {
     qDeleteAll(m_markers);

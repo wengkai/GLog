@@ -2,20 +2,20 @@
 #include <QFile>
 #include <QThread>
 
-FccDB *FccDB::instance() {
+auto FccDB::instance() -> FccDB * {
     static auto *fccdb = new FccDB();
     return fccdb;
 }
 
-QString FccDB::dbPath() {
+auto FccDB::dbPath() -> QString {
     return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/" + dbFileName();
 }
 
-QString FccDB::dbFileName() { return "fcc_amateur.db"; }
+auto FccDB::dbFileName() -> QString { return "fcc_amateur.db"; }
 
-QString FccDB::connNamePrefix() { return "fcc_search_connection"; }
+auto FccDB::connNamePrefix() -> QString { return "fcc_search_connection"; }
 
-QString FccDB::lookupState(const QString &callsign) {
+auto FccDB::lookupState(const QString &callsign) -> QString {
     if (callsign.isEmpty()) {
         return {};
     }
@@ -49,7 +49,7 @@ QString FccDB::lookupState(const QString &callsign) {
     return res;
 }
 
-bool FccDB::beginSearch() {
+auto FccDB::beginSearch() -> bool {
     if (!QFile::exists(dbPath())) {
         return false;
     }

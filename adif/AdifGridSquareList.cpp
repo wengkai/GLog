@@ -1,6 +1,6 @@
 #include "AdifGridSquareList.h"
 
-bool AdifGridSquareList::set(const std::string &newValue) {
+auto AdifGridSquareList::set(const std::string &newValue) -> bool {
     if (check(newValue)) {
 
         *this = AdifGridSquareList(newValue);

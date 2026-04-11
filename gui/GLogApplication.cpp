@@ -309,7 +309,7 @@ void GLogApplication::initCtyDB(bool show_warning) {
     });
 }
 
-CtyDB *GLogApplication::getCtyDBInstance() { return CtyDB::instance(); }
+auto GLogApplication::getCtyDBInstance() -> CtyDB * { return CtyDB::instance(); }
 
 void GLogApplication::mergeFileAction() {
     mergeFile(QFileDialog::getOpenFileName(this, tr("Open File"), "",

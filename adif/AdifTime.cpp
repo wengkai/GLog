@@ -1,6 +1,6 @@
 #include "AdifTime.h"
 
-bool AdifTime::set(const std::string &newValue) {
+auto AdifTime::set(const std::string &newValue) -> bool {
     if (check(newValue)) {
         m_rawValue = newValue;
         return true;

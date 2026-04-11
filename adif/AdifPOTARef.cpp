@@ -1,6 +1,6 @@
 #include "AdifPOTARef.h"
 
-bool AdifPOTARef::set(const std::string &newValue) {
+auto AdifPOTARef::set(const std::string &newValue) -> bool {
     if (check(newValue)) {
         m_rawValue = newValue;
         for (char &c : m_rawValue) {

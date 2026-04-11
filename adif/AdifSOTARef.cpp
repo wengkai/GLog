@@ -1,6 +1,6 @@
 #include "AdifSOTARef.h"
 
-bool AdifSOTARef::set(const std::string &newValue) {
+auto AdifSOTARef::set(const std::string &newValue) -> bool {
     if (check(newValue)) {
         m_rawValue = newValue;
         for (char &c : m_rawValue) {

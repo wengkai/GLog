@@ -1,6 +1,6 @@
 #include "AdifGeneral.h"
 
-bool AdifGeneral::set(const std::string &newValue) {
+auto AdifGeneral::set(const std::string &newValue) -> bool {
     m_rawValue = newValue;
     return true;
 }

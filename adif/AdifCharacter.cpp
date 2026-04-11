@@ -1,6 +1,6 @@
 #include "AdifCharacter.h"
 
-bool AdifCharacter::set(const std::string &newValue) {
+auto AdifCharacter::set(const std::string &newValue) -> bool {
     if (check(newValue)) {
         m_rawValue = newValue;
         return true;

@@ -1,6 +1,6 @@
 #include "AdifIntlCharacter.h"
 
-bool AdifIntlCharacter::set(const std::string &newValue) {
+auto AdifIntlCharacter::set(const std::string &newValue) -> bool {
     if (check(newValue)) {
         m_rawValue = newValue;
         return true;

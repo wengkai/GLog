@@ -1,6 +1,6 @@
 #include "AdifNumber.h"
 
-bool AdifNumber::set(const std::string &newValue) {
+auto AdifNumber::set(const std::string &newValue) -> bool {
     if (check(newValue)) {
         m_rawValue = newValue;
         return true;

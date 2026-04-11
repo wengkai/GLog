@@ -1,4 +1,4 @@
-Checks: 'bugprone-*,performance-*,readability-*,modernize-*,clang-analyzer-*,-modernize-use-trailing-return-type'
+Checks: 'bugprone-*,performance-*,readability-*,modernize-*,clang-analyzer-*'
 
 WarningsAsErrors: ''
 

@@ -1,6 +1,6 @@
 #include "AdifIntlString.h"
 
-bool AdifIntlString::set(const std::string &newValue) {
+auto AdifIntlString::set(const std::string &newValue) -> bool {
     if (check(newValue)) {
         m_rawValue = newValue;
         return true;

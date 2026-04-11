@@ -2,8 +2,8 @@
 
 MultiLineDelegate::MultiLineDelegate(QWidget *parent) : QStyledItemDelegate(parent) {}
 
-QWidget *MultiLineDelegate::createEditor(QWidget *parent, const QStyleOptionViewItem &option,
-                                         const QModelIndex &index) const {
+auto MultiLineDelegate::createEditor(QWidget *parent, const QStyleOptionViewItem &option,
+                                     const QModelIndex &index) const -> QWidget * {
     return new QPlainTextEdit(parent);
 }
 

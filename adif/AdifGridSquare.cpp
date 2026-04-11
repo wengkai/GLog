@@ -1,6 +1,6 @@
 #include "AdifGridSquare.h"
 
-bool AdifGridSquare::set(const std::string &newValue) {
+auto AdifGridSquare::set(const std::string &newValue) -> bool {
     if (check(newValue)) {
         m_rawValue = newValue;
         for (char &c : m_rawValue) {

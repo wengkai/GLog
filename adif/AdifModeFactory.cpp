@@ -1,11 +1,11 @@
 #include "AdifDataTypes.h"
 
-bool AdifMode::check(const std::string &data) {
+auto AdifMode::check(const std::string &data) -> bool {
 
     return ADIF::MODE_MAP.find(data) != ADIF::MODE_MAP.end();
 }
 
-bool AdifMode::set(const std::string &newValue) {
+auto AdifMode::set(const std::string &newValue) -> bool {
 
     if (!check(newValue)) {
         return false;
@@ -68,13 +68,13 @@ bool AdifMode::set(const std::string &newValue) {
     return true;
 }
 
-bool AdifSubMode::check(const std::string & /*data*/) {
+auto AdifSubMode::check(const std::string & /*data*/) -> bool {
 
     throw std::runtime_error("AdifSubMode requires context. Use AdifModeFactory::check instead.");
     return false;
 }
 
-bool AdifSubMode::set(const std::string &newValue) {
+auto AdifSubMode::set(const std::string &newValue) -> bool {
 
     if (newValue.empty()) {
         m_rawValue = "";
@@ -108,7 +108,7 @@ bool AdifSubMode::set(const std::string &newValue) {
     return false;
 }
 
-bool AdifModeFactory::check(const std::string &mode, const std::string &submode) {
+auto AdifModeFactory::check(const std::string &mode, const std::string &submode) -> bool {
 
     auto it = ADIF::MODE_MAP.find(mode);
     if (it == ADIF::MODE_MAP.end()) {
@@ -123,8 +123,8 @@ bool AdifModeFactory::check(const std::string &mode, const std::string &submode)
     return std::find(subList.begin(), subList.end(), submode) != subList.end();
 }
 
-std::pair<std::shared_ptr<AdifMode>, std::shared_ptr<AdifSubMode>>
-AdifModeFactory::createModePair(const std::string &mode, const std::string &submode) {
+auto AdifModeFactory::createModePair(const std::string &mode, const std::string &submode)
+    -> std::pair<std::shared_ptr<AdifMode>, std::shared_ptr<AdifSubMode>> {
 
     std::string finalMode = mode;
     std::string finalSubMode = submode;

@@ -4,4 +4,4 @@ AdifDataBase::AdifDataBase(std::string value) : m_rawValue(std::move(value)) {}
 
 AdifDataBase::~AdifDataBase() = default;
 
-std::string AdifDataBase::get() const { return m_rawValue; }
+auto AdifDataBase::get() const -> std::string { return m_rawValue; }

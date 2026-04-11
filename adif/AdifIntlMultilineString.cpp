@@ -1,6 +1,6 @@
 #include "AdifIntlMultilineString.h"
 
-bool AdifIntlMultilineString::set(const std::string &newValue) {
+auto AdifIntlMultilineString::set(const std::string &newValue) -> bool {
     std::string cleanedData = AdifMultilineString::sanitizeLineEndings(newValue);
     if (check(cleanedData)) {
         m_rawValue = std::move(cleanedData);

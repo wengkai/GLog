@@ -12,7 +12,7 @@ using AdifFactoryFunc = std::function<std::shared_ptr<AdifDataBase>(const std::s
 
 #include "adif_field_map.h"
 
-bool GRecord::_addOrSetPair(const std::string &key_normalized, const std::string &value) {
+auto GRecord::_addOrSetPair(const std::string &key_normalized, const std::string &value) -> bool {
     // general set
     if (auto iter = m_map.find(key_normalized); iter != m_map.end()) {
         return iter->second->set(value);
@@ -27,7 +27,8 @@ bool GRecord::_addOrSetPair(const std::string &key_normalized, const std::string
     return false;
 }
 
-AdifDataWrap GRecord::_createField(const std::string &key_normalized, const std::string &value) {
+auto GRecord::_createField(const std::string &key_normalized, const std::string &value)
+    -> AdifDataWrap {
     // TODO: special rules
     if (key_normalized == "mode" || key_normalized == "submode") {
         return AdifDataWrap(nullptr);

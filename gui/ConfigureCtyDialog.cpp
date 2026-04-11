@@ -110,7 +110,7 @@ void ConfigureCtyDialog::onLoadFinished(const QString &msg) {
 
 ConfigureCtyDialog::~ConfigureCtyDialog() { delete ui; }
 
-QString ConfigureCtyDialog::successMsg() { return tr("Success."); }
+auto ConfigureCtyDialog::successMsg() -> QString { return tr("Success."); }
 
 void ConfigureCtyDialog::disableCtyConfigure() {
     ++disable_count;
@@ -125,7 +125,7 @@ void ConfigureCtyDialog::enableCtyConfigure() {
     }
 }
 
-int ConfigureCtyDialog::exec() {
+auto ConfigureCtyDialog::exec() -> int {
     ui->lineEdit->setText(db_hint);
     return QDialog::exec();
 }

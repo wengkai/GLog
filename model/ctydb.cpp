@@ -6,7 +6,7 @@
 
 CtyDB::CtyDB(QObject *parent) : QObject(parent) {}
 
-std::pair<bool, QString /*error msg*/> CtyDB::loadLocalDB(const QString &filename) {
+auto CtyDB::loadLocalDB(const QString &filename) -> std::pair<bool, QString /*error msg*/> {
     QFile file(filename);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         return {false, tr("Can not open file.")};
@@ -16,13 +16,14 @@ std::pair<bool, QString /*error msg*/> CtyDB::loadLocalDB(const QString &filenam
     return ret;
 }
 
-std::pair<bool, QString /*error msg*/> CtyDB::loadDB(QIODevice &device, const QString &db_hint) {
+auto CtyDB::loadDB(QIODevice &device, const QString &db_hint)
+    -> std::pair<bool, QString /*error msg*/> {
     auto cty = QString(device.readAll());
     return loadDBString(cty, db_hint);
 }
 
-std::pair<bool, QString /*error msg*/> CtyDB::loadDBString(const QString &cty,
-                                                           const QString &db_hint) {
+auto CtyDB::loadDBString(const QString &cty, const QString &db_hint)
+    -> std::pair<bool, QString /*error msg*/> {
     emit loadDbBegin();
     std::unique_lock<decltype(mutex)> lock(mutex);
     auto blocks = cty.split(";");
@@ -100,7 +101,8 @@ void CtyDB::_clear() {
     db_hint.clear();
 }
 
-std::pair<std::shared_ptr<CtyEntry>, QString> CtyDB::lookUpCallSign(const QStringView &call) const {
+auto CtyDB::lookUpCallSign(const QStringView &call) const
+    -> std::pair<std::shared_ptr<CtyEntry>, QString> {
     if (call.isEmpty()) {
         return {std::make_shared<CtyEntry>(), "###NOT-FOUND"};
     }
@@ -120,8 +122,8 @@ std::pair<std::shared_ptr<CtyEntry>, QString> CtyDB::lookUpCallSign(const QStrin
     return {std::make_shared<CtyEntry>(), "###NOT-FOUND"};
 }
 
-std::pair<std::shared_ptr<CtyEntry>, QString /*hint*/>
-CtyDB::lookUpCallSign(const QString &call) const {
+auto CtyDB::lookUpCallSign(const QString &call) const
+    -> std::pair<std::shared_ptr<CtyEntry>, QString /*hint*/> {
     if (call.isEmpty()) {
         return {std::make_shared<CtyEntry>(), "###NOT-FOUND"};
     }
@@ -131,7 +133,9 @@ CtyDB::lookUpCallSign(const QString &call) const {
     return lookUpCallSign(QStringView(n_call));
 }
 
-QString CtyDB::normalizeCallSign(const QString &callsign) { return callsign.toUpper().trimmed(); }
+auto CtyDB::normalizeCallSign(const QString &callsign) -> QString {
+    return callsign.toUpper().trimmed();
+}
 
 void CtyDB::normalizeCallSign(QString &callsign) { callsign = callsign.trimmed().toUpper(); }
 
@@ -143,9 +147,8 @@ void CtyDB::normalizeCallSign(QString &callsign) { callsign = callsign.trimmed()
 // {aa}	Override Continent
 // ~#~	Override local time offset from GMT
 
-std::shared_ptr<CtyEntry> CtyDB::overrideEnt(const QString &m_pattern,
-                                             std::shared_ptr<CtyEntry> ent,
-                                             std::size_t &prefixEnd) {
+auto CtyDB::overrideEnt(const QString &m_pattern, std::shared_ptr<CtyEntry> ent,
+                        std::size_t &prefixEnd) -> std::shared_ptr<CtyEntry> {
     prefixEnd = static_cast<std::size_t>(m_pattern.size());
 
     if (!m_pattern.contains('(') && !m_pattern.contains('[') && !m_pattern.contains('<') &&
@@ -211,7 +214,7 @@ std::shared_ptr<CtyEntry> CtyDB::overrideEnt(const QString &m_pattern,
     return my_ent;
 }
 
-CtyDB *CtyDB::instance() {
+auto CtyDB::instance() -> CtyDB * {
     static auto *i = new CtyDB;
     return i;
 }

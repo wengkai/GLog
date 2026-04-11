@@ -57,7 +57,7 @@ void MarkerItem::hoverLeaveEvent(QGraphicsSceneHoverEvent *event) {
     QGraphicsItemGroup::hoverLeaveEvent(event);
 }
 
-bool MarkerItem::sceneEvent(QEvent *event) {
+auto MarkerItem::sceneEvent(QEvent *event) -> bool {
     if (event->type() == QEvent::GraphicsSceneHoverMove) {
         auto *mouseEvent = static_cast<QGraphicsSceneHoverEvent *>(event);
         bool posInPoint = point->contains(point->mapFromScene(mouseEvent->scenePos()));
@@ -90,14 +90,14 @@ MapGraphicsView::MapGraphicsView(QWidget *parent)
     setViewport(gl);
 }
 
-QPointF MapGraphicsView::mapLonAndLat(const qreal &lon, const qreal &lat) const {
+auto MapGraphicsView::mapLonAndLat(const qreal &lon, const qreal &lat) const -> QPointF {
     qreal x = (180.0 + lon) * (maxX() / 360.0);
     qreal y = (90.0 - lat) * (maxY() / 180.0);
     return {x, y};
 }
 
-MarkerItem *MapGraphicsView::createMarker(const QString &title, const qreal &lon, const qreal &lat,
-                                          const qreal &size) const {
+auto MapGraphicsView::createMarker(const QString &title, const qreal &lon, const qreal &lat,
+                                   const qreal &size) const -> MarkerItem * {
     auto marker_center = mapLonAndLat(lon, lat);
     auto sx = marker_center.x();
     auto sy = marker_center.y();
@@ -107,9 +107,8 @@ MarkerItem *MapGraphicsView::createMarker(const QString &title, const qreal &lon
     return marker;
 }
 
-QGraphicsLineItem *MapGraphicsView::createLine(const qreal &lon1, const qreal &lat1,
-                                               const qreal &lon2, const qreal &lat2,
-                                               const QPen &pen) const {
+auto MapGraphicsView::createLine(const qreal &lon1, const qreal &lat1, const qreal &lon2,
+                                 const qreal &lat2, const QPen &pen) const -> QGraphicsLineItem * {
     QPointF p1 = mapLonAndLat(lon1, lat1);
     QPointF p2 = mapLonAndLat(lon2, lat2);
 

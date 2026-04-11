@@ -43,7 +43,7 @@ void input(void);
 void export_csv(void);
 */
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[]) { // NOLINT
 
 #ifdef HAS_WAYLAND_SUPPORT
     const char *sessionType = std::getenv("XDG_SESSION_TYPE");
