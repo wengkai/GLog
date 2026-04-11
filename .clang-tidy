@@ -1,3 +1,7 @@
 Checks: 'bugprone-*,performance-*,readability-*,modernize-*,clang-analyzer-*,-modernize-use-trailing-return-type'
 
 WarningsAsErrors: ''
+
+CheckOptions:
+  - key: bugprone-easily-swappable-parameters.MinimumLength
+    value: 3 # Only flag if 3 or more params are swappable

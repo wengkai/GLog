@@ -25,6 +25,8 @@ class GLogApplicationClass;
 class APP_EXPORT GLogApplication : public QMainWindow {
     Q_OBJECT
 
+    static constexpr int DEFAULT_MSG_TIMEOUT = 5000;
+
   public:
     GLogApplication(QWidget *parent = nullptr);
     ~GLogApplication();

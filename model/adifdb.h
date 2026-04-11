@@ -33,6 +33,13 @@ class AdifModel : public QAbstractTableModel {
     friend class MapWidget;
     // AdifModelC* control = nullptr;
 
+    auto rheaders_begin() {
+        return (rheaders.begin() + static_cast<std::ptrdiff_t>(sheaders.size()));
+    }
+    auto rheaders_begin() const {
+        return (rheaders.cbegin() + static_cast<std::ptrdiff_t>(sheaders.size()));
+    }
+
     GLOG_PARSER::GLogParserDriver driver{};
     GLOG_PARSER::Parser parser{&driver};
 

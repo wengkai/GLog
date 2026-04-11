@@ -522,7 +522,7 @@ void GLogApplication::updateFccDatabase() {
             QDir(extractDir).removeRecursively();
             emit information(tr("FCC Database"), tr("FCC database updated."),
                              QMessageBox::StandardButton::Ok);
-            emit showMessage(tr("Done"), 5000);
+            emit showMessage(tr("Done"), DEFAULT_MSG_TIMEOUT);
             emit enableAction(ui->actionUpdate_FCC_database);
             emit enableAction(ui->actionAward);
         })
@@ -534,7 +534,7 @@ void GLogApplication::updateFccDatabase() {
             QDir(extractDir).removeRecursively();
             emit warning(tr("FCC Database"), tr("FCC database failed:%1").arg(e.what()),
                          QMessageBox::StandardButton::Ok);
-            emit showMessage(tr("Failed"), 5000);
+            emit showMessage(tr("Failed"), DEFAULT_MSG_TIMEOUT);
             emit enableAction(ui->actionUpdate_FCC_database);
             emit enableAction(ui->actionAward);
         })
@@ -546,7 +546,7 @@ void GLogApplication::updateFccDatabase() {
             QDir(extractDir).removeRecursively();
             emit information(tr("FCC Database"), tr("Update canceled."),
                              QMessageBox::StandardButton::Ok);
-            emit showMessage(tr("Canceled"), 5000);
+            emit showMessage(tr("Canceled"), DEFAULT_MSG_TIMEOUT);
             emit enableAction(ui->actionUpdate_FCC_database);
             emit enableAction(ui->actionAward);
         });

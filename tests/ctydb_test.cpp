@@ -58,7 +58,7 @@ class CtyDBTest : public QObject {
                 });
                 loop.exec();
             }
-            ctydb = w.getCtyDBInstance();
+            ctydb = GLogApplication::getCtyDBInstance();
             if (networkOk && !ctydb->getDBHint().startsWith("https:")) {
                 QVERIFY2(false, "Network feature incomplete.");
             }

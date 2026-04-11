@@ -110,7 +110,7 @@ std::pair<std::shared_ptr<CtyEntry>, QString> CtyDB::lookUpCallSign(const QStrin
         return {*iter, ""};
     }
 
-    for (int len = call.length() - 1; len >= 1; --len) {
+    for (auto len = call.length() - 1; len >= 1; --len) {
         auto iter = m_prefix_table.find(QStringView(call.left(len)));
         if (iter != m_prefix_table.end()) {
             return {(*iter), ""};
@@ -156,8 +156,8 @@ std::shared_ptr<CtyEntry> CtyDB::overrideEnt(const QString &m_pattern,
     auto my_ent = std::make_shared<CtyEntry>(*ent);
 
     // CQ Zone: (n)
-    if (int start = m_pattern.indexOf('('); start != -1) {
-        int end = m_pattern.indexOf(')', start);
+    if (auto start = m_pattern.indexOf('('); start != -1) {
+        auto end = m_pattern.indexOf(')', start);
         if (end == -1) {
             throw std::runtime_error("Invalid pattern: missing )");
         }
@@ -166,8 +166,8 @@ std::shared_ptr<CtyEntry> CtyDB::overrideEnt(const QString &m_pattern,
     }
 
     // ITU Zone: [n]
-    if (int start = m_pattern.indexOf('['); start != -1) {
-        int end = m_pattern.indexOf(']', start);
+    if (auto start = m_pattern.indexOf('['); start != -1) {
+        auto end = m_pattern.indexOf(']', start);
         if (end == -1) {
             throw std::runtime_error("Invalid pattern: missing ]");
         }
@@ -176,9 +176,9 @@ std::shared_ptr<CtyEntry> CtyDB::overrideEnt(const QString &m_pattern,
     }
 
     // Lat/Lon: <lat/lon>
-    if (int start = m_pattern.indexOf('<'); start != -1) {
-        int mid = m_pattern.indexOf('/', start);
-        int end = m_pattern.indexOf('>', start);
+    if (auto start = m_pattern.indexOf('<'); start != -1) {
+        auto mid = m_pattern.indexOf('/', start);
+        auto end = m_pattern.indexOf('>', start);
         if (mid == -1 || end == -1) {
             throw std::runtime_error("Invalid pattern: missing / or >");
         }
@@ -189,8 +189,8 @@ std::shared_ptr<CtyEntry> CtyDB::overrideEnt(const QString &m_pattern,
     }
 
     // Continent: {aa}
-    if (int start = m_pattern.indexOf('{'); start != -1) {
-        int end = m_pattern.indexOf('}', start);
+    if (auto start = m_pattern.indexOf('{'); start != -1) {
+        auto end = m_pattern.indexOf('}', start);
         if (end == -1) {
             throw std::runtime_error("Invalid pattern: missing }");
         }
@@ -199,8 +199,8 @@ std::shared_ptr<CtyEntry> CtyDB::overrideEnt(const QString &m_pattern,
     }
 
     // UTC Offset: ~#~
-    if (int start = m_pattern.indexOf('~'); start != -1) {
-        int end = m_pattern.indexOf('~', start + 1);
+    if (auto start = m_pattern.indexOf('~'); start != -1) {
+        auto end = m_pattern.indexOf('~', start + 1);
         if (end == -1) {
             throw std::runtime_error("Invalid pattern: missing second ~");
         }

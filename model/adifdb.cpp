@@ -120,12 +120,12 @@ bool AdifModel::_addHeader(const std::string &header) {
     if (sheaders.find(h) != sheaders.end()) {
         return false;
     }
-    auto iter = std::lower_bound((rheaders.begin() + sheaders.size()), rheaders.end(), h);
+    auto iter = std::lower_bound(rheaders_begin(), rheaders.end(), h);
     if (iter != rheaders.end() && *iter == h) {
         return false;
     }
-    beginInsertColumnsWrap(QModelIndex(), iter - (rheaders.begin() + sheaders.size()),
-                           iter - (rheaders.begin() + sheaders.size()));
+    auto column = static_cast<int>(iter - rheaders_begin());
+    beginInsertColumnsWrap(QModelIndex(), column, column);
     rheaders.insert(iter, h);
     endInsertColumnsWrap();
     return true;
@@ -183,7 +183,7 @@ void AdifModel::mapCallSignInView(bool keepOrigin) {
     QString buf;
     for (auto &record : records) {
         auto call = record["call"]->get();
-        buf = QString::fromUtf8(call.data(), call.size());
+        buf = QString::fromUtf8(call.data(), qsizetype(call.size()));
         CtyDB::normalizeCallSign(buf);
         auto result = ctydb->lookUpCallSign(QStringView(buf));
         if (result.first->vaild) {
@@ -212,7 +212,7 @@ void AdifModel::_clear() {
 }
 
 AdifModel::AdifModel(QObject *parent) : QAbstractTableModel(parent) {
-    for (auto i : GRecord::RESOLVE_HEADERS) {
+    for (const auto *i : GRecord::RESOLVE_HEADERS) {
         rheaders.emplace_back(i);
         sheaders.insert(i);
     }
@@ -266,9 +266,9 @@ AdifModel::AdifModel(QObject *parent) : QAbstractTableModel(parent) {
 //     return control;
 // }
 
-int AdifModel::rowCount(const QModelIndex &parent) const { return records.size(); }
+int AdifModel::rowCount(const QModelIndex &parent) const { return int(records.size()); }
 
-int AdifModel::columnCount(const QModelIndex &parent) const { return rheaders.size(); }
+int AdifModel::columnCount(const QModelIndex &parent) const { return int(rheaders.size()); }
 
 QVariant AdifModel::data(const QModelIndex &index, int role) const {
     if (role != Qt::DisplayRole && role != Qt::EditRole) {
@@ -498,7 +498,7 @@ AdifModel::AwardRes AdifModel::diffEntNameCountForAward() const {
     QString buf;
     for (const auto &record : records) {
         auto call = record.at("call")->get();
-        buf = QString::fromUtf8(call.data(), call.size());
+        buf = QString::fromUtf8(call.data(), qsizetype(call.size()));
         CtyDB::normalizeCallSign(buf);
         auto result = ctydb->lookUpCallSign(QStringView(buf));
         if (result.first->vaild && result.first->ARRL_sponsored) {
@@ -757,7 +757,7 @@ void AdifModel::deleteRows(QModelIndexList indexes) {
         deletebegin = indexes.at(idx).row();
         deleteend = deletebegin + 1;
     }
-    auto iter = (rheaders.begin() + sheaders.size());
+    auto iter = rheaders_begin();
     while (iter != rheaders.end()) {
         bool vaild = false;
         for (auto &record : records) {
@@ -770,8 +770,8 @@ void AdifModel::deleteRows(QModelIndexList indexes) {
             ++iter;
             continue;
         }
-        beginRemoveColumns(QModelIndex(), iter - (rheaders.begin() + sheaders.size()),
-                           iter - (rheaders.begin() + sheaders.size()));
+        auto cloumn = static_cast<int>(iter - rheaders_begin());
+        beginRemoveColumns(QModelIndex(), cloumn, cloumn);
         iter = rheaders.erase(iter);
         lock.unlock();
         endRemoveColumns();
