@@ -74,7 +74,7 @@ jobs:
 
           linuxdeploy --appdir $PWD/AppDir --output appimage
 
-          APPIMAGE_BIN=$(ls GLog-*.AppImage | head -n 1)
+          APPIMAGE_BIN=$(ls GLogKit-*.AppImage | head -n 1)
           TAR_NAME="${APPIMAGE_BIN%.AppImage}.tar.xz"
           tar -cJf "$TAR_NAME" -C "$PWD/AppDir" .
 
@@ -158,16 +158,16 @@ jobs:
           dir /s C:\AppDir
 
           set "VERSION=${{ github.ref_name }}"
-          set "ZIP_NAME=GLog-%VERSION%-windows-x64.zip"
-          set "EXE_NAME=GLog-%VERSION%-Installer-x64.exe"
+          set "ZIP_NAME=GLogKit-%VERSION%-windows-x64.zip"
+          set "EXE_NAME=GLogKit-%VERSION%-Installer-x64.exe"
 
           powershell -Command "Compress-Archive -Path C:\AppDir\* -DestinationPath %ZIP_NAME% -Force"
 
           (
             echo !include "MUI2.nsh"
-            echo Name "GLog %VERSION%"
+            echo Name "GLogKit %VERSION%"
             echo OutFile "%EXE_NAME%"
-            echo InstallDir "$PROGRAMFILES64\GLog"
+            echo InstallDir "$PROGRAMFILES64\GLogKit"
             echo RequestExecutionLevel admin
             echo !insertmacro MUI_PAGE_WELCOME
             echo !insertmacro MUI_PAGE_DIRECTORY
@@ -179,11 +179,11 @@ jobs:
             echo Section "MainSection" SEC01
             echo   SetOutPath "$INSTDIR"
             echo   File /r "C:\AppDir\*"
-            echo   CreateShortCut "$SMPROGRAMS\GLog.lnk" "$INSTDIR\bin\GLog.exe"
+            echo   CreateShortCut "$SMPROGRAMS\GLogKit.lnk" "$INSTDIR\bin\GLogKit.exe"
             echo   WriteUninstaller "$INSTDIR\Uninstall.exe"
             echo SectionEnd
             echo Section "Uninstall"
-            echo   Delete "$SMPROGRAMS\GLog.lnk"
+            echo   Delete "$SMPROGRAMS\GLogKit.lnk"
             echo   RMDir /r "$INSTDIR"
             echo SectionEnd
           ) > installer.nsi
@@ -197,8 +197,8 @@ jobs:
           name: Windows-Deploy
           retention-days: 5
           path: |
-            GLog-*.zip
-            GLog-*-Installer-x64.exe
+            ./*.zip
+            ./*.exe
 
   build-macos:
     runs-on: macos-26
@@ -249,9 +249,9 @@ jobs:
           fi
           echo "--- App Bundle Structure ---"
           tree deploy_out -L 5
-          DMG_NAME="GLog-${{ github.ref_name }}-macOS.dmg"
-          hdiutil create -volname "GLog" -srcfolder "$APP_PATH" -ov -format UDZO "$DMG_NAME"
-          tar -cJf "GLog-${{ github.ref_name }}-macOS.tar.xz" -C deploy_out .
+          DMG_NAME="GLogKit-${{ github.ref_name }}-macOS.dmg"
+          hdiutil create -volname "GLogKit" -srcfolder "$APP_PATH" -ov -format UDZO "$DMG_NAME"
+          tar -cJf "GLogKit-${{ github.ref_name }}-macOS.tar.xz" -C deploy_out .
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v7
