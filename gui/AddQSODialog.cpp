@@ -10,7 +10,8 @@
 AddQSODialog::AddQSODialog(AdifModel *model, QWidget *parent)
     : m_model(model), QDialog(parent), ui(new Ui::AddQSODialogClass()) {
     ui->setupUi(this);
-    for (const auto &mode_pair : ADIF::MODE_MAP) {
+    const auto &MODE_MAP = AdifModeFactory::getModeMap();
+    for (const auto &mode_pair : MODE_MAP) {
         if (mode_pair.second.submodes.empty()) {
             ui->modeComboBox->addItem(QString::fromStdString(mode_pair.first) +
                                       (mode_pair.second.import_only ? "(import-only)" : ""));
@@ -33,38 +34,51 @@ void AddQSODialog::accept() {
                                  QMessageBox::StandardButton::Ok);
         return;
     }
-    static auto call_regex = QRegularExpression("^([A-Z0-9]+|[A-Z0-9]+\\/[A-Z0-9]+)$");
-    if (!call_regex.match(ui->callSignLineEdit->text()).hasMatch()) {
-        QMessageBox::information(this, tr("Add QSO"), tr("Invaild Call."),
-                                 QMessageBox::StandardButton::Ok);
+    // 1. Unified Validation
+    const QString call = ui->callSignLineEdit->text().trimmed();
+    const QString rstS = ui->rstLineEdit->text().trimmed();
+    const QString rstR = ui->rstRcvdLineEdit->text().trimmed();
+
+    // 2. Regex Checks (Static to avoid re-compilation)
+    static const QRegularExpression call_regex(R"(^([A-Z0-9]+|[A-Z0-9]+\/[A-Z0-9]+)$)",
+                                               QRegularExpression::CaseInsensitiveOption);
+    static const QRegularExpression rst_regex(R"(^[+-]?\d{1,3}$)");
+
+    if (!call_regex.match(call).hasMatch()) {
+        ui->callSignLineEdit->setFocus();
+        QMessageBox::warning(this, tr("Add QSO"), tr("Invalid Call-sign format."));
         return;
     }
-    static auto rst_regex = QRegularExpression("^[+-]?\\d{1,3}$");
-    if (!rst_regex.match(ui->rstLineEdit->text()).hasMatch()) {
-        QMessageBox::information(this, tr("Add QSO"), tr("Invaild Rst."),
-                                 QMessageBox::StandardButton::Ok);
-        return;
-    }
-    if (!rst_regex.match(ui->rstRcvdLineEdit->text()).hasMatch()) {
-        QMessageBox::information(this, tr("Add QSO"), tr("Invaild Rst Rcvd."),
-                                 QMessageBox::StandardButton::Ok);
-        return;
-    }
-    // {"qso_date", "time_on", "call", "freq", "mode", "rst_rcvd", "rst_sent"}
-    std::map<std::string, std::string> record;
-    record["qso_date"] = ui->dateEdit->date().toString("yyyyMMdd").toStdString();
-    record["time_on"] = ui->timeEdit->time().toString("HHmmss").toStdString();
-    record["call"] = ui->callSignLineEdit->text().toStdString();
-    record["freq"] = ui->freqDoubleSpinBox->text().toStdString();
-    auto mode_texts = ui->modeComboBox->currentText().split("=");
-    if (mode_texts.size() == 1) {
-        record["mode"] = mode_texts[0].toStdString();
+
+    // 3. Data Population
+    GRecord record;
+
+    // Dates/Times: ADIF spec requires YYYYMMDD and HHMMSS
+    record.addOrSetPair("qso_date", ui->dateEdit->date().toString("yyyyMMdd").toStdString());
+    record.addOrSetPair("time_on", ui->timeEdit->time().toString("HHmmss").toStdString());
+    record.addOrSetPair("call", call.toUpper().toStdString());
+
+    // Frequency: Use cleanText() or value() to avoid locale symbols like '$' or unit suffixes
+    record.addOrSetPair("freq",
+                        QString::number(ui->freqDoubleSpinBox->value(), 'f', 3).toStdString());
+
+    // Mode handling: Note how we handle the split
+    QStringList modeParts = ui->modeComboBox->currentText().split('=');
+    if (modeParts.size() >= 2) {
+        // Set Mode FIRST, then Submode to trigger linkPeers correctly
+        record.addOrSetPair("mode", modeParts[1].trimmed().toStdString());
+        record.addOrSetPair("submode", modeParts[0].trimmed().toStdString());
     } else {
-        record["submode"] = mode_texts[0].toStdString();
-        record["mode"] = mode_texts[1].toStdString();
+        record.addOrSetPair("mode", modeParts[0].trimmed().toStdString());
     }
-    record["rst_sent"] = ui->rstLineEdit->text().toStdString();
-    record["rst_rcvd"] = ui->rstRcvdLineEdit->text().toStdString();
-    m_model->addRecord(record);
-    // QDialog::accept();
+
+    record.addOrSetPair("rst_sent", rstS.toStdString());
+    record.addOrSetPair("rst_rcvd", rstR.toStdString());
+
+    // 4. Model Update
+    // Pass by move if insertRecords supports it to avoid the persistence clone overhead
+    m_model->insertRecords(-1, {std::move(record)});
+
+    // Close the dialog properly
+    QDialog::accept();
 }

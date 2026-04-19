@@ -10,82 +10,113 @@
 
 /**
  * @brief AdifGridSquareList
- *
  */
 class AdifGridSquareList : public AdifDataBase {
-  private:
+  protected:
     explicit AdifGridSquareList(std::string value) : AdifDataBase(std::move(value)) {
+        std::string_view input = m_rawValue;
         std::string normalized;
-        std::stringstream ss(m_rawValue);
-        std::string item;
-        bool first = true;
+        normalized.reserve(input.size());
 
-        while (std::getline(ss, item, ',')) {
-            item.erase(0, item.find_first_not_of(" "));
-            item.erase(item.find_last_not_of(" ") + 1);
+        size_t start = 0;
+        bool first = true;
+        while (start <= input.size()) {
+            size_t commaPos = input.find(',', start);
+            if (commaPos == std::string_view::npos) commaPos = input.size();
+
+            std::string_view item = input.substr(start, commaPos - start);
+
+            size_t firstNonSpace = item.find_first_not_of(' ');
+            if (firstNonSpace != std::string_view::npos) {
+                size_t lastNonSpace = item.find_last_not_of(' ');
+                item = item.substr(firstNonSpace, lastNonSpace - firstNonSpace + 1);
+            } else {
+                item = std::string_view();
+            }
 
             if (!item.empty()) {
-                if (!first) normalized += ",";
-                for (char &c : item)
-                    c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
-                normalized += item;
+                if (!first) normalized += ',';
+                std::string itemStr(item);
+                normalizeDataToUpper(itemStr);
+                normalized += itemStr;
                 first = false;
             }
+
+            start = commaPos + 1;
         }
-        m_rawValue = normalized;
+
+        m_rawValue = std::move(normalized);
     }
 
+    ADIF_DATA_TYPE_CLONE_DEC(AdifGridSquareList)
+
   public:
-    static bool check(const std::string &data) {
+    static bool check(std::string_view data) {
         if (data.empty()) return false;
 
-        size_t lastPos = data.find_last_not_of(" ");
-        if (lastPos == std::string::npos || data[lastPos] == ',') {
+        size_t lastNonSpace = data.find_last_not_of(' ');
+        if (lastNonSpace == std::string_view::npos || data[lastNonSpace] == ',') {
             return false;
         }
 
-        std::stringstream ss(data);
-        std::string item;
+        size_t start = 0;
         bool hasAtLeastOne = false;
+        while (start <= data.size()) {
+            size_t commaPos = data.find(',', start);
+            if (commaPos == std::string_view::npos) commaPos = data.size();
 
-        while (std::getline(ss, item, ',')) {
-            size_t first = item.find_first_not_of(" ");
-            if (first == std::string::npos) return false;
+            std::string_view item = data.substr(start, commaPos - start);
 
-            size_t last = item.find_last_not_of(" ");
-            std::string trimmedItem = item.substr(first, (last - first + 1));
+            size_t first = item.find_first_not_of(' ');
+            if (first == std::string_view::npos) {
+                return false;
+            }
+            size_t last = item.find_last_not_of(' ');
+            std::string_view trimmed = item.substr(first, last - first + 1);
 
-            if (!AdifGridSquare::check(trimmedItem)) {
+            if (!AdifGridSquare::check(trimmed)) {
                 return false;
             }
             hasAtLeastOne = true;
+
+            start = commaPos + 1;
         }
 
         return hasAtLeastOne;
     }
 
-    static std::optional<AdifGridSquareList> create(const std::string &data) {
+    template <typename STD_String>
+    static std::optional<AdifGridSquareList> create(STD_String &&data) {
         if (check(data)) {
-            return AdifGridSquareList(data);
+            return AdifGridSquareList(std::forward<STD_String>(data));
         }
         return std::nullopt;
     }
 
-    bool set(const std::string &newValue) override;
+    TakeRes take(std::string &&newValue) override;
 
     std::vector<std::string> asVector() const {
         std::vector<std::string> result;
-        std::stringstream ss(m_rawValue);
-        std::string item;
-        while (std::getline(ss, item, ',')) {
-            result.push_back(item);
+        std::string_view input = m_rawValue;
+
+        size_t start = 0;
+        while (start <= input.size()) {
+            size_t commaPos = input.find(',', start);
+            if (commaPos == std::string_view::npos) commaPos = input.size();
+
+            result.emplace_back(input.substr(start, commaPos - start));
+            start = commaPos + 1;
         }
         return result;
     }
 
     size_t count() const {
         if (m_rawValue.empty()) return 0;
-        return std::count(m_rawValue.begin(), m_rawValue.end(), ',') + 1;
+        size_t cnt = 1;
+        for (char c : m_rawValue) {
+            if (c == ',') ++cnt;
+        }
+        return cnt;
     }
 };
 

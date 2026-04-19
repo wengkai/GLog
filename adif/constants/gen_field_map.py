@@ -58,10 +58,12 @@ def generate_field_map():
  * @file adif_field_map.h
  */
 
+#include <unordered_map>
+
 #ifndef ADIF_FIELD_MAP_H
 #define ADIF_FIELD_MAP_H
 
-static const std::map<std::string, AdifFactoryFunc> ADIF_FIELD_FACTORY = {
+static const std::unordered_map<std::string, AdifFactoryFunc> ADIF_FIELD_FACTORY = {
 """ + "\n".join(formatted_lines) + """
 };
 

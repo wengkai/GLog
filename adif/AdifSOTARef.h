@@ -12,12 +12,12 @@
  *
  */
 class AdifSOTARef : public AdifDataBase {
-  private:
+  protected:
     explicit AdifSOTARef(std::string value) : AdifDataBase(std::move(value)) {
-        for (char &c : m_rawValue) {
-            c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
-        }
+        normalizeDataToUpper();
     }
+
+    ADIF_DATA_TYPE_CLONE_DEC(AdifSOTARef)
 
   public:
     static bool check(const std::string &data) {
@@ -47,7 +47,7 @@ class AdifSOTARef : public AdifDataBase {
         return std::nullopt;
     }
 
-    bool set(const std::string &newValue) override;
+    TakeRes take(std::string &&newValue) override;
 
     struct SotaParts {
         std::string association; // (G, W2)

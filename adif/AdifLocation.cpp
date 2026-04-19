@@ -1,10 +1,12 @@
 #include "AdifLocation.h"
 
-auto AdifLocation::set(const std::string &newValue) -> bool {
+ADIF_DATA_TYPE_CLONE_IMP(AdifLocation)
+
+auto AdifLocation::take(std::string &&newValue) -> TakeRes {
     if (check(newValue)) {
-        m_rawValue = newValue;
+        m_rawValue = std::move(newValue);
         m_rawValue[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(m_rawValue[0])));
-        return true;
+        return {true};
     }
-    return false;
+    return {false, std::move(newValue)};
 }

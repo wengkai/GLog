@@ -1,14 +1,12 @@
 #include "AdifGridSquareExt.h"
 
-auto AdifGridSquareExt::set(const std::string &newValue) -> bool {
-    if (check(newValue)) {
-        m_rawValue = newValue;
+ADIF_DATA_TYPE_CLONE_IMP(AdifGridSquareExt)
 
-        for (size_t i = 0; i < 2 && i < m_rawValue.length(); ++i) {
-            m_rawValue[i] =
-                static_cast<char>(std::toupper(static_cast<unsigned char>(m_rawValue[i])));
-        }
-        return true;
+auto AdifGridSquareExt::take(std::string &&newValue) -> TakeRes {
+    if (check(newValue)) {
+        m_rawValue = std::move(newValue);
+        normalizeDataToUpper();
+        return {true};
     }
-    return false;
+    return {false, std::move(newValue)};
 }

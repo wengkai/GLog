@@ -15,21 +15,21 @@ def generate_band_map():
         cols = row.find_all('td')
         if not cols: continue
         
-        name = cols[0].get_text(strip=True)
+        name = cols[0].get_text(strip=True).upper()
         low  = re.sub(r'[^\d.]', '', cols[1].get_text(strip=True))
         high = re.sub(r'[^\d.]', '', cols[2].get_text(strip=True))
         
         low = low if low else "0.0"
         high = high if high else "0.0"
         
-        map_entries.append(f'    {{"{name}", {{{low}, {high}}}}},')
+        map_entries.append(f'    {{"{name}", {{"{low}", "{high}"}}}},')
 
     cpp_content = (
         "struct BandRange {\n"
-        "    double lower_mhz;\n"
-        "    double upper_mhz;\n"
+        "    std::string lower_mhz;\n"
+        "    std::string upper_mhz;\n"
         "};\n\n"
-        "using BandMap = std::map<std::string, BandRange>;\n\n"
+        "using BandMap = std::map<std::string, BandRange, std::less<>>;\n\n"
         "static const BandMap BAND_MAP = {\n" 
         + "\n".join(map_entries) +
         "\n};"

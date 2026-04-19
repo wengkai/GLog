@@ -7,6 +7,59 @@
 #include "ctydb.h"
 #include "ui_ConfigureCtyDialog.h"
 
+void ConfigureCtyDialog::processLoadResult(const LoadContext &ctx,
+                                           const QPair<bool, QString> &res) {
+    auto *ctydb = CtyDB::instance();
+    const QString &errorMsg = res.second;
+
+    if (res.first) {
+        QString finalMsg =
+            ctx.isRollingBack ? ctx.message + tr("Using previous one.") : ctx.message;
+        emit endLoadDB(finalMsg);
+    } else {
+        if (ctx.isRollingBack) {
+            ctydb->loadLocalDB();
+            emit endLoadDB(ctx.message + tr("Using build-in default one."));
+        } else {
+            emit startLoadDB({this->db_hint, errorMsg, true});
+        }
+    }
+}
+
+void ConfigureCtyDialog::handleLocalLoad(const LoadContext &ctx) {
+    QString localPath = QUrl(ctx.targetUrl).toLocalFile();
+    GLogConcurrent::makeFuture([this, ctx, localPath]() {
+        auto res = CtyDB::instance()->loadLocalDB(localPath);
+        processLoadResult(ctx, res);
+    });
+}
+
+void ConfigureCtyDialog::handleRemoteLoad(const LoadContext &ctx) {
+    GLogNetwork::get(ctx.targetUrl, [this, ctx](QNetworkReply *rep) {
+        QString content = QString(rep->readAll());
+        auto networkError = rep->error();
+        auto errorStr = rep->errorString();
+
+        GLogConcurrent::makeFuture([this, ctx, content, networkError, errorStr]() {
+            if (networkError != QNetworkReply::NoError) {
+                handleNetworkFailure(ctx, errorStr);
+                return;
+            }
+            auto res = CtyDB::instance()->loadDBString(content, ctx.targetUrl);
+            processLoadResult(ctx, res);
+        });
+    });
+}
+
+void ConfigureCtyDialog::handleNetworkFailure(const LoadContext &ctx, const QString &error) {
+    if (ctx.isRollingBack) {
+        CtyDB::instance()->loadLocalDB();
+        emit endLoadDB(ctx.message + tr("Using build-in default one. Network failed:") + error);
+    } else {
+        emit endLoadDB(tr("No change applied. Network failed:") + error);
+    }
+}
+
 ConfigureCtyDialog::ConfigureCtyDialog(QWidget *parent)
     : QDialog(parent), ui(new Ui::ConfigureCtyDialogClass()) {
     ui->setupUi(this);
@@ -25,79 +78,30 @@ ConfigureCtyDialog::ConfigureCtyDialog(QWidget *parent)
             Qt::QueuedConnection);
     connect(m_ok, &QPushButton::clicked, [=]() {
         disableCtyConfigure();
-        emit startLoadDB(ui->lineEdit->text(), successMsg(), false);
+        emit startLoadDB({ui->lineEdit->text(), successMsg(), false});
     });
     connect(this, &ConfigureCtyDialog::endLoadDB, this, &ConfigureCtyDialog::onLoadFinished,
             Qt::QueuedConnection);
 }
 
-void ConfigureCtyDialog::applyLoadDB(const QString &db_hint, const QString &load_hint,
-                                     bool rollBack) {
-    if (!rollBack && db_hint == this->db_hint) {
+void ConfigureCtyDialog::applyLoadDB(const LoadContext &ctx) {
+    if (!ctx.isRollingBack && ctx.targetUrl == this->db_hint) {
         enableCtyConfigure();
         accept();
         return;
     }
-    auto pre_db_hint = this->db_hint;
-    auto url = QUrl(db_hint);
-    auto *ctydb = CtyDB::instance();
+
+    QUrl url(ctx.targetUrl);
     if (!url.isValid()) {
         enableCtyConfigure();
         return;
     }
+
     if (url.isLocalFile()) {
-        auto localFile = url.toLocalFile();
-        auto future = GLogConcurrent::makeFuture([=]() {
-            auto ret = ctydb->loadLocalDB(localFile);
-            if (ret.first) {
-                if (rollBack) {
-                    emit endLoadDB(load_hint + tr("Using previous one."));
-                    return;
-                }
-                emit endLoadDB(load_hint);
-            } else {
-                if (rollBack) {
-                    emit endLoadDB(load_hint + tr("Using build-in default one."));
-                    ctydb->loadLocalDB();
-                    return;
-                }
-                emit startLoadDB(pre_db_hint, ret.second, true);
-            }
-        });
-        return;
+        handleLocalLoad(ctx);
+    } else {
+        handleRemoteLoad(ctx);
     }
-    GLogNetwork::get(db_hint, [=](QNetworkReply *rep) {
-        auto cty = QString(rep->readAll());
-        auto rep_error = rep->error();
-        auto rep_errorString = rep->errorString();
-        auto future = GLogConcurrent::makeFuture([=]() {
-            if (rep_error == QNetworkReply::NoError) {
-                auto ret = ctydb->loadDBString(cty, db_hint);
-                if (ret.first) {
-                    if (rollBack) {
-                        emit endLoadDB(load_hint + tr("Using previous one."));
-                        return;
-                    }
-                    emit endLoadDB(load_hint);
-                } else {
-                    if (rollBack) {
-                        emit endLoadDB(load_hint + tr("Using build-in default one."));
-                        ctydb->loadLocalDB();
-                        return;
-                    }
-                    emit startLoadDB(pre_db_hint, ret.second, true);
-                }
-            } else {
-                if (rollBack) {
-                    emit endLoadDB(load_hint + tr("Using build-in default one. Network failed:") +
-                                   rep_errorString);
-                    ctydb->loadLocalDB();
-                    return;
-                }
-                emit endLoadDB(tr("No change is applied. Network failed:") + rep_errorString);
-            }
-        });
-    });
 }
 
 void ConfigureCtyDialog::onLoadFinished(const QString &msg) {

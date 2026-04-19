@@ -10,11 +10,13 @@
  *
  */
 class AdifMultilineString : public AdifDataBase {
-  private:
-    explicit AdifMultilineString(std::string value) : AdifDataBase(std::move(value)) {}
+  protected:
+    explicit AdifMultilineString(std::string &&value) : AdifDataBase(std::move(value)) {}
+
+    ADIF_DATA_TYPE_CLONE_DEC(AdifMultilineString)
 
   public:
-    static bool check(const std::string &data) {
+    static bool check(std::string_view data) {
         for (size_t i = 0; i < data.length(); ++i) {
             unsigned char c = static_cast<unsigned char>(data[i]);
 
@@ -35,8 +37,9 @@ class AdifMultilineString : public AdifDataBase {
         return true;
     }
 
-    static std::optional<AdifMultilineString> create(const std::string &data) {
-        std::string cleanedData = sanitizeLineEndings(data);
+    template <typename STD_String>
+    static std::optional<AdifMultilineString> create(STD_String &&data) {
+        std::string cleanedData = sanitizeLineEndings(std::forward<STD_String>(data));
 
         if (check(cleanedData)) {
             return AdifMultilineString(std::move(cleanedData));
@@ -46,11 +49,31 @@ class AdifMultilineString : public AdifDataBase {
     }
 
     static std::string sanitizeLineEndings(const std::string &data) {
-        std::string result = std::regex_replace(data, std::regex(R"(\r\n|\r|\n)"), "\n");
-        return std::regex_replace(result, std::regex(R"(\n)"), "\r\n");
+        std::string result;
+        result.reserve(data.size() + (data.size() / 10));
+
+        for (size_t i = 0; i < data.size(); ++i) {
+            char c = data[i];
+            if (c == '\r') {
+                if (i + 1 < data.size() && data[i + 1] == '\n') {
+                    result.push_back('\r');
+                    result.push_back('\n');
+                    ++i;
+                } else {
+                    result.push_back('\r');
+                    result.push_back('\n');
+                }
+            } else if (c == '\n') {
+                result.push_back('\r');
+                result.push_back('\n');
+            } else {
+                result.push_back(c);
+            }
+        }
+        return result;
     }
 
-    bool set(const std::string &newValue) override;
+    TakeRes take(std::string &&newValue) override;
 };
 
 #endif

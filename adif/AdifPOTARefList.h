@@ -13,10 +13,12 @@
  *
  */
 class AdifPOTARefList : public AdifDataBase {
-  private:
+  protected:
     explicit AdifPOTARefList(std::string value) : AdifDataBase(std::move(value)) {
         m_rawValue = std::move(normalize(m_rawValue));
     }
+
+    ADIF_DATA_TYPE_CLONE_DEC(AdifPOTARefList)
 
     static std::string normalize(const std::string &data) {
         std::string normalized;
@@ -30,8 +32,7 @@ class AdifPOTARefList : public AdifDataBase {
 
             if (!item.empty()) {
                 if (!first) normalized += ",";
-                for (char &c : item)
-                    c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+                normalizeDataToUpper(item);
                 normalized += item;
                 first = false;
             }
@@ -76,7 +77,7 @@ class AdifPOTARefList : public AdifDataBase {
         return std::nullopt;
     }
 
-    bool set(const std::string &newValue) override;
+    TakeRes take(std::string &&newValue) override;
 
     std::vector<std::string> asVector() const {
         std::vector<std::string> result;

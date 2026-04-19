@@ -1,9 +1,12 @@
 #include "AdifBoolean.h"
 
-auto AdifBoolean::set(const std::string &newValue) -> bool {
+ADIF_DATA_TYPE_CLONE_IMP(AdifBoolean)
+
+auto AdifBoolean::take(std::string &&newValue) -> TakeRes {
     if (check(newValue)) {
-        m_rawValue = static_cast<char>(std::toupper(static_cast<unsigned char>(newValue[0])));
-        return true;
+        m_rawValue = std::move(newValue);
+        m_normalize();
+        return {true};
     }
-    return false;
+    return {false, std::move(newValue)};
 }

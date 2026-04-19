@@ -11,6 +11,7 @@ target_link_libraries(${LIB_NAME} PUBLIC
         Qt6::Network
         Qt6::SvgWidgets
         Qt6::OpenGLWidgets
+        Qt6::Sql
 )
 
-target_compile_definitions(${LIB_NAME} PRIVATE GLOG_STATIC_LIB)
+target_compile_definitions(${LIB_NAME} PRIVATE GLOG_LIB)

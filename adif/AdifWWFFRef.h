@@ -12,12 +12,12 @@
  *
  */
 class AdifWWFFRef : public AdifDataBase {
-  private:
+  protected:
     explicit AdifWWFFRef(std::string value) : AdifDataBase(std::move(value)) {
-        for (char &c : m_rawValue) {
-            c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
-        }
+        normalizeDataToUpper();
     }
+
+    ADIF_DATA_TYPE_CLONE_DEC(AdifWWFFRef)
 
   public:
     static bool check(const std::string &data) {
@@ -51,7 +51,7 @@ class AdifWWFFRef : public AdifDataBase {
         return std::nullopt;
     }
 
-    bool set(const std::string &newValue) override;
+    TakeRes take(std::string &&newValue) override;
 
     struct WwffParts {
         std::string program; //  (K, 3DA)

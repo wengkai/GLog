@@ -11,15 +11,15 @@
  *
  */
 class AdifGridSquare : public AdifDataBase {
-  private:
+  protected:
     explicit AdifGridSquare(std::string value) : AdifDataBase(std::move(value)) {
-        for (char &c : m_rawValue) {
-            c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
-        }
+        normalizeDataToUpper();
     }
 
+    ADIF_DATA_TYPE_CLONE_DEC(AdifGridSquare)
+
   public:
-    static bool check(const std::string &data) {
+    static bool check(std::string_view data) {
         size_t len = data.length();
 
         if (len != 2 && len != 4 && len != 6 && len != 8) return false;
@@ -55,14 +55,14 @@ class AdifGridSquare : public AdifDataBase {
         return true;
     }
 
-    static std::optional<AdifGridSquare> create(const std::string &data) {
+    template <typename STD_String> static std::optional<AdifGridSquare> create(STD_String &&data) {
         if (check(data)) {
-            return AdifGridSquare(data);
+            return AdifGridSquare(std::forward<STD_String>(data));
         }
         return std::nullopt;
     }
 
-    bool set(const std::string &newValue) override;
+    TakeRes take(std::string &&newValue) override;
 
     int precisionLevel() const { return static_cast<int>(m_rawValue.length() / 2); }
 };

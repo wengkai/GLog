@@ -1,6 +1,10 @@
-#include <map>
-#include <string>
+#ifndef QSO_UPLOAD_STATUS_MAP_H_GENERATED_H
+#define QSO_UPLOAD_STATUS_MAP_H_GENERATED_H
 
+// clang-format off
+
+
+namespace ADIF {
 /**
  * ADIF QSO Upload Status Enumeration
  */
@@ -11,3 +15,8 @@ static const QsoUploadStatusMap QSO_UPLOAD_STATUS_MAP = {
     {"N", "do not upload the QSO to the online service"},
     {"M", "the QSO has been modified since being uploaded to the online service"},
 };
+} // namespace ADIF
+
+// clang-format on
+
+#endif // QSO_UPLOAD_STATUS_MAP_H_GENERATED_H

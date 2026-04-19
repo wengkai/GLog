@@ -10,16 +10,15 @@
  *
  */
 class AdifGridSquareExt : public AdifDataBase {
-  private:
+  protected:
     explicit AdifGridSquareExt(std::string value) : AdifDataBase(std::move(value)) {
-        for (size_t i = 0; i < 2 && i < m_rawValue.length(); ++i) {
-            m_rawValue[i] =
-                static_cast<char>(std::toupper(static_cast<unsigned char>(m_rawValue[i])));
-        }
+        normalizeDataToUpper();
     }
 
+    ADIF_DATA_TYPE_CLONE_DEC(AdifGridSquareExt)
+
   public:
-    static bool check(const std::string &data) {
+    static bool check(std::string_view data) {
         size_t len = data.length();
 
         if (len != 2 && len != 4) return false;
@@ -38,14 +37,15 @@ class AdifGridSquareExt : public AdifDataBase {
         return true;
     }
 
-    static std::optional<AdifGridSquareExt> create(const std::string &data) {
+    template <typename STD_String>
+    static std::optional<AdifGridSquareExt> create(STD_String &&data) {
         if (check(data)) {
-            return AdifGridSquareExt(data);
+            return AdifGridSquareExt(std::forward<STD_String>(data));
         }
         return std::nullopt;
     }
 
-    bool set(const std::string &newValue) override;
+    TakeRes take(std::string &&newValue) override;
 
     size_t extensionLength() const { return m_rawValue.length(); }
 };

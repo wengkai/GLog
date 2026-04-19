@@ -10,11 +10,13 @@
  *
  */
 class AdifNumber : public AdifDataBase {
-  private:
+  protected:
     explicit AdifNumber(std::string value) : AdifDataBase(std::move(value)) {}
 
+    ADIF_DATA_TYPE_CLONE_DEC(AdifNumber)
+
   public:
-    static bool check(const std::string &data) {
+    static bool check(std::string_view data) {
         if (data.empty()) return false;
 
         bool hasDigit = false;
@@ -41,16 +43,26 @@ class AdifNumber : public AdifDataBase {
         return hasDigit;
     }
 
-    static std::optional<AdifNumber> create(const std::string &data) {
+    template <typename STD_String> static std::optional<AdifNumber> create(STD_String &&data) {
         if (check(data)) {
-            return AdifNumber(data);
+            return AdifNumber(std::forward<STD_String>(data));
         }
         return std::nullopt;
     }
 
-    bool set(const std::string &newValue) override;
+    TakeRes take(std::string &&newValue) override;
 
-    double asDouble() const { return std::stod(m_rawValue); }
+    virtual double asDouble() const;
+
+    CompareRes compare(const AdifDataBase &right) const override;
+
+    static CompareRes compare_rational(std::string_view a, std::string_view b);
+
+    static bool in_range(std::string_view lower, std::string_view val, std::string_view upper) {
+        auto compare_to_lower = AdifNumber::compare_rational(val, lower);
+        auto compare_to_upper = AdifNumber::compare_rational(val, upper);
+        return (compare_to_lower != less && compare_to_upper != greater);
+    }
 };
 
 #endif

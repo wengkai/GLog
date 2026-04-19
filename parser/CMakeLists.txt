@@ -51,3 +51,5 @@ target_include_directories(${LIB_NAME} PUBLIC
     BEFORE
         ${PARSER_INCLUDE_FILES}
 )
+
+target_compile_definitions(${LIB_NAME} PRIVATE GLOG_LIB)

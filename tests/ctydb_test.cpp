@@ -68,7 +68,7 @@ class CtyDBTest : public QObject {
 
     void verifyCtyDB() {
         auto ret = ctydb->lookUpCallSign(QString::fromLocal8Bit("BG4CPY"));
-        QVERIFY(ret.first->vaild);
+        QVERIFY(ret.first->valid);
         QVERIFY(ret.first->name == "China");
     }
 

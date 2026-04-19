@@ -8,7 +8,8 @@ add_library(${LIB_NAME} STATIC
 )
 
 target_include_directories(${LIB_NAME} PUBLIC
-    BEFORE
         .
         ./constants
 )
+
+target_compile_definitions(${LIB_NAME} PRIVATE GLOG_LIB)

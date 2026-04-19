@@ -1,6 +1,10 @@
-#include <map>
-#include <string>
+#ifndef ARRL_SECTION_MAP_H_GENERATED_H
+#define ARRL_SECTION_MAP_H_GENERATED_H
 
+// clang-format off
+
+
+namespace ADIF {
 struct ArrlSectionInfo {
     std::string name;
     std::vector<int> dxcc_entities;
@@ -102,3 +106,8 @@ static const ArrlSectionMap ARRL_SECTION_MAP = {
     {"WI", {"Wisconsin", {291}, "", ""}},
     {"WY", {"Wyoming", {291}, "", ""}},
 };
+} // namespace ADIF
+
+// clang-format on
+
+#endif // ARRL_SECTION_MAP_H_GENERATED_H

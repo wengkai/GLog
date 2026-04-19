@@ -10,11 +10,13 @@
  *
  */
 class AdifIntlMultilineString : public AdifDataBase {
-  private:
-    explicit AdifIntlMultilineString(std::string value) : AdifDataBase(std::move(value)) {}
+  protected:
+    explicit AdifIntlMultilineString(std::string &&value) : AdifDataBase(std::move(value)) {}
+
+    ADIF_DATA_TYPE_CLONE_DEC(AdifIntlMultilineString)
 
   public:
-    static bool check(const std::string &data) {
+    static bool check(std::string_view data) {
         const uint8_t *bytes = reinterpret_cast<const uint8_t *>(data.data());
         size_t len = data.length();
         int remaining_bytes = 0;
@@ -68,15 +70,17 @@ class AdifIntlMultilineString : public AdifDataBase {
         return remaining_bytes == 0;
     }
 
-    static std::optional<AdifIntlMultilineString> create(const std::string &data) {
-        std::string cleanedData = AdifMultilineString::sanitizeLineEndings(data);
+    template <typename STD_String>
+    static std::optional<AdifIntlMultilineString> create(STD_String &&data) {
+        std::string cleanedData =
+            AdifMultilineString::sanitizeLineEndings(std::forward<STD_String>(data));
         if (check(cleanedData)) {
             return AdifIntlMultilineString(std::move(cleanedData));
         }
         return std::nullopt;
     }
 
-    bool set(const std::string &newValue) override;
+    TakeRes take(std::string &&newValue) override;
 };
 
 #endif

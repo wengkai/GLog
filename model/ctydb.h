@@ -18,7 +18,7 @@
 
 struct CtyEntry {
     int location_id = -1;
-    bool vaild = false;
+    bool valid = false;
     QString name;      // Entity Name
     int cq;            // CQ Zone
     int itu;           // ITU Zone

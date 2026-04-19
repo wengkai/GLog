@@ -1,0 +1,98 @@
+@PACKAGE_INIT@
+
+set(BUNDLED_QT_VERSION       "@Qt6_VERSION@")
+set(BUNDLED_QT_VERSION_MAJOR "@Qt6_VERSION_MAJOR@")
+set(BUNDLED_QT_REL_PATH      "@BUNDLED_QT_RELATIVE_PATH@")
+
+get_filename_component(_SDK_QT_DIR "${CMAKE_CURRENT_LIST_DIR}/${BUNDLED_QT_REL_PATH}" ABSOLUTE)
+
+set(Qt6_VERSION ${BUNDLED_QT_VERSION} CACHE INTERNAL "")
+set(Qt6_VERSION_MAJOR ${BUNDLED_QT_VERSION_MAJOR} CACHE INTERNAL "")
+set(Qt6Core_VERSION ${BUNDLED_QT_VERSION} CACHE INTERNAL "")
+set(Qt6Core_VERSION_MAJOR ${BUNDLED_QT_VERSION_MAJOR} CACHE INTERNAL "")
+
+macro(import_bundled_qt_module MODULE)
+    set(_TGT "Qt6::${MODULE}")
+    if(NOT TARGET ${_TGT})
+        add_library(${_TGT} SHARED IMPORTED)
+        set_target_properties(${_TGT} PROPERTIES
+            INTERFACE_INCLUDE_DIRECTORIES "${_SDK_QT_DIR}/include"
+            INTERFACE_COMPILE_DEFINITIONS "QT_${MODULE}_LIB"
+            INTERFACE_QT_MAJOR_VERSION ${BUNDLED_QT_VERSION_MAJOR}
+        )
+
+        if(WIN32)
+            set_target_properties(${_TGT} PROPERTIES
+                IMPORTED_IMPLIB "${_SDK_QT_DIR}/lib/Qt6${MODULE}.lib"
+                IMPORTED_LOCATION "${_SDK_QT_DIR}/bin/Qt6${MODULE}.dll"
+            )
+            
+        elseif(APPLE)
+            set(_FW_NAME "Qt${MODULE}")
+            set(_FW_BASE "${_SDK_QT_DIR}/@PROJECT_NAME@.app/Contents/Frameworks/${_FW_NAME}.framework")
+            set(_FW_BIN_PATH "${_FW_BASE}/Versions/Current/${_FW_NAME}")
+
+            if(EXISTS "${_FW_BIN_PATH}")
+                set_target_properties(${_TGT} PROPERTIES
+                    IMPORTED_LOCATION "${_FW_BIN_PATH}"
+                    FRAMEWORK TRUE
+                    MACOSX_FRAMEWORK_INFO_PLIST "${_FW_BASE}/Resources/Info.plist"
+                )
+                set(_FW_HEADERS "${_FW_BASE}/Headers")
+                if(EXISTS "${_FW_HEADERS}")
+                    set_property(TARGET ${_TGT} APPEND PROPERTY 
+                        INTERFACE_INCLUDE_DIRECTORIES "${_FW_HEADERS}"
+                    )
+                    get_filename_component(_FW_PARENT "${_FW_BASE}" DIRECTORY)
+                    set_property(TARGET ${_TGT} APPEND PROPERTY 
+                        INTERFACE_INCLUDE_DIRECTORIES "${_FW_PARENT}"
+                    )
+                endif()
+                set_property(TARGET ${_TGT} APPEND PROPERTY 
+                    INTERFACE_LINK_LIBRARIES "-framework ${_FW_NAME}"
+                )
+            else()
+                message(WARNING "Qt Framework not found: ${_FW_BIN_PATH}")
+            endif()
+
+        else()
+            set_target_properties(${_TGT} PROPERTIES
+                IMPORTED_LOCATION "${_SDK_QT_DIR}/lib/libQt6${MODULE}.so.6"
+            )
+        endif()
+
+@QT_METADATA_INJECTION@
+        
+        if(DEFINED _QT_METADATA_${MODULE}_DEPS)
+            set(_DEPS "")
+            foreach(_DEP ${_QT_METADATA_${MODULE}_DEPS})
+                if (NOT TARGET Qt6::${_DEP})
+                    import_bundled_qt_module("${_DEP}")
+                endif()
+                list(APPEND _DEPS "Qt6::${_DEP}")
+            endforeach()
+            set_property(TARGET ${_TGT} APPEND PROPERTY INTERFACE_LINK_LIBRARIES "${_DEPS}")
+        endif()
+    endif()
+endmacro()
+
+macro(setup_bundled_qt_tools)
+    import_bundled_qt_module(Widgets)
+    foreach(_TOOL moc rcc uic)
+        if(NOT TARGET Qt6::${_TOOL})
+            add_executable(Qt6::${_TOOL} IMPORTED)
+            set(_TOOL_PATH "${_SDK_QT_DIR}/bin/${_TOOL}${CMAKE_EXECUTABLE_SUFFIX}")
+            set_target_properties(Qt6::${_TOOL} PROPERTIES IMPORTED_LOCATION "${_TOOL_PATH}")
+            
+            string(TOUPPER ${_TOOL} _UPPER)
+            set(QT_${_UPPER}_EXECUTABLE "${_TOOL_PATH}" CACHE FILEPATH "SDK Bundled ${_TOOL}" FORCE)
+            set(Qt6Core_${_UPPER}_EXECUTABLE "${_TOOL_PATH}" CACHE FILEPATH "SDK Bundled ${_TOOL}" FORCE)
+        endif()
+    endforeach()
+endmacro()
+
+# setup_bundled_qt_tools()
+# import_bundled_qt_module(Core)
+
+include(CMakeFindDependencyMacro)
+include("${CMAKE_CURRENT_LIST_DIR}/@SDK_EXPORT_NAME@.cmake")

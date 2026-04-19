@@ -34,8 +34,7 @@ def generate_dxcc_map():
 
     formatted_lines = [f'        {{{c}, {{"{n}", {d}}}}},' for c, n, d in map_entries]
 
-    cpp_content = """#include <vector>
-#include <algorithm>
+    cpp_content = """
 
 struct DXCCEntity {
     std::string name;
@@ -64,8 +63,12 @@ public:
 
 static const DXCCContainer DXCC_MAP = {
 """ + "\n".join(formatted_lines) + "\n};" 
+    
+    require = """#include <vector>
+#include <algorithm>
+"""
 
-    save_cpp_header("dxcc_map.h", cpp_content)
+    save_cpp_header("dxcc_map.h", cpp_content, require)
 
 if __name__ == "__main__":
     generate_dxcc_map()

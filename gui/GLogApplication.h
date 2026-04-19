@@ -1,6 +1,7 @@
 #ifndef GLOG_UI_H
 #define GLOG_UI_H
 
+#include <QFuture>
 #include <QMessageBox>
 #include <QMimeData>
 #include <QTableView>
@@ -15,6 +16,8 @@
 #include "adifdb.h"
 #include "app_export.h"
 #include "glogparser.h"
+
+#include "award_plugin.h"
 
 inline void initAssetsResource() { Q_INIT_RESOURCE(assets); }
 
@@ -32,7 +35,7 @@ class APP_EXPORT GLogApplication : public QMainWindow {
     ~GLogApplication();
 
     void resizeTableView();
-    void openFile(const QString &filename);
+    QFuture<std::vector<std::string>> openFile(const QString &filename);
     void mergeFile(const QString &filename, bool remove = false);
     void saveAsFile(const QString &filename);
     static void extractZip(const QString &zipPath, const QString &extractDir,
@@ -50,7 +53,6 @@ class APP_EXPORT GLogApplication : public QMainWindow {
     void updateFccDatabase();
 
   signals:
-    void openFileActionSignal(QString filename);
     void mergeFileActionSignal(QString filename, bool remove = false);
     void saveAsActionSignal(QString filename);
     void information(QString title, QString text, QMessageBox::StandardButton button0,

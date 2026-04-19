@@ -1,6 +1,10 @@
-#include <map>
-#include <string>
+#ifndef AWARD_SPONSOR_MAP_H_GENERATED_H
+#define AWARD_SPONSOR_MAP_H_GENERATED_H
 
+// clang-format off
+
+
+namespace ADIF {
 using AwardSponsorMap = std::map<std::string, std::string>;
 
 /**
@@ -20,3 +24,8 @@ static const AwardSponsorMap AWARD_SPONSOR_MAP = {
     {"TAG_", "TAG - Tambov award group"},
     {"WABAG_", "WAB - Worked all Britain"},
 };
+} // namespace ADIF
+
+// clang-format on
+
+#endif // AWARD_SPONSOR_MAP_H_GENERATED_H

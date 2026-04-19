@@ -1,10 +1,12 @@
 #include "AdifMultilineString.h"
 
-auto AdifMultilineString::set(const std::string &newValue) -> bool {
+ADIF_DATA_TYPE_CLONE_IMP(AdifMultilineString)
+
+auto AdifMultilineString::take(std::string &&newValue) -> TakeRes {
     std::string cleanedData = sanitizeLineEndings(newValue);
     if (check(cleanedData)) {
         m_rawValue = std::move(cleanedData);
-        return true;
+        return {true};
     }
-    return false;
+    return {false, std::move(newValue)};
 }

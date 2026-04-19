@@ -1,9 +1,11 @@
 #include "AdifPositiveInteger.h"
 
-auto AdifPositiveInteger::set(const std::string &newValue) -> bool {
+ADIF_DATA_TYPE_CLONE_IMP(AdifPositiveInteger)
+
+auto AdifPositiveInteger::take(std::string &&newValue) -> TakeRes {
     if (check(newValue)) {
-        m_rawValue = newValue;
-        return true;
+        m_rawValue = std::move(newValue);
+        return {true};
     }
-    return false;
+    return {false, std::move(newValue)};
 }

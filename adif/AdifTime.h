@@ -14,11 +14,13 @@
  * 4. 00 <= SS <= 59
  */
 class AdifTime : public AdifDataBase {
-  private:
+  protected:
     explicit AdifTime(std::string value) : AdifDataBase(std::move(value)) {}
 
+    ADIF_DATA_TYPE_CLONE_DEC(AdifTime)
+
   public:
-    static bool check(const std::string &data) {
+    static bool check(std::string_view data) {
         if (data.length() != 4 && data.length() != 6) return false;
 
         if (!std::all_of(data.begin(), data.end(),
@@ -26,28 +28,26 @@ class AdifTime : public AdifDataBase {
             return false;
         }
 
-        int hh = std::stoi(data.substr(0, 2));
-        int mm = std::stoi(data.substr(2, 2));
+        auto [hh, mm, ss, has_ss] = asParts(data);
 
         if (hh < 0 || hh > 23) return false;
         if (mm < 0 || mm > 59) return false;
 
-        if (data.length() == 6) {
-            int ss = std::stoi(data.substr(4, 2));
+        if (has_ss) {
             if (ss < 0 || ss > 59) return false;
         }
 
         return true;
     }
 
-    static std::optional<AdifTime> create(const std::string &data) {
+    template <typename STD_String> static std::optional<AdifTime> create(STD_String &&data) {
         if (check(data)) {
-            return AdifTime(data);
+            return AdifTime(std::forward<STD_String>(data));
         }
         return std::nullopt;
     }
 
-    bool set(const std::string &newValue) override;
+    TakeRes take(std::string &&newValue) override;
 
     struct TimePart {
         int hour;
@@ -56,16 +56,20 @@ class AdifTime : public AdifDataBase {
         bool hasSeconds;
     };
 
-    TimePart asParts() const {
+  private:
+    static TimePart asParts(std::string_view data) {
         TimePart tp{0, 0, 0, false};
-        tp.hour = std::stoi(m_rawValue.substr(0, 2));
-        tp.minute = std::stoi(m_rawValue.substr(2, 2));
-        if (m_rawValue.length() == 6) {
-            tp.second = std::stoi(m_rawValue.substr(4, 2));
+        std::from_chars(data.data(), data.data() + 2, tp.hour);
+        std::from_chars(data.data() + 2, data.data() + 4, tp.minute);
+        if (data.size() == 6) {
+            std::from_chars(data.data() + 4, data.data() + 6, tp.second);
             tp.hasSeconds = true;
         }
         return tp;
     }
+
+  public:
+    TimePart asParts() const { return asParts(m_rawValue); }
 };
 
 #endif

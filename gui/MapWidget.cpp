@@ -114,20 +114,15 @@ void MapWidget::dataVisualize() {
         emit dataVisualizeRe();
         return;
     }
-    std::shared_lock<decltype(m_model->mutex)> lock1(m_model->mutex, std::defer_lock);
-    if (!lock1.try_lock()) {
-        emit dataVisualizeRe();
-        return;
-    }
 
     Q_ASSERT(ctydb->getVEnts().size() == m_position_count.size());
     QString buf;
     for (auto &record : m_model->records) {
-        auto call = record["call"]->get();
+        auto call = record.at("call")->get();
         buf = QString::fromUtf8(call.data(), call.size());
         CtyDB::normalizeCallSign(buf);
         auto result = ctydb->lookUpCallSign(QStringView(buf));
-        if (result.first->vaild) {
+        if (result.first->valid) {
             ++m_position_count[result.first->location_id];
         }
     }

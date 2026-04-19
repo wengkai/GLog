@@ -1,6 +1,10 @@
-#include <map>
-#include <string>
+#ifndef QSO_DOWNLOAD_STATUS_MAP_H_GENERATED_H
+#define QSO_DOWNLOAD_STATUS_MAP_H_GENERATED_H
 
+// clang-format off
+
+
+namespace ADIF {
 /**
  * ADIF QSO Download Status Enumeration
  */
@@ -11,3 +15,8 @@ static const QsoDownloadStatusMap QSO_DOWNLOAD_STATUS_MAP = {
     {"N", "the QSO has not been downloaded from the online service"},
     {"I", "ignore or invalid"},
 };
+} // namespace ADIF
+
+// clang-format on
+
+#endif // QSO_DOWNLOAD_STATUS_MAP_H_GENERATED_H

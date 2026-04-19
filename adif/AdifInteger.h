@@ -10,11 +10,13 @@
  *
  */
 class AdifInteger : public AdifDataBase {
-  private:
+  protected:
     explicit AdifInteger(std::string value) : AdifDataBase(std::move(value)) {}
 
+    ADIF_DATA_TYPE_CLONE_DEC(AdifInteger)
+
   public:
-    static bool check(const std::string &data) {
+    static bool check(std::string_view data) {
         if (data.empty()) return false;
 
         size_t startPos = 0;
@@ -27,14 +29,14 @@ class AdifInteger : public AdifDataBase {
                            [](unsigned char c) { return std::isdigit(c); });
     }
 
-    static std::optional<AdifInteger> create(const std::string &data) {
+    template <typename STD_String> static std::optional<AdifInteger> create(STD_String &&data) {
         if (check(data)) {
-            return AdifInteger(data);
+            return AdifInteger(std::forward<STD_String>(data));
         }
         return std::nullopt;
     }
 
-    bool set(const std::string &newValue) override;
+    TakeRes take(std::string &&newValue) override;
 
     long long asInt64() const { return std::stoll(m_rawValue); }
 };

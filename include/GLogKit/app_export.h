@@ -5,8 +5,6 @@
 
 #if defined(GLOG_LIB)
 #define APP_EXPORT Q_DECL_EXPORT
-#elif defined(GLOG_STATIC_LIB)
-#define APP_EXPORT
 #else
 #define APP_EXPORT Q_DECL_IMPORT
 #endif

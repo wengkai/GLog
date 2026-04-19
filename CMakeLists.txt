@@ -4,7 +4,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_SKIP_AUTOGEN_COMPLIANCE_CHECK ON)
 
-project ("GLog")
+project ("GLogKit"
+    VERSION 0.1.0 
+    LANGUAGES CXX
+)
+
+set(SDK_EXPORT_NAME "${PROJECT_NAME}Targets")
 
 find_package(Qt6 6.7
     COMPONENTS
@@ -92,6 +97,8 @@ endif()
 
 set(ROOT_DIR ${PROJECT_SOURCE_DIR})
 
+list (APPEND INCLUDES_DIR "${ROOT_DIR}/include")
+list (APPEND INCLUDES_DIR "${ROOT_DIR}/include/GLogKit")
 list (APPEND INCLUDES_DIR "${ROOT_DIR}/adif")
 list (APPEND INCLUDES_DIR "${ROOT_DIR}/adif/constants")
 list (APPEND INCLUDES_DIR "${ROOT_DIR}/parser")
@@ -143,18 +150,22 @@ add_library(${PROJECT_SHARED} SHARED ${PROJECT_SOURCES})
 
 target_compile_definitions(${PROJECT_SHARED} PRIVATE GLOG_LIB)
 
+list(APPEND EXTRA_LIBS Qt6::Widgets)
+list(APPEND EXTRA_LIBS Qt6::Network)
+list(APPEND EXTRA_LIBS Qt6::SvgWidgets)
+list(APPEND EXTRA_LIBS Qt6::OpenGLWidgets)
+list(APPEND EXTRA_LIBS Qt6::Sql)
+
 target_link_libraries(${PROJECT_SHARED}
-    PUBLIC
+    PRIVATE
         ${EXTRA_LIBS}
-        Qt6::Widgets
-        Qt6::Network
-        Qt6::SvgWidgets
-        Qt6::OpenGLWidgets
-        Qt6::Sql
 )
+
+set_target_properties(${PROJECT_SHARED} PROPERTIES ENABLE_EXPORTS TRUE)
 
 target_include_directories(${PROJECT_SHARED} PUBLIC 
     ${CMAKE_INCLUDE_CURRENT_DIR}
+	$<INSTALL_INTERFACE:include>
 )
 
 if(WIN32)
@@ -168,7 +179,12 @@ endif()
 
 qt_add_executable(${PROJECT_NAME} ${ROOT_DIR}/main.cpp)
 
-target_link_libraries(${PROJECT_NAME} PRIVATE ${PROJECT_SHARED})
+set_target_properties(${PROJECT_NAME} PROPERTIES ENABLE_EXPORTS TRUE)
+
+target_link_libraries(${PROJECT_NAME} PRIVATE 
+    ${PROJECT_SHARED}
+    ${EXTRA_LIBS}
+)
 
 if (WIN32)
     set_target_properties(${PROJECT_NAME}
@@ -207,13 +223,23 @@ if(APPLE)
         BUNDLE DESTINATION .
     )
     install(TARGETS ${PROJECT_SHARED}
+        EXPORT ${SDK_EXPORT_NAME}
         LIBRARY DESTINATION ${PROJECT_NAME}.app/Contents/Frameworks
+        ARCHIVE DESTINATION lib
+        RUNTIME DESTINATION ${PROJECT_NAME}.app/Contents/Frameworks
     )
 else()
     include(GNUInstallDirs)
-    install(TARGETS ${PROJECT_NAME} ${PROJECT_SHARED}
+    install(TARGETS ${PROJECT_NAME}
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    )
+    install(TARGETS ${PROJECT_SHARED}
+        EXPORT ${SDK_EXPORT_NAME}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
     )
 endif()
 
@@ -230,6 +256,213 @@ qt_generate_deploy_app_script(
     DEPLOY_TOOL_OPTIONS ${deploy_extra_options}
 )
 install(SCRIPT ${deploy_script})
+
+option(DISTRIBUTE_SDK "Distribute SDK" ON)
+if(DISTRIBUTE_SDK)
+
+message(STATUS "DISTRIBUTE_SDK:ON")
+
+install(DIRECTORY include/ DESTINATION include)
+
+
+function(get_all_qt6_targets target out_var)
+    set(all_targets)
+    set(targets_to_process ${target})
+    set(processed_targets)
+
+    while(targets_to_process)
+        list(POP_FRONT targets_to_process current)
+        list(FIND processed_targets "${current}" _found)
+        if(_found EQUAL -1)
+            list(APPEND processed_targets "${current}")
+            get_target_property(link_libs ${current} LINK_LIBRARIES)
+            if(link_libs)
+                foreach(lib ${link_libs})
+                    _extract_qt6_target("${lib}" lib_clean)
+                    if(lib_clean AND TARGET ${lib_clean})
+                        list(APPEND all_targets ${lib_clean})
+                        list(APPEND targets_to_process ${lib_clean})
+                    endif()
+                endforeach()
+            endif()
+            get_target_property(iface_libs ${current} INTERFACE_LINK_LIBRARIES)
+            if(iface_libs)
+                foreach(lib ${iface_libs})
+                    _extract_qt6_target("${lib}" lib_clean)
+                    if(lib_clean AND TARGET ${lib_clean})
+                        list(APPEND all_targets ${lib_clean})
+                        list(APPEND targets_to_process ${lib_clean})
+                    endif()
+                endforeach()
+            endif()
+        endif()
+    endwhile()
+
+    list(REMOVE_DUPLICATES all_targets)
+    set(${out_var} ${all_targets} PARENT_SCOPE)
+endfunction()
+
+macro(_extract_qt6_target input output)
+    set(${output})
+    if("${input}" MATCHES "^Qt6::")
+        set(${output} "${input}")
+    elseif("${input}" MATCHES "\\$<LINK_ONLY:([^>]+)>")
+        string(REGEX REPLACE "\\$<LINK_ONLY:([^>]+)>" "\\1" tmp "${input}")
+        if(tmp MATCHES "^Qt6::")
+            set(${output} "${tmp}")
+        endif()
+    endif()
+endmacro()
+
+get_all_qt6_targets(${PROJECT_SHARED} ALL_QT6_TARGETS)
+
+set(ALL_QT6_MODULES)
+foreach(tgt ${ALL_QT6_TARGETS})
+    if(NOT TARGET ${tgt})
+        continue()
+    endif()
+    get_target_property(tgt_type ${tgt} TYPE)
+    if(NOT tgt_type STREQUAL "INTERFACE_LIBRARY")
+        get_target_property(is_imported ${tgt} IMPORTED)
+        if(NOT is_imported)
+            continue()
+        endif()
+    endif()
+    get_target_property(inc_dirs ${tgt} INTERFACE_INCLUDE_DIRECTORIES)
+    if(NOT inc_dirs)
+        continue()
+    endif()
+    string(REGEX REPLACE "^Qt6::" "" module ${tgt})
+    set(has_valid_header FALSE)
+    foreach(dir ${inc_dirs})
+        if(EXISTS "${dir}/Qt${module}")
+            set(has_valid_header TRUE)
+            break()
+        endif()
+    endforeach()
+    if(has_valid_header)
+        list(APPEND ALL_QT6_MODULES ${module})
+    endif()
+endforeach()
+
+list(REMOVE_DUPLICATES ALL_QT6_MODULES)
+message(STATUS "Detected Qt6 modules for installation: ${ALL_QT6_MODULES}")
+
+if(NOT APPLE)
+foreach(module ${ALL_QT6_MODULES})
+    set(tgt_name Qt6::${module})
+    if(TARGET ${tgt_name})
+        get_target_property(inc_dirs ${tgt_name} INTERFACE_INCLUDE_DIRECTORIES)
+        set(module_installed FALSE)
+        foreach(dir ${inc_dirs})
+            if(module_installed)
+                break()
+            endif()
+            get_filename_component(dir_name ${dir} NAME)
+            if(dir_name STREQUAL "Qt${module}")
+                if(EXISTS ${dir} AND IS_DIRECTORY ${dir})
+                    install(DIRECTORY ${dir} DESTINATION include)
+                    set(module_installed TRUE)
+                    break()
+                endif()
+            endif()
+            set(sub_dir "${dir}/Qt${module}")
+            if(EXISTS ${sub_dir} AND IS_DIRECTORY ${sub_dir})
+                install(DIRECTORY ${sub_dir} DESTINATION include)
+                set(module_installed TRUE)
+                break()
+            endif()
+        endforeach()
+        if(NOT module_installed)
+            message(WARNING "Could not find header directory for module ${module}")
+        endif()
+    endif()
+endforeach()
+endif()
+
+if(WIN32)
+    foreach(module ${ALL_QT6_MODULES})
+        set(tgt_name Qt6::${module})
+        if(TARGET ${tgt_name})
+            install(FILES $<TARGET_LINKER_FILE:${tgt_name}> DESTINATION lib)
+        endif()
+    endforeach()
+endif()
+
+install(PROGRAMS $<TARGET_FILE:Qt6::moc> DESTINATION bin)
+install(PROGRAMS $<TARGET_FILE:Qt6::rcc> DESTINATION bin)
+install(PROGRAMS $<TARGET_FILE:Qt6::uic> DESTINATION bin)
+
+set(QT_METADATA_INJECTION "")
+
+set(_ALLOWED_MODULES "")
+foreach(_MOD ${ALL_QT6_MODULES})
+    string(REPLACE "Qt6::" "" _PURE_MOD ${_MOD})
+    list(APPEND _ALLOWED_MODULES ${_PURE_MOD})
+endforeach()
+
+foreach(_MOD_FULL ${ALL_QT6_MODULES})
+    string(REPLACE "Qt6::" "" _PURE_MOD ${_MOD_FULL})
+    
+    get_target_property(_RAW_DEPS Qt6::${_PURE_MOD} INTERFACE_LINK_LIBRARIES)
+    
+    set(_FILTERED_DEPS "")
+    foreach(_DEP ${_RAW_DEPS})
+        if(_DEP MATCHES "^Qt6::([A-Za-z0-9]+)")
+            set(_DEP_NAME ${CMAKE_MATCH_1})
+            list(APPEND _FILTERED_DEPS ${_DEP_NAME})
+            if(_DEP_NAME IN_LIST _ALLOWED_MODULES)
+            elseif(_DEP_NAME STREQUAL "Platform")
+                continue()
+            else()
+                message(AUTHOR_WARNING "Module ${_PURE_MOD} depends on ${_DEP_NAME}, but ${_DEP_NAME} is NOT in the distribution list. Skipping dependency.")
+            endif()
+        endif()
+    endforeach()
+
+    if(_FILTERED_DEPS)
+        list(REMOVE_DUPLICATES _FILTERED_DEPS)
+        string(REPLACE ";" " " _DEPS_STR "${_FILTERED_DEPS}")
+        string(APPEND QT_METADATA_INJECTION "        set(_QT_METADATA_${_PURE_MOD}_DEPS ${_DEPS_STR})\n")
+    endif()
+endforeach()
+
+message(STATUS "Detected Qt6 metadata: \n${QT_METADATA_INJECTION}")
+
+include(CMakePackageConfigHelpers)
+
+install(EXPORT ${SDK_EXPORT_NAME}
+    FILE ${SDK_EXPORT_NAME}.cmake
+    NAMESPACE ${PROJECT_NAME}::
+    DESTINATION lib/cmake/${PROJECT_NAME}
+)
+
+write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY AnyNewerVersion
+)
+
+set(BUNDLED_QT_RELATIVE_PATH "../../..")
+
+set(QT_VERSION ${Qt6_VERSION})
+set(QT_VERSION_MAJOR ${Qt6_VERSION_MAJOR})
+set(QT_VERSION_MINOR ${Qt6_VERSION_MINOR})
+
+configure_package_config_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/${PROJECT_NAME}Config.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+    INSTALL_DESTINATION "lib/cmake/${PROJECT_NAME}"
+    NO_CHECK_REQUIRED_COMPONENTS_MACRO
+)
+
+install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
+    DESTINATION lib/cmake/${PROJECT_NAME}
+)
+
+endif() #DISTRIBUTE_SDK
 
 option(BUILD_TESTING "Build the testing suite" ON)
 

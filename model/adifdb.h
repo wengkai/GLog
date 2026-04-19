@@ -1,6 +1,7 @@
 #ifndef ADIFDB_H
 #define ADIFDB_H
 
+#include <QFuture>
 #include <QList>
 #include <QMimeData>
 #include <QStandardItemModel>
@@ -10,10 +11,14 @@
 #include <set>
 #include <shared_mutex>
 #include <string>
+#include <unordered_set>
 #include <vector>
 #include "ctydb.h"
 #include "glogparser.h"
 #include "record.h"
+#include "recordrepository.h"
+
+#include "Concurrent.h"
 
 class MapWidget;
 
@@ -26,12 +31,12 @@ class AdifModel : public QAbstractTableModel {
 
   private:
     std::vector<Record> records{};
-    std::set<std::string> sheaders{};
+    std::unordered_set<std::string> sheaders{};
     std::vector<std::string> rheaders{};
-    mutable std::shared_mutex mutex{};
-    // friend class AdifModelC;
+    // mutable std::shared_mutex mutex{};
+    std::shared_ptr<GRecordRepository> m_db_backup;
+    mutable GLogConcurrent::FIFOBackendThreadExecutor m_fifo_exec;
     friend class MapWidget;
-    // AdifModelC* control = nullptr;
 
     auto rheaders_begin() {
         return (rheaders.begin() + static_cast<std::ptrdiff_t>(sheaders.size()));
@@ -40,53 +45,39 @@ class AdifModel : public QAbstractTableModel {
         return (rheaders.cbegin() + static_cast<std::ptrdiff_t>(sheaders.size()));
     }
 
-    GLOG_PARSER::GLogParserDriver driver{};
-    GLOG_PARSER::Parser parser{&driver};
-
-    template <typename PairIter> void _addRecord(const PairIter &begin, const PairIter &end) {
-        _insertRecord(-1, begin, end);
-    };
-    template <typename PairIter>
-    void _insertRecord(int row, const PairIter &begin, const PairIter &end) {
-        if (row == -1) row = records.size();
-        decltype(records)::value_type r{};
-        for (auto iter{begin}; iter != end; ++iter) {
-            auto k{iter->first};
-            auto &v = iter->second;
-            r.addOrSetPairAndNormalizeKey(k, v);
-            _addHeader(k);
-        }
-        records.insert(records.begin() + row, r);
-    };
     void _clear();
-    bool _addHeader(const std::string &header);
+    bool _addHeader(std::string header);
     std::string _records2StdString(const std::set<int> &rows) const;
-    void _toCsv(std::ostream &stream) const;
-    void _toAdif(std::ostream &stream) const;
+    template <typename Ostream>
+    static void _toCsv(Ostream &stream, std::vector<Record> p_records,
+                       std::vector<std::string> p_rheaders);
+    template <typename Ostream> static void _toAdif(Ostream &stream, std::vector<Record> p_records);
 
-    template <typename RecordIter>
-    void _insertRecords(int row, const RecordIter &begin, const RecordIter &end) {
-        for (auto iter{begin}; iter != end; ++iter, ++row) {
-            _insertRecord(row, iter->begin(), iter->end());
+    template <typename Backup> void tryDbBackup(Backup &&backup) {
+        if (m_db_backup) {
+            std::invoke(std::forward<Backup>(backup), m_db_backup);
         }
+    }
+
+    struct ParseRes {
+        bool parse_res = false;
+        std::vector<Record> parse_records;
+        std::unordered_set<std::string> parse_headers;
     };
-    template <typename RecordIter>
-    void _setRecords(const RecordIter &begin, const RecordIter &end) {
-        _clear();
-        for (auto iter{begin}; iter != end; ++iter) {
-            _addRecord(iter->begin(), iter->end());
-        }
-    }
-    template <typename RecordIter>
-    void _addRecords(const RecordIter &begin, const RecordIter &end) {
-        for (auto iter{begin}; iter != end; ++iter) {
-            _addRecord(iter->begin(), iter->end());
-        }
-    }
+
+    static ParseRes parse(std::istream &in, std::vector<std::string> &errors);
+
+    void _resetRecords(std::vector<Record> new_record, std::unordered_set<std::string> new_headers);
+
+    void _insertRecords(int where, std::vector<Record> new_record,
+                        std::unordered_set<std::string> new_headers);
+
+    std::vector<std::string> openFile(const QString &filename, bool remove = false);
+    std::vector<std::string> insertFile(int row, const QString &filename, bool remove = false);
+    std::vector<std::string> insertStringData(int row, std::string data);
 
   public:
     explicit AdifModel(QObject *parent = nullptr);
-    // AdifModelC* getControl();
     int rowCount(const QModelIndex &parent = QModelIndex()) const override;
     int columnCount(const QModelIndex &parent = QModelIndex()) const override;
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
@@ -105,119 +96,33 @@ class AdifModel : public QAbstractTableModel {
                   const QModelIndex &destinationParent, int destinationChild) override;
     void sort(int column, Qt::SortOrder order = Qt::AscendingOrder) override;
 
-    template <typename Condition>
+    using Condition = std::function<bool(const std::string &)>;
     QModelIndex findNext(const QModelIndex &start, Condition condition,
-                         const std::string &field = "") const {
-        auto ret = QModelIndex();
-        auto &m = const_cast<decltype(mutex) &>(mutex);
-        std::shared_lock<decltype(mutex)> lock(m);
-        if (records.empty()) {
-            return ret;
-        }
-        int row = start.isValid() ? start.row() : 0;
-        bool finded = false;
-        for (int i = 0; i <= records.size() && !finded; ++i, ++row) {
-            row %= records.size();
-            auto &record = records.at(row);
-            if (field.empty()) {
-                int startColumn = 0;
-                if (i == 0) {
-                    startColumn = start.isValid() ? start.column() : 0;
-                }
-                for (int j = startColumn; j < rheaders.size(); ++j) {
-                    auto iter = record.find(rheaders[j]);
-                    if (iter != record.end() && condition(iter->second->get())) {
-                        ret = index(row, j);
-                        finded = true;
-                        break;
-                    }
-                }
-            } else {
-                auto iter = record.find(field);
-                if (iter != record.end() && condition(iter->second->get())) {
-                    int column = 0;
-                    for (; column < rheaders.size(); ++column) {
-                        if (rheaders[column] == field) {
-                            break;
-                        }
-                    }
-                    ret = index(row, column);
-                    finded = true;
-                }
-            }
-        }
-        return ret;
-    }
-    template <typename Condition>
-    QList<int> findAll(Condition condition, const std::string &field = "") const {
-        QList<int> rows;
-        auto &m = const_cast<decltype(mutex) &>(mutex);
-        std::shared_lock<decltype(mutex)> lock(m);
-        if (records.empty()) {
-            return rows;
-        }
-        for (int i = 0; i < records.size(); ++i) {
-            auto &record = records[i];
-            if (field.empty()) {
-                for (auto &h : rheaders) {
-                    auto iter = record.find(h);
-                    if (iter != record.end() && condition(iter->second->get())) {
-                        rows.append(i);
-                        break;
-                    }
-                }
-            } else {
-                auto iter = record.find(field);
-                if (iter != record.end() && condition(iter->second->get())) {
-                    rows.append(i);
-                }
-            }
-        }
-        return rows;
-    };
+                         const std::string &field = "") const;
+    QList<int> findAll(Condition condition, const std::string &field = "") const;
+
     virtual ~AdifModel();
 
-    bool addHeader(const std::string &header);
-
-    void addRecord(const std::map<std::string, std::string> &record) {
-        std::unique_lock<std::shared_mutex> lock(mutex);
-        beginInsertRowsWrap(QModelIndex(), records.size(), records.size());
-        _addRecord(record.begin(), record.end());
-        lock.unlock();
-        endInsertRowsWrap();
-    }
-
-    template <typename RecordIter> void addRecords(const RecordIter &begin, const RecordIter &end) {
-        std::unique_lock<std::shared_mutex> lock(mutex);
-        beginInsertRowsWrap(QModelIndex(), records.size(), records.size() + (end - begin) - 1);
-        _addRecords(begin, end);
-        lock.unlock();
-        endInsertRowsWrap();
-    }
-
-    template <typename RecordIter>
-    void insertRecords(int row, const RecordIter &begin, const RecordIter &end) {
-        std::unique_lock<std::shared_mutex> lock(mutex);
-        if (row == -1) row = records.size();
-        beginInsertRowsWrap(QModelIndex(), row, row + (end - begin) - 1);
-        _insertRecords(row, begin, end);
-        lock.unlock();
-        endInsertRowsWrap();
-    }
-
-    template <typename RecordIter> void setRecords(const RecordIter &begin, const RecordIter &end) {
-        std::unique_lock<std::shared_mutex> lock(mutex);
-        beginResetModel();
-        _setRecords(begin, end);
-        lock.unlock();
-        endResetModel();
-    }
+    QFuture<bool> addHeader(std::string header);
 
     void clear();
+
+    void setDbBackup(std::shared_ptr<GRecordRepository> backup) { m_db_backup = std::move(backup); }
+    auto getDbBackup() const { return m_db_backup; }
 
     std::string records2StdString(const std::set<int> &rows) const;
     void toCsv(std::ostream &stream) const;
     void toAdif(std::ostream &stream) const;
+
+    QFuture<std::vector<std::string>> openFileAsync(const QString &filename, bool remove = false);
+    QFuture<std::vector<std::string>> insertFileAsync(int where, const QString &filename,
+                                                      bool remove = false);
+    QFuture<std::vector<std::string>> insertStringDataAsync(int row, std::string data);
+
+    void insertRecords(int where, std::vector<Record> new_record);
+
+    void insertRecords(int where, std::vector<Record> new_record,
+                       std::unordered_set<std::string> new_headers);
 
     struct AwardRes {
         QString DXCC = "0";
@@ -233,9 +138,7 @@ class AdifModel : public QAbstractTableModel {
     void sortSelectedColumn(int column, Qt::SortOrder order);
     void removeSelectedColumn(int column);
     void mapCallSignInView(bool keepOrigin);
-    void openFile(const QString &filename);
-    void appendFile(const QString &filename, bool remove);
-    void insertFile(int row, const QString &filename);
+
     void saveAs(const QString &filename) const;
     void newViewWithRows(const QModelIndexList &indexes) const;
     void pasteRows(const QMimeData *mimeData);
@@ -245,8 +148,6 @@ class AdifModel : public QAbstractTableModel {
     void deselectAll(const QString &key, const QString &value, bool isReg = false);
 
   signals:
-    // void appendFileSignal(QString filename);
-    // void insertFileSignal(int row, QString filename);
     void mapCallSignInViewBegin();
     void mapCallSignInViewEnd(int failCount, int confictCount);
     void saveDone() const;
@@ -254,38 +155,6 @@ class AdifModel : public QAbstractTableModel {
     void foundNext(QModelIndex index);
     void selectRows(QList<int> rows);
     void deselectRows(QList<int> rows);
-
-  public slots:
-    void beginInsertColumnsWrapS(QModelIndex parent, int first, int last);
-    void endInsertColumnsWrapS();
-
-    void beginInsertRowsWrapS(QModelIndex parent, int first, int last);
-    void endInsertRowsWrapS();
-
-    // void beginRemoveRowsWrapS(QModelIndex parent, int first, int last);
-    // void endRemoveRowsWrapS();
-
-    // void beginRemoveColumnsWrapS(QModelIndex parent, int first, int last);
-    // void endRemoveColumnsWrapS();
-
-    void beginResetModelWrapS();
-    void endResetModelWrapS();
-
-  signals:
-    void beginInsertColumnsWrap(QModelIndex parent, int first, int last);
-    void endInsertColumnsWrap();
-
-    void beginInsertRowsWrap(QModelIndex parent, int first, int last);
-    void endInsertRowsWrap();
-
-    // void beginRemoveRowsWrap(QModelIndex parent, int first, int last);
-    // void endRemoveRowsWrap();
-
-    // void beginRemoveColumnsWrap(QModelIndex parent, int first, int last);
-    // void endRemoveColumnsWrap();
-
-    void beginResetModelWrap();
-    void endResetModelWrap();
 };
 
 #endif

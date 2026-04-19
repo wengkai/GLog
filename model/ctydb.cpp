@@ -38,7 +38,7 @@ auto CtyDB::loadDBString(const QString &cty, const QString &db_hint)
                 continue;
             }
             auto ent = std::make_shared<CtyEntry>();
-            ent->vaild = true;
+            ent->valid = true;
             ent->name = s_block[0].trimmed();
             ent->cq = s_block[1].trimmed().toInt();
             ent->itu = s_block[2].trimmed().toInt();

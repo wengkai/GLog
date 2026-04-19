@@ -9,11 +9,13 @@
  *
  */
 class AdifIntlString : public AdifDataBase {
-  private:
+  protected:
     explicit AdifIntlString(std::string value) : AdifDataBase(std::move(value)) {}
 
+    ADIF_DATA_TYPE_CLONE_DEC(AdifIntlString)
+
   public:
-    static bool check(const std::string &data) {
+    static bool check(std::string_view data) {
         size_t i = 0;
         size_t len = data.length();
 
@@ -64,14 +66,14 @@ class AdifIntlString : public AdifDataBase {
         return true;
     }
 
-    static std::optional<AdifIntlString> create(const std::string &data) {
+    template <typename STD_String> static std::optional<AdifIntlString> create(STD_String &&data) {
         if (check(data)) {
-            return AdifIntlString(data);
+            return AdifIntlString(std::forward<STD_String>(data));
         }
         return std::nullopt;
     }
 
-    bool set(const std::string &newValue) override;
+    TakeRes take(std::string &&newValue) override;
 };
 
 #endif

@@ -23,17 +23,16 @@ namespace GLOG_PARSER {
 class GLogParserDriver : public yyFlexLexer, public ParserDriver {
   public:
     GLogParserDriver(std::istream &arg_yyin, std::ostream &arg_yyout)
-        : yyFlexLexer(arg_yyin, arg_yyout) {
-        std::memset(buf, 0, sizeof(buf));
-    }
-    GLogParserDriver(std::istream *arg_yyin = nullptr, std::ostream *arg_yyout = nullptr)
-        : yyFlexLexer(arg_yyin, arg_yyout) {
-        std::memset(buf, 0, sizeof(buf));
-    }
+        : yyFlexLexer(arg_yyin, arg_yyout) {}
+    explicit GLogParserDriver(std::istream *arg_yyin = nullptr, std::ostream *arg_yyout = nullptr)
+        : yyFlexLexer(arg_yyin, arg_yyout) {}
+    explicit GLogParserDriver(std::vector<std::string> &errors, std::istream *arg_yyin = nullptr,
+                              std::ostream *arg_yyout = nullptr)
+        : yyFlexLexer(arg_yyin, arg_yyout), ParserDriver(errors) {}
     int lex(Parser::semantic_type *yylval);
 
   private:
-    char buf[YY_BUF_SIZE];
+    // char buf[YY_BUF_SIZE];
 };
 #else
 class GLogParserDriver;

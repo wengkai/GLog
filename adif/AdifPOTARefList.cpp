@@ -1,9 +1,11 @@
 #include "AdifPOTARefList.h"
 
-auto AdifPOTARefList::set(const std::string &newValue) -> bool {
+ADIF_DATA_TYPE_CLONE_IMP(AdifPOTARefList)
+
+auto AdifPOTARefList::take(std::string &&newValue) -> TakeRes {
     if (check(newValue)) {
         m_rawValue = std::move(normalize(newValue));
-        return true;
+        return {true};
     }
-    return false;
+    return {false, std::move(newValue)};
 }

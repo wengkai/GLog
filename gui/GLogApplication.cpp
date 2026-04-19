@@ -63,8 +63,8 @@ GLogApplication::GLogApplication(QWidget *parent)
     connect(ui->actionSave_As, &QAction::triggered, this, &GLogApplication::saveAsAction);
     model = new AdifModel(this);
     tableview->setModel(model);
-    connect(this, &GLogApplication::openFileActionSignal, model, &AdifModel::openFile);
-    connect(this, &GLogApplication::mergeFileActionSignal, model, &AdifModel::appendFile);
+    // connect(this, &GLogApplication::openFileActionSignal, model, &AdifModel::openFile);
+    // connect(this, &GLogApplication::mergeFileActionSignal, model, &AdifModel::appendFile);
     connect(this, &GLogApplication::saveAsActionSignal, model, &AdifModel::saveAs);
     connect(model, &AdifModel::saveDone, this, &GLogApplication::saveDone, Qt::QueuedConnection);
     connect(model, &AdifModel::setCilpboard, this, &GLogApplication::setCilpboard,
@@ -192,19 +192,36 @@ void GLogApplication::resizeTableView() {
     tableview->setVisible(true);
 }
 
-void GLogApplication::openFile(const QString &filename) {
+auto GLogApplication::openFile(const QString &filename) -> QFuture<std::vector<std::string>> {
     // tableview->setVisible(false);
-    emit openFileActionSignal(filename);
+    return model->openFileAsync(filename);
 }
 
 void GLogApplication::openFileAction() {
-    openFile(QFileDialog::getOpenFileName(this, tr("Open File"), "",
-                                          tr("Adif Files (*.adi *.adif);;All Files (*.*)")));
+    auto filename = QFileDialog::getOpenFileName(this, tr("Open File"), "",
+                                                 tr("Adif Files (*.adi *.adif);;All Files (*.*)"));
+
+    if (filename.isEmpty()) {
+        return;
+    }
+
+    openFile(filename)
+        .then(this,
+              [this](std::vector<std::string> result) {
+                  if (!result.empty()) {
+                      QMessageBox::warning(this, tr("Warning"),
+                                           tr("%1 errors found").arg(result.size()),
+                                           QMessageBox::StandardButton::Ok);
+                  }
+              })
+        .onFailed(this, [this](const std::exception &e) {
+            QMessageBox::critical(this, tr("Error"), e.what(), QMessageBox::StandardButton::Ok);
+        });
 }
 
 void GLogApplication::mergeFile(const QString &filename, bool remove) {
     // tableview->setVisible(false);
-    emit mergeFileActionSignal(filename, remove);
+    auto future = model->insertFileAsync(-1, filename, remove);
 }
 
 void GLogApplication::saveAsFile(const QString &filename) { emit saveAsActionSignal(filename); }
@@ -551,3 +568,5 @@ void GLogApplication::updateFccDatabase() {
             emit enableAction(ui->actionAward);
         });
 }
+
+AwardPlugin::~AwardPlugin() = default;

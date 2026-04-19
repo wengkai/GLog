@@ -1,8 +1,6 @@
 #ifndef ADIF_DATA_TYPES_H
 #define ADIF_DATA_TYPES_H
 
-#include "adif_constants.h"
-
 #include "AdifDataBase.h"
 
 #include "AdifCharacter.h"
@@ -33,6 +31,8 @@
 #include "AdifWWFFRef.h"
 
 #include "AdifModeFactory.h"
+
+#include "AdifFreqBandFactory.h"
 
 #include "AdifGeneral.h"
 

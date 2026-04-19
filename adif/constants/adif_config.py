@@ -1,4 +1,5 @@
 import requests
+import os
 from bs4 import BeautifulSoup
 
 ADIF_URL = "https://adif.org.uk/316/ADIF_316.htm"
@@ -20,9 +21,18 @@ def get_adif_soup(url=ADIF_URL):
         print(f"[-] Failed to get html: {e}")
         return None
 
-def save_cpp_header(filename, content):
+def save_cpp_header(filename, content, require = None):
     content = content.replace('\u00a0', ' ')
+    guard_name = os.path.basename(filename).replace('.', '_').upper() + "_GENERATED_H"
     with open(filename, "w", encoding="utf-8") as f:
-        f.write("#include <string>\n#include <map>\n\n")
+        f.write(f"#ifndef {guard_name}\n")
+        f.write(f"#define {guard_name}\n\n")
+        f.write("// clang-format off\n\n")
+        if require is not None:
+            f.write(require)
+        f.write("\nnamespace ADIF {\n")
         f.write(content)
+        f.write("\n} // namespace ADIF\n")
+        f.write("\n// clang-format on\n\n")
+        f.write(f"#endif // {guard_name}\n")
     print(f"[+] Success: {filename}")

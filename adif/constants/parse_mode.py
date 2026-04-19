@@ -40,12 +40,14 @@ def generate_mode_map():
         map_entries.append(cpp_line)
 
     cpp_content = (
-        "#include <vector>\n\n"
+        "#ifndef MODE_MAP_T\n"
+        "#define MODE_MAP_T\n"
         "struct ModeInfo {\n"
         "    bool import_only;               \n"
         "    std::vector<std::string> submodes; \n"
         "};\n\n"
         "using ModeMap = std::map<std::string, ModeInfo>;\n\n"
+        "#endif\n"
         "static const ModeMap MODE_MAP = {\n" 
         + "\n".join(map_entries) +
         "\n};"

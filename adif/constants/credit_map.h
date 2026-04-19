@@ -1,10 +1,14 @@
-#include <map>
-#include <string>
+#ifndef CREDIT_MAP_H_GENERATED_H
+#define CREDIT_MAP_H_GENERATED_H
 
+// clang-format off
+
+
+namespace ADIF {
 struct CreditInfo {
-    std::string sponsor;
-    std::string award;
-    std::string facet;
+    std::string sponsor; 
+    std::string award;   
+    std::string facet;   
 };
 
 using CreditMap = std::map<std::string, CreditInfo>;
@@ -82,3 +86,8 @@ static const CreditMap CREDIT_MAP = {
     {"WITUZ", {"RSGB", "Worked ITU Zones (WITUZ)", "Mixed"}},
     {"WITUZ_BAND", {"RSGB", "Worked ITU Zones (WITUZ)", "Band"}},
 };
+} // namespace ADIF
+
+// clang-format on
+
+#endif // CREDIT_MAP_H_GENERATED_H

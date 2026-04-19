@@ -15,6 +15,7 @@ class MultiLineDelegate : public QStyledItemDelegate {
     virtual void setEditorData(QWidget *editor, const QModelIndex &index) const override;
     virtual void setModelData(QWidget *editor, QAbstractItemModel *model,
                               const QModelIndex &index) const override;
+    bool eventFilter(QObject *obj, QEvent *event) override;
 };
 
 #endif

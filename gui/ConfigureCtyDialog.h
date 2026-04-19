@@ -10,6 +10,17 @@ class ConfigureCtyDialogClass;
 class APP_EXPORT ConfigureCtyDialog : public QDialog {
     Q_OBJECT
 
+    struct LoadContext {
+        QString targetUrl; // db_hint
+        QString message;   // load_hint
+        bool isRollingBack = false;
+    };
+
+    void processLoadResult(const LoadContext &ctx, const QPair<bool, QString> &res);
+    void handleLocalLoad(const LoadContext &ctx);
+    void handleRemoteLoad(const LoadContext &ctx);
+    void handleNetworkFailure(const LoadContext &ctx, const QString &error);
+
   public:
     ConfigureCtyDialog(QWidget *parent = nullptr);
     ~ConfigureCtyDialog();
@@ -20,13 +31,13 @@ class APP_EXPORT ConfigureCtyDialog : public QDialog {
     void disableCtyConfigure();
     int exec() override;
     void enableCtyConfigure();
-    void applyLoadDB(const QString &db_hint, const QString &load_hint, bool rollBack = false);
+    void applyLoadDB(const LoadContext &ctx);
     void onLoadFinished(const QString &msg);
 
   protected slots:
 
   signals:
-    void startLoadDB(QString db_hint, QString load_hint, bool rollBack = false);
+    void startLoadDB(const LoadContext &ctx);
     void endLoadDB(QString load_hint);
 
   private:

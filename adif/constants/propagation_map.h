@@ -1,6 +1,10 @@
-#include <map>
-#include <string>
+#ifndef PROPAGATION_MAP_H_GENERATED_H
+#define PROPAGATION_MAP_H_GENERATED_H
 
+// clang-format off
+
+
+namespace ADIF {
 /**
  * ADIF Propagation Modes
  */
@@ -28,3 +32,8 @@ static const PropagationMap PROPAGATION_MAP = {
     {"TEP", "Trans-equatorial"},
     {"TR", "Tropospheric ducting"},
 };
+} // namespace ADIF
+
+// clang-format on
+
+#endif // PROPAGATION_MAP_H_GENERATED_H

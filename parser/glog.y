@@ -60,9 +60,8 @@ ADIF:
   | RECORDS { 
     driver->data = std::move($1); 
   }
-  | error EOH RECORDS {
-    yyerrok;
-    driver->data = std::move($3);
+  | EOH RECORDS {
+    driver->data = std::move($2);
   }
   ;
 
@@ -76,6 +75,7 @@ RECORDS:
   }
   | RECORDS error {
     error("parse record failed");
+    yyclearin;
     yyerrok;
     $$ = std::move($1);
   }
@@ -97,6 +97,7 @@ PAIRS:
   }
   | PAIRS error {
     error("parse pair failed");
+    yyclearin;
     yyerrok;
     $$ = std::move($1);
   }

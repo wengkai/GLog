@@ -1,10 +1,11 @@
 #include "AdifGridSquareList.h"
 
-auto AdifGridSquareList::set(const std::string &newValue) -> bool {
-    if (check(newValue)) {
+ADIF_DATA_TYPE_CLONE_IMP(AdifGridSquareList)
 
-        *this = AdifGridSquareList(newValue);
-        return true;
+auto AdifGridSquareList::take(std::string &&newValue) -> TakeRes {
+    if (check(newValue)) {
+        *this = AdifGridSquareList(std::move(newValue));
+        return {true};
     }
-    return false;
+    return {false, std::move(newValue)};
 }

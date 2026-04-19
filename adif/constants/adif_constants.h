@@ -8,11 +8,8 @@
 
 // External Dependencies
 #include <algorithm>
-#include <map>
-#include <string>
 #include <vector>
 
-namespace ADIF {
 #include "ant_path_map.h"
 #include "arrl_section_map.h"
 #include "award_map.h"
@@ -34,6 +31,4 @@ namespace ADIF {
 #include "qso_upload_status_map.h"
 #include "region_map.h"
 #include "submode_map.h"
-} // namespace ADIF
-
 #endif // ADIF_CONSTANTS_H

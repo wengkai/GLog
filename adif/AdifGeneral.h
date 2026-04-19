@@ -9,15 +9,19 @@
  * @brief AdifGeneral
  */
 class AdifGeneral : public AdifDataBase {
-  private:
+  protected:
     explicit AdifGeneral(std::string value) : AdifDataBase(std::move(value)) {}
 
+    ADIF_DATA_TYPE_CLONE_DEC(AdifGeneral)
+
   public:
-    static bool check(const std::string & /*data*/) { return true; }
+    static bool check(std::string_view /*data*/) { return true; }
 
-    static std::optional<AdifGeneral> create(const std::string &data) { return AdifGeneral(data); }
+    template <typename STD_String> static std::optional<AdifGeneral> create(STD_String &&data) {
+        return AdifGeneral(std::forward<STD_String>(data));
+    }
 
-    bool set(const std::string &newValue) override;
+    TakeRes take(std::string &&newValue) override;
 };
 
 #endif

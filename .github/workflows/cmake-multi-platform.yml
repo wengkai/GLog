@@ -50,9 +50,9 @@ jobs:
           fi
 
           linuxdeploy --appdir $PWD/AppDir \
-            -d $PWD/linux-deploy/GLog.desktop \
-            -e $PWD/AppDir/usr/bin/GLog \
-            -i $PWD/linux-deploy/GLog.png \
+            -d $PWD/linux-deploy/GLogKit.desktop \
+            -e $PWD/AppDir/usr/bin/GLogKit \
+            -i $PWD/linux-deploy/GLogKit.png \
             --plugin=qt 
 
           echo "Processing translations..."
@@ -201,23 +201,24 @@ jobs:
             GLog-*-Installer-x64.exe
 
   build-macos:
-    runs-on: macos-latest
+    runs-on: macos-26
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
         with:
           submodules: recursive
 
-      - name: Install Bison and Flex
+      - name: Setup ENV
         run: |
           brew install bison flex
           echo "$(brew --prefix bison)/bin" >> $GITHUB_PATH
           echo "$(brew --prefix flex)/bin" >> $GITHUB_PATH
+          echo "$(brew --prefix llvm@20)/bin/" >> $GITHUB_PATH
 
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
-          version: '6.8.3'
+          version: '6.9.2'
           host: 'mac'
           target: 'desktop'
           # modules: 'qtcharts'
@@ -247,9 +248,10 @@ jobs:
             brew install tree
           fi
           echo "--- App Bundle Structure ---"
-          tree "$APP_PATH" -L 4
+          tree deploy_out -L 5
           DMG_NAME="GLog-${{ github.ref_name }}-macOS.dmg"
           hdiutil create -volname "GLog" -srcfolder "$APP_PATH" -ov -format UDZO "$DMG_NAME"
+          tar -cJf "GLog-${{ github.ref_name }}-macOS.tar.xz" -C deploy_out .
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v7
@@ -257,7 +259,9 @@ jobs:
         with:
           name: MacOS-Deploy
           retention-days: 5
-          path: ./*.dmg
+          path: | 
+            ./*.dmg
+            ./*.tar.xz
 
   release:
     name: Create Release

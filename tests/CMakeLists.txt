@@ -10,9 +10,8 @@ macro(add_test_unit test_name)
 
     target_link_libraries(${test_name} PRIVATE 
         ${PROJECT_SHARED}
-        Qt6::Core
+        ${EXTRA_LIBS}
         Qt6::Test
-        Qt6::Widgets
     )
 
     add_test(NAME ${test_name} COMMAND ${test_name})

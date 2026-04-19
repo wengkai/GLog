@@ -10,11 +10,13 @@
  *
  */
 class AdifPositiveInteger : public AdifDataBase {
-  private:
+  protected:
     explicit AdifPositiveInteger(std::string value) : AdifDataBase(std::move(value)) {}
 
+    ADIF_DATA_TYPE_CLONE_DEC(AdifPositiveInteger)
+
   public:
-    static bool check(const std::string &data) {
+    static bool check(std::string_view data) {
         if (data.empty()) return false;
 
         bool hasNonZero = false;
@@ -30,14 +32,15 @@ class AdifPositiveInteger : public AdifDataBase {
         return hasNonZero;
     }
 
-    static std::optional<AdifPositiveInteger> create(const std::string &data) {
+    template <typename STD_String>
+    static std::optional<AdifPositiveInteger> create(STD_String &&data) {
         if (check(data)) {
-            return AdifPositiveInteger(data);
+            return AdifPositiveInteger(std::forward<STD_String>(data));
         }
         return std::nullopt;
     }
 
-    bool set(const std::string &newValue) override;
+    TakeRes take(std::string &&newValue) override;
 
     unsigned long long asUInt64() const { return std::stoull(m_rawValue); }
 };

@@ -12,12 +12,12 @@
  *
  */
 class AdifPOTARef : public AdifDataBase {
-  private:
+  protected:
     explicit AdifPOTARef(std::string value) : AdifDataBase(std::move(value)) {
-        for (char &c : m_rawValue) {
-            c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
-        }
+        normalizeDataToUpper();
     }
+
+    ADIF_DATA_TYPE_CLONE_DEC(AdifPOTARef)
 
   public:
     static bool check(const std::string &data) {
@@ -58,7 +58,7 @@ class AdifPOTARef : public AdifDataBase {
         return std::nullopt;
     }
 
-    bool set(const std::string &newValue) override;
+    TakeRes take(std::string &&newValue) override;
 
     struct PotaParts {
         std::string program;  // xxxx

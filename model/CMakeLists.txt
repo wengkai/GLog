@@ -13,4 +13,4 @@ target_link_libraries(${LIB_NAME} PUBLIC
         adif
 )
 
-target_compile_definitions(${LIB_NAME} PRIVATE GLOG_STATIC_LIB)
+target_compile_definitions(${LIB_NAME} PRIVATE GLOG_LIB)

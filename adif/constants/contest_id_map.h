@@ -1,6 +1,10 @@
-#include <map>
-#include <string>
+#ifndef CONTEST_ID_MAP_H_GENERATED_H
+#define CONTEST_ID_MAP_H_GENERATED_H
 
+// clang-format off
+
+
+namespace ADIF {
 /**
  * @brief ADIF Contest-ID Enumeration
  * Maps Contest-ID codes to their official descriptions.
@@ -266,3 +270,8 @@ static const ContestIdMap CONTEST_ID_MAP = {
     {"YOHFDX", "YODX HF contest"},
     {"YUDXC", "YU DX Contest"},
 };
+} // namespace ADIF
+
+// clang-format on
+
+#endif // CONTEST_ID_MAP_H_GENERATED_H

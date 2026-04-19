@@ -1,12 +1,12 @@
 #include "AdifSOTARef.h"
 
-auto AdifSOTARef::set(const std::string &newValue) -> bool {
+ADIF_DATA_TYPE_CLONE_IMP(AdifSOTARef)
+
+auto AdifSOTARef::take(std::string &&newValue) -> TakeRes {
     if (check(newValue)) {
-        m_rawValue = newValue;
-        for (char &c : m_rawValue) {
-            c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
-        }
-        return true;
+        m_rawValue = std::move(newValue);
+        normalizeDataToUpper();
+        return {true};
     }
-    return false;
+    return {false, std::move(newValue)};
 }

@@ -1,6 +1,10 @@
-#include <map>
-#include <string>
+#ifndef QSL_MEDIUM_MAP_H_GENERATED_H
+#define QSL_MEDIUM_MAP_H_GENERATED_H
 
+// clang-format off
+
+
+namespace ADIF {
 /**
  * ADIF QSL Medium Enumeration
  */
@@ -11,3 +15,8 @@ static const QslMediumMap QSL_MEDIUM_MAP = {
     {"EQSL", "QSO confirmation viaeQSL.cc"},
     {"LOTW", "QSO confirmation viaARRL Logbook of the World"},
 };
+} // namespace ADIF
+
+// clang-format on
+
+#endif // QSL_MEDIUM_MAP_H_GENERATED_H

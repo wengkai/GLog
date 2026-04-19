@@ -14,7 +14,7 @@
  * 4. 01 <= DD <= DaysInMonth(MM, YYYY)
  */
 class AdifDate : public AdifDataBase {
-  private:
+  protected:
     explicit AdifDate(std::string value) : AdifDataBase(std::move(value)) {}
 
     static bool isLeapYear(int year) {
@@ -28,17 +28,17 @@ class AdifDate : public AdifDataBase {
         return 0;
     }
 
+    ADIF_DATA_TYPE_CLONE_DEC(AdifDate)
+
   public:
-    static bool check(const std::string &data) {
+    static bool check(std::string_view data) {
         if (data.length() != 8) return false;
 
         for (char c : data) {
             if (!std::isdigit(static_cast<unsigned char>(c))) return false;
         }
 
-        int y = std::stoi(data.substr(0, 4));
-        int m = std::stoi(data.substr(4, 2));
-        int d = std::stoi(data.substr(6, 2));
+        auto [y, m, d] = asParts(data);
 
         if (y < 1930) return false;
 
@@ -49,14 +49,14 @@ class AdifDate : public AdifDataBase {
         return true;
     }
 
-    static std::optional<AdifDate> create(const std::string &data) {
+    template <typename STD_String> static std::optional<AdifDate> create(STD_String &&data) {
         if (check(data)) {
-            return AdifDate(data);
+            return AdifDate(std::forward<STD_String>(data));
         }
         return std::nullopt;
     }
 
-    bool set(const std::string &newValue) override;
+    TakeRes take(std::string &&newValue) override;
 
     struct DatePart {
         int year;
@@ -64,10 +64,17 @@ class AdifDate : public AdifDataBase {
         int day;
     };
 
-    DatePart asParts() const {
-        return {std::stoi(m_rawValue.substr(0, 4)), std::stoi(m_rawValue.substr(4, 2)),
-                std::stoi(m_rawValue.substr(6, 2))};
+  private:
+    static DatePart asParts(std::string_view data) {
+        int y, m, d;
+        std::from_chars(data.data(), data.data() + 4, y);
+        std::from_chars(data.data() + 4, data.data() + 6, m);
+        std::from_chars(data.data() + 6, data.data() + 8, d);
+        return {y, m, d};
     }
+
+  public:
+    DatePart asParts() const { return asParts(m_rawValue); }
 };
 
 #endif
