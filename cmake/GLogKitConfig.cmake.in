@@ -2,9 +2,25 @@
 
 set(BUNDLED_QT_VERSION       "@Qt6_VERSION@")
 set(BUNDLED_QT_VERSION_MAJOR "@Qt6_VERSION_MAJOR@")
-set(BUNDLED_QT_REL_PATH      "@BUNDLED_QT_RELATIVE_PATH@")
 
-get_filename_component(_SDK_QT_DIR "${CMAKE_CURRENT_LIST_DIR}/${BUNDLED_QT_REL_PATH}" ABSOLUTE)
+if(NOT APPLE)
+
+get_filename_component(_SDK_DIR "${CMAKE_CURRENT_LIST_DIR}/../../.." ABSOLUTE)
+
+else()
+
+find_path(FRAMEWORK_LOCATION
+    NAMES "@PROJECT_SHARED@.framework"
+    PATHS "${CMAKE_CURRENT_LIST_DIR}"
+    PATH_SUFFIXES ".." "../.." "../../.." "../../../.." "../../../../.." "../../../../../.."
+    NO_DEFAULT_PATH
+    REQUIRED
+)
+
+get_filename_component(_SDK_DIR "${FRAMEWORK_LOCATION}" ABSOLUTE)
+unset(FRAMEWORK_LOCATION CACHE)
+
+endif()
 
 set(Qt6_VERSION ${BUNDLED_QT_VERSION} CACHE INTERNAL "")
 set(Qt6_VERSION_MAJOR ${BUNDLED_QT_VERSION_MAJOR} CACHE INTERNAL "")
@@ -17,26 +33,26 @@ macro(import_bundled_qt_module MODULE)
         add_library(${_TGT} SHARED IMPORTED)
         if(NOT APPLE)
             set_target_properties(${_TGT} PROPERTIES
-                INTERFACE_INCLUDE_DIRECTORIES "${_SDK_QT_DIR}/include"
+                INTERFACE_INCLUDE_DIRECTORIES "${_SDK_DIR}/include"
                 INTERFACE_COMPILE_DEFINITIONS "QT_${MODULE}_LIB"
                 INTERFACE_QT_MAJOR_VERSION ${BUNDLED_QT_VERSION_MAJOR}
             )
 
             if(WIN32)
                 set_target_properties(${_TGT} PROPERTIES
-                    IMPORTED_IMPLIB "${_SDK_QT_DIR}/lib/Qt6${MODULE}.lib"
-                    IMPORTED_LOCATION "${_SDK_QT_DIR}/bin/Qt6${MODULE}.dll"
+                    IMPORTED_IMPLIB "${_SDK_DIR}/lib/Qt6${MODULE}.lib"
+                    IMPORTED_LOCATION "${_SDK_DIR}/bin/Qt6${MODULE}.dll"
                 )
             else()
                 set_target_properties(${_TGT} PROPERTIES
-                    IMPORTED_LOCATION "${_SDK_QT_DIR}/lib/libQt6${MODULE}.so.6"
+                    IMPORTED_LOCATION "${_SDK_DIR}/lib/libQt6${MODULE}.so.6"
                 )
             endif()
         else()
             set_target_properties(${_TGT} PROPERTIES
                 FRAMEWORK TRUE
-                IMPORTED_LOCATION "${_SDK_QT_DIR}/Qt${MODULE}.framework/Qt${MODULE}"
-                INTERFACE_INCLUDE_DIRECTORIES "${_SDK_QT_DIR}/Qt${MODULE}.framework/Headers"
+                IMPORTED_LOCATION "${_SDK_DIR}/Qt${MODULE}.framework/Qt${MODULE}"
+                INTERFACE_INCLUDE_DIRECTORIES "${_SDK_DIR}/Qt${MODULE}.framework/Headers"
             )
         endif()
 
@@ -60,7 +76,7 @@ macro(setup_bundled_qt_tools)
     foreach(_TOOL moc rcc uic)
         if(NOT TARGET Qt6::${_TOOL})
             add_executable(Qt6::${_TOOL} IMPORTED)
-            set(_TOOL_PATH "${_SDK_QT_DIR}/bin/${_TOOL}${CMAKE_EXECUTABLE_SUFFIX}")
+            set(_TOOL_PATH "${_SDK_DIR}/bin/${_TOOL}${CMAKE_EXECUTABLE_SUFFIX}")
             set_target_properties(Qt6::${_TOOL} PROPERTIES IMPORTED_LOCATION "${_TOOL_PATH}")
             
             string(TOUPPER ${_TOOL} _UPPER)

@@ -508,12 +508,6 @@ write_basic_package_version_file(
     COMPATIBILITY AnyNewerVersion
 )
 
-if(NOT APPLE)
-set(BUNDLED_QT_RELATIVE_PATH "../../..")
-else()
-set(BUNDLED_QT_RELATIVE_PATH "../../..")
-endif()
-
 set(QT_VERSION ${Qt6_VERSION})
 set(QT_VERSION_MAJOR ${Qt6_VERSION_MAJOR})
 set(QT_VERSION_MINOR ${Qt6_VERSION_MINOR})
