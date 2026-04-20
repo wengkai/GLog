@@ -204,6 +204,10 @@ if(APPLE)
     set_target_properties(${PROJECT_SHARED} PROPERTIES
         BUILD_WITH_INSTALL_RPATH TRUE
         INSTALL_NAME_DIR "@rpath"
+        FRAMEWORK TRUE
+        VERSION ${PROJECT_VERSION}
+        SOVERSION 1
+        MACOSX_FRAMEWORK_IDENTIFIER "com.${PROJECT_NAME}.${PROJECT_SHARED}"
     )
     
     set_target_properties(${PROJECT_NAME} PROPERTIES
@@ -225,7 +229,7 @@ if(APPLE)
     install(TARGETS ${PROJECT_SHARED}
         EXPORT ${SDK_EXPORT_NAME}
         LIBRARY DESTINATION ${PROJECT_NAME}.app/Contents/Frameworks
-        ARCHIVE DESTINATION lib
+        FRAMEWORK DESTINATION  ${PROJECT_NAME}.app/Contents/Frameworks
         RUNTIME DESTINATION ${PROJECT_NAME}.app/Contents/Frameworks
     )
 else()
@@ -262,7 +266,19 @@ if(DISTRIBUTE_SDK)
 
 message(STATUS "DISTRIBUTE_SDK:ON")
 
+set(APPLE_SDK_PREFIX "SDK")
+
+if (NOT APPLE)
 install(DIRECTORY include/ DESTINATION include)
+else()
+install(TARGETS ${PROJECT_SHARED}
+    FRAMEWORK DESTINATION "${APPLE_SDK_PREFIX}/"
+    PUBLIC_HEADER DESTINATION "${PROJECT_SHARED}.framework/Headers"
+)
+install(DIRECTORY include/
+    DESTINATION "${APPLE_SDK_PREFIX}/${PROJECT_SHARED}.framework/Headers"
+)
+endif()
 
 
 function(get_all_qt6_targets target out_var)
@@ -378,6 +394,7 @@ foreach(module ${ALL_QT6_MODULES})
         endif()
     endif()
 endforeach()
+else()
 endif()
 
 if(WIN32)
@@ -388,10 +405,50 @@ if(WIN32)
         endif()
     endforeach()
 endif()
+if(APPLE)
+    foreach(module ${ALL_QT6_MODULES})
+        set(tgt_name Qt6::${module})
+        if(TARGET ${tgt_name})
+            get_target_property(_path ${tgt_name} IMPORTED_LOCATION)
+            
+            # Start climbing up from the binary location
+            set(_root "${_path}")
+            set(_is_fw FALSE)
+            
+            # Loop up to 4 levels (usually enough to hit .framework from the binary)
+            foreach(i RANGE 4)
+                get_filename_component(_root "${_root}" DIRECTORY)
+                if(_root MATCHES "\\.framework$")
+                    set(_is_fw TRUE)
+                    break()
+                endif()
+            endforeach()
 
+            if(_is_fw)
+                # We found the .framework folder! 
+                # Install the whole folder into the SDK directory
+                install(DIRECTORY "${_root}" 
+                        DESTINATION "${APPLE_SDK_PREFIX}/"
+                        USE_SOURCE_PERMISSIONS)
+            else()
+                message(WARNING "Could not find .framework root for ${tgt_name} at ${_path}")
+            endif()
+        endif()
+    endforeach()
+endif()
+
+
+if(NOT APPLE)
 install(PROGRAMS $<TARGET_FILE:Qt6::moc> DESTINATION bin)
 install(PROGRAMS $<TARGET_FILE:Qt6::rcc> DESTINATION bin)
 install(PROGRAMS $<TARGET_FILE:Qt6::uic> DESTINATION bin)
+else()
+get_target_property(MOC_LOC Qt6::moc IMPORTED_LOCATION)
+get_target_property(RCC_LOC Qt6::rcc IMPORTED_LOCATION)
+get_target_property(UIC_LOC Qt6::uic IMPORTED_LOCATION)
+install(PROGRAMS ${MOC_LOC} ${RCC_LOC} ${UIC_LOC} 
+    DESTINATION "${APPLE_SDK_PREFIX}/bin")
+endif()
 
 set(QT_METADATA_INJECTION "")
 
@@ -431,11 +488,19 @@ message(STATUS "Detected Qt6 metadata: \n${QT_METADATA_INJECTION}")
 
 include(CMakePackageConfigHelpers)
 
+if(NOT APPLE)
 install(EXPORT ${SDK_EXPORT_NAME}
     FILE ${SDK_EXPORT_NAME}.cmake
     NAMESPACE ${PROJECT_NAME}::
     DESTINATION lib/cmake/${PROJECT_NAME}
 )
+else()
+install(EXPORT ${SDK_EXPORT_NAME}
+    FILE ${SDK_EXPORT_NAME}.cmake
+    NAMESPACE ${PROJECT_NAME}::
+    DESTINATION "${APPLE_SDK_PREFIX}/${PROJECT_SHARED}.framework/Resources/CMake"
+)
+endif()
 
 write_basic_package_version_file(
     "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
@@ -443,24 +508,45 @@ write_basic_package_version_file(
     COMPATIBILITY AnyNewerVersion
 )
 
+if(NOT APPLE)
 set(BUNDLED_QT_RELATIVE_PATH "../../..")
+else()
+set(BUNDLED_QT_RELATIVE_PATH "../../..")
+endif()
 
 set(QT_VERSION ${Qt6_VERSION})
 set(QT_VERSION_MAJOR ${Qt6_VERSION_MAJOR})
 set(QT_VERSION_MINOR ${Qt6_VERSION_MINOR})
 
+if(NOT APPLE)
 configure_package_config_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake/${PROJECT_NAME}Config.cmake.in"
     "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
     INSTALL_DESTINATION "lib/cmake/${PROJECT_NAME}"
     NO_CHECK_REQUIRED_COMPONENTS_MACRO
 )
+else()
+configure_package_config_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/${PROJECT_NAME}Config.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+    INSTALL_DESTINATION "${APPLE_SDK_PREFIX}/${PROJECT_SHARED}.framework/Resources/CMake"
+    NO_CHECK_REQUIRED_COMPONENTS_MACRO
+)
+endif()
 
+if(NOT APPLE)
 install(FILES
     "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
     "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
     DESTINATION lib/cmake/${PROJECT_NAME}
 )
+else()
+install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
+    DESTINATION "${APPLE_SDK_PREFIX}/${PROJECT_SHARED}.framework/Resources/CMake"
+)
+endif()
 
 endif() #DISTRIBUTE_SDK
 

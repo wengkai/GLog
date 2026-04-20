@@ -228,7 +228,7 @@ jobs:
           cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH=$Qt6_DIR \
-            -DCMAKE_INSTALL_PREFIX=./deploy_out \
+            -DCMAKE_INSTALL_PREFIX=/Applications \
             -DFLEX_INCLUDE_DIRS="$(brew --prefix flex)/include"
 
       - name: Build & Test
@@ -239,19 +239,22 @@ jobs:
 
       - name: Install & Deploy
         run: |
-          cmake --install build --config Release --prefix deploy_out
-          find deploy_out -name "libqsqlmimer.dylib" -delete
+          DESTDIR=$PWD/deploy_out cmake --install build --config Release
+          find deploy_out/Applications -name "libqsqlmimer.dylib" -delete
           
-          APP_PATH=$(find deploy_out -name "*.app" -type d -maxdepth 3 | head -n 1)
+          APP_PATH=$(find deploy_out/Applications -name "*.app" -type d -maxdepth 3 | head -n 1)
           echo "Found App Bundle: $APP_PATH"
           if ! command -v tree &> /dev/null; then
             brew install tree
           fi
-          echo "--- App Bundle Structure ---"
-          tree deploy_out -L 5
+          echo "--- Applications Structure ---"
+          tree deploy_out/Applications -L 5
+          otool -L deploy_out/Applications/GLogKit.app/Contents/MacOS/GLogKit
+          otool -l deploy_out/Applications/SDK/GLogKitCore.framework/GLogKitCore | grep -A2 LC_RPATH
+          tar -cJf "GLogKit-${{ github.ref_name }}-macOS.tar.xz" -C deploy_out Applications
           DMG_NAME="GLogKit-${{ github.ref_name }}-macOS.dmg"
+          ln -s /Applications deploy_out/Applications/Applications
           hdiutil create -volname "GLogKit" -srcfolder "$APP_PATH" -ov -format UDZO "$DMG_NAME"
-          tar -cJf "GLogKit-${{ github.ref_name }}-macOS.tar.xz" -C deploy_out .
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v7
