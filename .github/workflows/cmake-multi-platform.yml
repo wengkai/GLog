@@ -250,7 +250,7 @@ jobs:
           echo "--- Applications Structure ---"
           tree deploy_out/Applications -L 5
           otool -L deploy_out/Applications/GLogKit.app/Contents/MacOS/GLogKit
-          otool -l deploy_out/Applications/SDK/GLogKitCore.framework/GLogKitCore | grep -A2 LC_RPATH
+          otool -L deploy_out/Applications/SDK/GLogKitCore.framework/GLogKitCore
           tar -cJf "GLogKit-${{ github.ref_name }}-macOS.tar.xz" -C deploy_out Applications
           DMG_NAME="GLogKit-${{ github.ref_name }}-macOS.dmg"
           ln -s /Applications deploy_out/Applications/Applications
