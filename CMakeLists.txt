@@ -222,6 +222,29 @@ if(FORCE_OPENSSL)
     message(STATUS "Pass -force-openssl for deployment")
 endif()
 
+option(DISTRIBUTE_SDK "Distribute SDK" ON)
+option(BUNDLED_QT "BUNDLED_QT" OFF)
+if(BUNDLED_QT)
+
+message(STATUS "BUNDLED_QT:ON")
+
+if (TARGET Qt6::Platform)
+set(PROPS_TO_EXTRACT
+    INTERFACE_COMPILE_DEFINITIONS
+    INTERFACE_COMPILE_OPTIONS
+)
+
+foreach(prop ${PROPS_TO_EXTRACT})
+    get_target_property(VAL Qt6::Platform ${prop})
+    if(VAL)
+        set(EXPORTED_PLATFORM_${prop} "${VAL}")
+        message(STATUS "Detected Qt6::Platform:EXPORTED_PLATFORM_${prop}: ${VAL}")
+        set_property(TARGET ${PROJECT_SHARED} APPEND PROPERTY ${prop} "${VAL}")
+    endif()
+endforeach()
+endif()
+endif() # BUNDLED_QT
+
 if(APPLE)
     install(TARGETS ${PROJECT_NAME}
         BUNDLE DESTINATION .
@@ -261,11 +284,10 @@ qt_generate_deploy_app_script(
 )
 install(SCRIPT ${deploy_script})
 
-option(DISTRIBUTE_SDK "Distribute SDK" ON)
+
+
 if(DISTRIBUTE_SDK)
-
 message(STATUS "DISTRIBUTE_SDK:ON")
-
 set(APPLE_SDK_PREFIX "SDK")
 
 if (NOT APPLE)
@@ -364,6 +386,7 @@ endforeach()
 list(REMOVE_DUPLICATES ALL_QT6_MODULES)
 message(STATUS "Detected Qt6 modules for installation: ${ALL_QT6_MODULES}")
 
+if(BUNDLED_QT)
 if(NOT APPLE)
 foreach(module ${ALL_QT6_MODULES})
     set(tgt_name Qt6::${module})
@@ -396,7 +419,9 @@ foreach(module ${ALL_QT6_MODULES})
 endforeach()
 else()
 endif()
+endif()
 
+if(BUNDLED_QT)
 if(WIN32)
     foreach(module ${ALL_QT6_MODULES})
         set(tgt_name Qt6::${module})
@@ -436,8 +461,9 @@ if(APPLE)
         endif()
     endforeach()
 endif()
+endif()
 
-
+if(BUNDLED_QT)
 if(NOT APPLE)
 install(PROGRAMS $<TARGET_FILE:Qt6::moc> DESTINATION bin)
 install(PROGRAMS $<TARGET_FILE:Qt6::rcc> DESTINATION bin)
@@ -448,6 +474,7 @@ get_target_property(RCC_LOC Qt6::rcc IMPORTED_LOCATION)
 get_target_property(UIC_LOC Qt6::uic IMPORTED_LOCATION)
 install(PROGRAMS ${MOC_LOC} ${RCC_LOC} ${UIC_LOC} 
     DESTINATION "${APPLE_SDK_PREFIX}/bin")
+endif()
 endif()
 
 set(QT_METADATA_INJECTION "")

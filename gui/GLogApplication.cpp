@@ -27,6 +27,8 @@ GLogApplication::GLogApplication(QWidget *parent)
     : QMainWindow(parent), ui(new Ui::GLogApplicationClass()) {
     ui->setupUi(this);
 
+    connect(ui->actionAbout_Qt, &QAction::triggered, this, []() { QApplication::aboutQt(); });
+
     connect(
         this, &GLogApplication::information, this,
         [=](const QString &title, const QString &text, QMessageBox::StandardButton button0,

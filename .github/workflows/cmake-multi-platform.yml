@@ -16,7 +16,7 @@ jobs:
   build-linux:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/llxx2013/qt693-builder:main
+      image: ghcr.io/llxx2013/qt-builder:6.11.0
 
     defaults:
       run:
@@ -101,34 +101,25 @@ jobs:
 
   build-windows:
     runs-on: windows-latest
-    env:
-      DOWNLOAD_URL: "https://github.com/llxx2013/qt6windows7/releases/download/6.8.3-msvc-release/6.8.3-msvc-release.zip"
-      TARGET_PATH: "downloads/qt6_custom.zip"
     steps:
       - uses: actions/checkout@v6
 
       - name: Install Tools
         run: choco install winflexbison3 nsis -y
 
-      - name: Cache Downloaded File
-        uses: actions/cache@v5
-        id: cache-download
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
         with:
-          path: ${{ env.TARGET_PATH }}
-          key: download-${{ env.DOWNLOAD_URL }}
-
-      - name: Download Custom Qt
-        if: steps.cache-download.outputs.cache-hit != 'true'
-        shell: pwsh
-        run: |
-          if (!(Test-Path "downloads")) { New-Item -ItemType Directory -Path "downloads" }
-          curl -L -o ${{ env.TARGET_PATH }} ${{ env.DOWNLOAD_URL }}
+          version: '6.10.3'
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_msvc2022_64'
+          cache: 'true'
+          # modules: 'qtcharts'
 
       - name: Setup Environment
         shell: pwsh
         run: |
-          Expand-Archive ${{ env.TARGET_PATH }} -DestinationPath C:\QtCustom
-          echo "C:\QtCustom\bin" >> $GITHUB_PATH
           echo "C:\Program Files (x86)\NSIS" >> $GITHUB_PATH
           ls "C:\ProgramData\chocolatey\lib\winflexbison3\tools\"
           ls "C:\Program Files (x86)\NSIS"
@@ -138,7 +129,7 @@ jobs:
         shell: cmd
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-          call C:\QtCustom\bin\qt-cmake.bat -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DFLEX_INCLUDE_DIRS="C:\ProgramData\chocolatey\lib\winflexbison3\tools"
+          call cmake -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DFLEX_INCLUDE_DIRS="C:\ProgramData\chocolatey\lib\winflexbison3\tools"
 
       - name: Build & Test
         shell: cmd
@@ -218,9 +209,10 @@ jobs:
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
-          version: '6.9.2'
+          version: '6.10.3'
           host: 'mac'
           target: 'desktop'
+          cache: 'true'
           # modules: 'qtcharts'
 
       - name: Configure CMake

@@ -1,8 +1,10 @@
 @PACKAGE_INIT@
 
+set(BUNDLED_QT               "@BUNDLED_QT@")
 set(BUNDLED_QT_VERSION       "@Qt6_VERSION@")
 set(BUNDLED_QT_VERSION_MAJOR "@Qt6_VERSION_MAJOR@")
 
+if(BUNDLED_QT)
 if(NOT APPLE)
 
 get_filename_component(_SDK_DIR "${CMAKE_CURRENT_LIST_DIR}/../../.." ABSOLUTE)
@@ -88,6 +90,7 @@ endmacro()
 
 # setup_bundled_qt_tools()
 # import_bundled_qt_module(Core)
+endif()
 
 include(CMakeFindDependencyMacro)
 include("${CMAKE_CURRENT_LIST_DIR}/@SDK_EXPORT_NAME@.cmake")

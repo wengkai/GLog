@@ -4,17 +4,9 @@ project(GLogKitWASAwardPlugin)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-if(MSVC)
-    add_compile_options(/Zc:__cplusplus /permissive-)
-else()
-    set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-endif()
-
 find_package(GLogKit REQUIRED)
 
-setup_bundled_qt_tools()
-import_bundled_qt_module(Core)
-import_bundled_qt_module(Sql)
+find_package(Qt6 COMPONENTS Core Sql)
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
