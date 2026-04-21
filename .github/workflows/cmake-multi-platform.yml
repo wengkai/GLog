@@ -40,8 +40,8 @@ jobs:
       - name: Package AppImage
         env:
           VERSION: ${{ github.ref_name }}
-          EXTRA_PLATFORM_PLUGINS: "libqwayland-egl.so;libqwayland-generic.so"
-          EXTRA_QT_MODULES: "waylandcompositor"
+          EXTRA_PLATFORM_PLUGINS: "libqwayland.so"
+          # EXTRA_QT_MODULES: "waylandcompositor"
         run: |
           DESTDIR=$PWD/AppDir cmake --install build
           if ! command -v tree &> /dev/null; then
