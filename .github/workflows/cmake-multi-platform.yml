@@ -58,15 +58,25 @@ jobs:
           echo "Processing translations..."
           TRANS_DIR="$PWD/AppDir/usr/translations"
           if [ -d "$TRANS_DIR" ]; then
-            pushd "$TRANS_DIR"
-            for base_file in qtbase_*.qm; do
-              if [ -f "$base_file" ]; then
-                target_file="${base_file/qtbase_/qt_}"
-                echo "Linking $target_file -> $base_file"
-                ln -sf "$base_file" "$target_file"
-              fi
-            done
-            popd
+              pushd "$TRANS_DIR" > /dev/null
+              for qt_file in qt_*.qm; do
+                  if [ ! -f "$qt_file" ]; then
+                      continue
+                  fi
+                  lang_suffix="${qt_file#qt_}"
+                  lang="${lang_suffix%.qm}"
+                  base_file="qtbase_${lang}.qm"
+                  if [ -e "$base_file" ] || [ -L "$base_file" ]; then
+                      echo "Linking $base_file -> $qt_file"
+                      ln -sf "$qt_file" "$base_file"
+                  fi
+                  decl_file="qtdeclarative_${lang}.qm"
+                  if [ -e "$decl_file" ] || [ -L "$decl_file" ]; then
+                      echo "Linking $decl_file -> $qt_file"
+                      ln -sf "$qt_file" "$decl_file"
+                  fi
+              done
+              popd > /dev/null
           fi
 
           echo "--- AppDir Structure ---"
