@@ -10,8 +10,6 @@
 #include <mutex>
 #include <shared_mutex>
 
-#include "award_plugin.h"
-
 class FccDB {
   public:
     static FccDB *instance();

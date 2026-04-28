@@ -19,7 +19,7 @@ using AdifFactoryFunc = std::function<std::shared_ptr<AdifDataBase>(std::string 
 
 struct SpecialRules {
     using wrapper_type = GRecord::wrapper_type;
-    using MyMapT = std::map<std::string, wrapper_type>;
+    using MyMapT = std::map<std::string, wrapper_type, std::less<>>;
     using iterator = MyMapT::iterator;
     using const_iterator = MyMapT::const_iterator;
     using FunctionT = std::function<void(MyMapT &, const_iterator)>;
@@ -259,4 +259,37 @@ auto GRecord::emplaceEssentialFields() -> bool {
     }
 
     return trans.commit = valid = true;
+}
+
+auto /* static callback for plugins */
+GRecord::getValueByField(const IGRecord *rec, const char *field, uint64_t field_len,
+                         char *result_buf, uint64_t *result_len, uint64_t max_result_len) noexcept
+    -> Result {
+    if (!result_len) {
+        return Result::InvalidResultLenOutput;
+    }
+    *result_len = 0;
+    if (!rec || !field || field_len == 0) {
+        return Result::InvalidInput;
+    }
+    const auto *This = static_cast<const GRecord *>(rec);
+    auto iter = This->m_map.find(std::string_view(field, field_len));
+    if (iter == This->m_map.end()) {
+        return Result::NotFound;
+    }
+    if (!iter->second) {
+        return Result::InternalError;
+    }
+    auto ret_sv =
+        iter->second->asView(); // std::string_view asView() const noexcept { return (m_rawValue); }
+    auto ret_len = ret_sv.size();
+    if (ret_len == 0) {
+        return Result::NoError;
+    }
+    *result_len = ret_len;
+    if (!result_buf || max_result_len < ret_len) {
+        return Result::Overflow;
+    }
+    std::copy_n(ret_sv.data(), ret_len, result_buf);
+    return Result::NoError;
 }

@@ -14,20 +14,20 @@
 #include <QtSql/QSqlError>
 #include <QtSql/QSqlQuery>
 
-class WASPlugin : public AwardPlugin {
+class WASPlugin {
   public:
     WASPlugin();
-    ~WASPlugin() override;
+    ~WASPlugin();
 
-    const char *pluginName() const noexcept override;
-    bool install() noexcept override;
-    bool uninstall() noexcept override;
-    bool beforeEvaluate() noexcept override;
-    bool afterEvaluate() noexcept override;
-    bool evaluate(const char *QSO, unsigned long long len) noexcept override;
-    const char *getResult() const noexcept override;
-    const char *getLastError() const noexcept override;
-    void deleteString(const char *str) noexcept override;
+    const char *pluginName() const noexcept;
+    bool install() noexcept;
+    bool uninstall() noexcept;
+    bool beforeEvaluate() noexcept;
+    bool afterEvaluate() noexcept;
+    bool evaluate(const IGRecord *QSO, IGRecordGetValueByField callback) noexcept;
+    void getResult(char *result_buf, uint64_t *result_len, uint64_t max_result_len) const noexcept;
+    void getLastError(char *result_buf, uint64_t *result_len,
+                      uint64_t max_result_len) const noexcept;
 
   private:
     bool updateFccDatabase();

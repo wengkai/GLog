@@ -1,7 +1,12 @@
 %{
 #include <iostream>
 #include <string>
-#include "FlexLexer.h"
+#define yyFlexLexer xxFlexLexer
+#include <FlexLexer.h>
+#undef yyFlexLexer
+#define yyFlexLexer yyFlexLexer
+#include <FlexLexer.h>
+#undef yyFlexLexer
 %}
  
 %require "3.7.0"
@@ -11,14 +16,13 @@
 %define api.parser.class {Parser}
 %define api.namespace {GLOG_PARSER}
 %define api.value.type variant
-%parse-param {GLogParserDriver* driver}
+%parse-param {ParserDriver* driver}
  
 %code requires
 {
     namespace GLOG_PARSER {
-        class GLogParserDriver;
+        class ParserDriver;
     } // namespace GLOG_PARSER
-    #include "parserdriver.h"
     // NOLINTBEGIN
     // STL first
     #include <optional>
@@ -46,53 +50,55 @@
 %token EOR EOH
 %token <std::pair<std::string, std::string>> PAIR
 
-%type <std::vector<std::pair<std::string, std::string>>> PAIRS RECORD
-%type <std::vector<std::vector<std::pair<std::string, std::string>>>> RECORDS
-%type <std::string> ADIF
+%type <std::vector<std::pair<std::string, std::string>>> PAIRS
 
 
 %%
 
 ADIF:
   PAIRS EOH RECORDS { 
-    driver->data = std::move($3); 
+    // driver->data = std::move($3); 
   }
   | RECORDS { 
-    driver->data = std::move($1); 
+    // driver->data = std::move($1); 
   }
   | EOH RECORDS {
-    driver->data = std::move($2);
+    // driver->data = std::move($2);
   }
   ;
 
 RECORDS:
   RECORD { 
-    ($$).push_back($1); 
+    // ($$).push_back($1); 
   }
   | RECORDS RECORD { 
-    ($1).push_back($2);
-    $$ = std::move($1);
+    // ($1).push_back($2);
+    // $$ = std::move($1);
   }
   | RECORDS error {
     error("parse record failed");
     yyclearin;
     yyerrok;
-    $$ = std::move($1);
+    // $$ = std::move($1);
   }
   ;
 
 RECORD:
-  PAIRS EOR { 
-    $$ = std::move($1); 
+  PAIRS EOR {
+    // driver->data.write([rec = std::move($1)](decltype(driver->data)::MyType & vec){
+    //   vec.emplace_back(std::move(rec));
+    // });
+    driver->AddRec(std::move($1));
+    // $$ = std::move($1); 
   }
   ;
 
 PAIRS:
   PAIR { 
-    ($$).push_back($1); 
+    ($$).emplace_back(std::move($1)); 
   }
   | PAIRS PAIR { 
-    ($1).push_back($2); 
+    ($1).emplace_back(std::move($2)); 
     $$ = std::move($1);
   }
   | PAIRS error {
@@ -107,6 +113,6 @@ PAIRS:
 %%
 
 void GLOG_PARSER::Parser::error(const std::string& msg) {
-    driver->SetError(const_cast<char *>(msg.c_str()));
+    driver->AddError(msg);
 }
 // NOLINTEND

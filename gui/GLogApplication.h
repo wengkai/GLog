@@ -2,9 +2,13 @@
 #define GLOG_UI_H
 
 #include <QFuture>
+#include <QLibrary>
+#include <QList>
 #include <QMessageBox>
 #include <QMimeData>
+#include <QPointer>
 #include <QTableView>
+#include <QTimer>
 #include <QtResource>
 #include <QtWidgets/QMainWindow>
 #include "AddQSODialog.h"
@@ -13,19 +17,21 @@
 #include "GlobalNetwork.h"
 #include "MapWidget.h"
 #include "SearchBar.h"
+#include "StdinReader.h"
 #include "adifdb.h"
 #include "app_export.h"
-#include "glogparser.h"
 
-#include "award_plugin.h"
+#include "LoadedAwardPlugin.h"
 
 inline void initAssetsResource() { Q_INIT_RESOURCE(assets); }
+
+class FIFOBackendThreadExecutor;
 
 namespace Ui {
 class GLogApplicationClass;
 };
 
-class APP_EXPORT GLogApplication : public QMainWindow {
+class GLOGKIT_API GLogApplication : public QMainWindow {
     Q_OBJECT
 
     static constexpr int DEFAULT_MSG_TIMEOUT = 5000;
@@ -51,6 +57,8 @@ class APP_EXPORT GLogApplication : public QMainWindow {
     void saveDone();
     void setCilpboard(QMimeData *mimeData);
     void updateFccDatabase();
+    void manageAwardPluginAction();
+    void moveDataFromStdin();
 
   signals:
     void mergeFileActionSignal(QString filename, bool remove = false);
@@ -72,6 +80,10 @@ class APP_EXPORT GLogApplication : public QMainWindow {
     MapGraphicsView *mapView = nullptr;
     ConfigureCtyDialog *configureCtyDialog = nullptr;
     AddQSODialog *addQSODialog = nullptr;
+
+    std::vector<LoadedAwardPlugin> m_award_plugins;
+    std::shared_ptr<StdinReaderWorker> stdinReader;
+    QTimer stdinReaderTimer;
 };
 
 #endif

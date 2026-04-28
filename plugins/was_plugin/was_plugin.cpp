@@ -12,6 +12,8 @@
 #include <QtCore/QTextStream>
 #include "was_plugin.h"
 
+WASPlugin instance;
+
 // 美国50个州的缩写列表
 static const QSet<QString> US_STATES = {"AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
                                         "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
@@ -102,26 +104,42 @@ bool WASPlugin::afterEvaluate() noexcept {
     }
 }
 
-bool WASPlugin::evaluate(const char *QSO, unsigned long long len) noexcept {
+bool WASPlugin::evaluate(const IGRecord *QSO, IGRecordGetValueByField callback) noexcept {
     try {
-        if (!QSO || len == 0) {
+        if (!QSO || !callback) {
             return false;
         }
+        auto getValueByField = [=](const char *field, uint64_t field_len, char *result_buf,
+                                   uint64_t *result_len, uint64_t max_result_len) {
+            return callback(QSO, field, field_len, result_buf, result_len, max_result_len);
+        };
 
-        QString adif = QString::fromUtf8(QSO, static_cast<int>(len));
-        QString callsign = parseCallsignFromADIF(adif);
-        if (callsign.isEmpty()) {
-            // 无法解析呼号，跳过
-            return false;
+        // 1. 获取呼号字段
+        char callBuf[64] = {0};
+        uint64_t callLen = 0;
+        auto res = getValueByField("call", 4, callBuf, &callLen, sizeof(callBuf) - 1);
+        if (res != IGRecord::Result::NoError || callLen == 0) {
+            return false; // 无呼号，跳过
+        }
+        callBuf[callLen] = '\0';
+        QString callsign = QString::fromUtf8(callBuf).trimmed().toUpper();
+
+        // 2. 先尝试从记录中直接获取州字段
+        char stateBuf[8] = {0};
+        uint64_t stateLen = 0;
+        QString state;
+        res = getValueByField("state", 5, stateBuf, &stateLen, sizeof(stateBuf) - 1);
+        if (res == IGRecord::Result::NoError && stateLen > 0) {
+            stateBuf[stateLen] = '\0';
+            state = QString::fromUtf8(stateBuf).trimmed().toUpper();
         }
 
-        // 先尝试从 ADIF 中直接获取州
-        QString state = parseStateFromADIF(adif);
-        if (state.isEmpty()) {
-            // 查询数据库
+        // 3. 若没有州字段，查询数据库
+        if (state.isEmpty() && !callsign.isEmpty()) {
             state = queryStateByCallsign(callsign);
         }
 
+        // 4. 验证并记录
         if (isValidUSState(state)) {
             m_workedStates.insert(state);
             return true;
@@ -134,39 +152,87 @@ bool WASPlugin::evaluate(const char *QSO, unsigned long long len) noexcept {
     }
 }
 
-const char *WASPlugin::getResult() const noexcept {
+void WASPlugin::getResult(char *result_buf, uint64_t *result_len,
+                          uint64_t max_result_len) const noexcept {
     try {
         if (m_cachedResult.isEmpty()) {
-            // 如果没有调用 afterEvaluate 或结果为空，返回空 JSON
-            return nullptr;
+            // 无结果：长度为0，缓冲区（若有效）置为空字符串
+            if (result_len) {
+                *result_len = 0;
+            }
+            if (result_buf && max_result_len > 0) {
+                result_buf[0] = '\0';
+            }
+            return;
         }
-        // 需要动态分配内存，调用者通过 deleteString 释放
+
+        // 将结果转换为 UTF-8 字节序列
         QByteArray utf8 = m_cachedResult.toUtf8();
-        char *result = new char[utf8.size() + 1];
-        std::memcpy(result, utf8.constData(), utf8.size());
-        result[utf8.size()] = '\0';
-        return result;
-    } catch (...) {
-        return nullptr;
-    }
-}
+        uint64_t actual_len = static_cast<uint64_t>(utf8.size());
 
-const char *WASPlugin::getLastError() const noexcept {
-    try {
-        if (m_lastError.isEmpty()) {
-            return nullptr;
+        // 输出实际长度（不含结尾空字符），即使缓冲区不足也返回完整长度
+        if (result_len) {
+            *result_len = actual_len;
         }
-        QByteArray utf8 = m_lastError.toUtf8();
-        char *err = new char[utf8.size() + 1];
-        std::memcpy(err, utf8.constData(), utf8.size());
-        err[utf8.size()] = '\0';
-        return err;
+
+        // 向缓冲区复制数据，留一个字节给结尾空字符
+        if (result_buf && max_result_len > 0) {
+            uint64_t copy_len = std::min(actual_len, max_result_len - 1);
+            std::memcpy(result_buf, utf8.constData(), copy_len);
+            result_buf[copy_len] = '\0';
+        }
     } catch (...) {
-        return nullptr;
+        // 发生异常时同样保证输出状态一致
+        if (result_len) {
+            *result_len = 0;
+        }
+        if (result_buf && max_result_len > 0) {
+            result_buf[0] = '\0';
+        }
     }
 }
 
-void WASPlugin::deleteString(const char *str) noexcept { delete[] str; }
+void WASPlugin::getLastError(char *result_buf, uint64_t *result_len,
+                             uint64_t max_result_len) const noexcept {
+    try {
+        uint64_t full_len = 0; // 完整错误信息的 UTF-8 字节数（不含 '\0'）
+        if (!m_lastError.isEmpty()) {
+            QByteArray utf8 = m_lastError.toUtf8();
+            full_len = static_cast<uint64_t>(utf8.size());
+        }
+
+        // 无论 result_buf 是否为空，只要 result_len 有效，都必须设置长度
+        if (result_len) {
+            *result_len = full_len;
+        }
+
+        // 如果 result_buf 为空，跳过写入操作
+        if (!result_buf || max_result_len == 0) {
+            return;
+        }
+
+        // 写入缓冲区，确保不越界且字符串以 '\0' 结尾
+        if (full_len == 0) {
+            result_buf[0] = '\0';
+        } else {
+            QByteArray utf8 = m_lastError.toUtf8();
+            uint64_t copy_len = full_len;
+            if (copy_len >= max_result_len) {
+                copy_len = max_result_len - 1; // 留出 '\0' 空间
+            }
+            std::memcpy(result_buf, utf8.constData(), copy_len);
+            result_buf[copy_len] = '\0';
+        }
+    } catch (...) {
+        // 异常情况：安全地设置 result_len，并尽可能使缓冲区有效
+        if (result_len) {
+            *result_len = 0;
+        }
+        if (result_buf && max_result_len > 0) {
+            result_buf[0] = '\0';
+        }
+    }
+}
 
 bool WASPlugin::updateFccDatabase() {
     QString dataDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
@@ -402,7 +468,26 @@ QString WASPlugin::parseStateFromADIF(const QString &adif) {
 bool WASPlugin::isValidUSState(const QString &state) const { return US_STATES.contains(state); }
 
 extern "C" {
-AwardPlugin *create_glog_award_plugin() { return new WASPlugin(); }
 
-void destroy_glog_award_plugin(AwardPlugin *p) { delete p; }
+const char *pluginName() { return instance.pluginName(); }
+
+bool install() { return instance.install(); }
+
+bool uninstall() { return instance.uninstall(); }
+
+bool beforeEvaluate() { return instance.beforeEvaluate(); }
+
+bool afterEvaluate() { return instance.afterEvaluate(); }
+
+bool evaluate(const IGRecord *QSO, IGRecordGetValueByField callback) {
+    return instance.evaluate(QSO, callback);
+}
+
+void getResult(char *result_buf, uint64_t *result_len, uint64_t max_result_len) {
+    instance.getResult(result_buf, result_len, max_result_len);
+}
+
+void getLastError(char *result_buf, uint64_t *result_len, uint64_t max_result_len) {
+    instance.getLastError(result_buf, result_len, max_result_len);
+}
 }

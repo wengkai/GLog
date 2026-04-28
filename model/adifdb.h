@@ -59,14 +59,6 @@ class AdifModel : public QAbstractTableModel {
         }
     }
 
-    struct ParseRes {
-        bool parse_res = false;
-        std::vector<Record> parse_records;
-        std::unordered_set<std::string> parse_headers;
-    };
-
-    static ParseRes parse(std::istream &in, std::vector<std::string> &errors);
-
     void _resetRecords(std::vector<Record> new_record, std::unordered_set<std::string> new_headers);
 
     void _insertRecords(int where, std::vector<Record> new_record,
@@ -123,6 +115,20 @@ class AdifModel : public QAbstractTableModel {
 
     void insertRecords(int where, std::vector<Record> new_record,
                        std::unordered_set<std::string> new_headers);
+
+    struct ParseRes {
+        bool parse_res = false;
+        std::vector<Record> parse_records;
+        std::unordered_set<std::string> parse_headers;
+    };
+    enum class ParseMode { Batch, Interactive };
+    static ParseRes parse(std::istream &in, std::vector<std::string> &errors, ParseMode mode);
+    static ParseRes
+    fromRawData(bool success,
+                std::vector<std::vector<std::pair<std::string, std::string>>> raw_data);
+    GLogConcurrent::FIFOBackendThreadExecutor *getFIFOBackendThreadExecutor() {
+        return &m_fifo_exec;
+    }
 
     struct AwardRes {
         QString DXCC = "0";

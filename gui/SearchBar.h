@@ -8,7 +8,7 @@ namespace Ui {
 class SearchBarClass;
 };
 
-class APP_EXPORT SearchBar : public QDialog {
+class GLOGKIT_API SearchBar : public QDialog {
     Q_OBJECT
 
   public:

@@ -19,10 +19,17 @@
 
 
 #include "parser.h"
-
 #include "driver.hpp"
 
-#define YY_DECL int GLOG_PARSER::GLogParserDriver::lex(GLOG_PARSER::Parser::semantic_type *yylval)
+#undef YY_DECL
+#ifdef YY_INTERACTIVE
+#include "driver_inter.hpp"
+#define YY_DECL int GLOG_PARSER::LexerInteractive::lex(GLOG_PARSER::Parser::semantic_type *yylval)
+#else
+#include "driver_batch.hpp"
+#define YY_DECL int GLOG_PARSER::LexerBatch::lex(GLOG_PARSER::Parser::semantic_type *yylval)
+#endif
+
 
 // standard classes using stl
 #include "AdifDataTypes.h"
@@ -30,8 +37,8 @@
 #define YY_FATAL_ERROR(msg) throw std::runtime_error( msg )
 
 %}
- 
-%option c++ never-interactive noyywrap noyylineno nodefault
+
+%option c++ noyywrap noyylineno nodefault
 
 EOH   [Ee][Oo][Hh]
 EOR   [Ee][Oo][Rr]
@@ -117,7 +124,7 @@ LD    {L}|{D}
 
 <<EOF>> {
     if (look_for_eor_) {
-        SetError("Unexpected End of File.");
+        AddError("Unexpected End of File.");
         look_for_eor_ = false;
         return Parser::token::EOR;
     }
@@ -134,9 +141,12 @@ LD    {L}|{D}
 
 %%
 
+#ifdef YY_INTERACTIVE
+#else
 int yyFlexLexer::yylex() {
     throw std::runtime_error("Bad call to yyFlexLexer::yylex()");
 }
+#endif
 
 #ifdef _MSC_VER
     #pragma warning(pop)

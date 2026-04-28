@@ -294,34 +294,6 @@ AdifModel::AdifModel(QObject *parent) : QAbstractTableModel(parent) {
         rheaders.emplace_back(i);
         sheaders.insert(i);
     }
-
-    if (IS_PIPED &&
-        (std::cin.rdbuf()->in_avail() > 0 || std::cin.peek() != std::char_traits<char>::eof())) {
-        GLogConcurrent::makeFuture(
-            [=]() {
-                std::vector<std::string> errors;
-                auto [parse_res, result_records, result_headers] = parse(std::cin, errors);
-                if (parse_res) {
-                    _resetRecords(std::move(result_records), std::move(result_headers));
-                    return errors;
-                }
-                std::string last_msg = errors.empty() ? "Unknown Error" : errors.back();
-                throw std::runtime_error(last_msg);
-            },
-            m_fifo_exec)
-            .then(this,
-                  [=](std::vector<std::string> errors) {
-                      if (!errors.empty()) {
-                          QMessageBox::warning(nullptr, tr("Warning"),
-                                               tr("%1 errors found").arg(errors.size()),
-                                               QMessageBox::StandardButton::Ok);
-                      }
-                  })
-            .onFailed(this, [=](const std::exception &e) {
-                QMessageBox::critical(nullptr, tr("Error"), e.what(),
-                                      QMessageBox::StandardButton::Ok);
-            });
-    }
 }
 
 auto AdifModel::rowCount(const QModelIndex &parent) const -> int { return int(records.size()); }
@@ -589,20 +561,17 @@ auto AdifModel::diffEntNameCountForAward() const -> AdifModel::AwardRes {
     return res;
 }
 
-auto AdifModel::parse(std::istream &in, std::vector<std::string> &errors) -> ParseRes {
-    GLOG_PARSER::GLogParserDriver driver{errors};
-    GLOG_PARSER::Parser parser{&driver};
-    driver.switch_streams(in, std::cerr);
-    auto success = parser.parse() == 0;
+auto AdifModel::fromRawData(bool success,
+                            std::vector<std::vector<std::pair<std::string, std::string>>> raw_data)
+    -> ParseRes {
     ParseRes ret{success, {}, {}};
     if (!success) {
         return ret;
     }
-    auto &data = driver.data;
     auto &m_records = ret.parse_records;
     auto &m_headers = ret.parse_headers;
-    m_records.reserve(data.size());
-    for (auto &row : data) {
+    m_records.reserve(raw_data.size());
+    for (auto &row : raw_data) {
         if (row.empty()) {
             continue;
         }
@@ -615,13 +584,48 @@ auto AdifModel::parse(std::istream &in, std::vector<std::string> &errors) -> Par
                 m_headers.insert(std::move(key));
                 continue;
             }
-            // errors.emplace_back("Failed to insert field");
         }
         if (!valid) {
             continue;
         }
         m_records.push_back(std::move(m_record));
     }
+    return ret;
+}
+
+auto AdifModel::parse(std::istream &in, std::vector<std::string> &errors, ParseMode mode)
+    -> ParseRes {
+
+    std::unique_ptr<GLOG_PARSER::DriverUnsynchronized> driver;
+
+    switch (mode) {
+    case ParseMode::Batch:
+        driver = std::make_unique<GLOG_PARSER::DriverUnsynchronized>(
+            std::make_unique<GLOG_PARSER::LexerBatch>());
+        break;
+
+    case ParseMode::Interactive:
+        driver = std::make_unique<GLOG_PARSER::DriverUnsynchronized>(
+            std::make_unique<GLOG_PARSER::LexerInteractive>());
+        break;
+
+    default:
+        assert(false && "Invalid mode");
+        break;
+    }
+
+    GLOG_PARSER::Parser parser{driver.get()};
+    driver->switch_streams(in, std::cerr);
+    auto success = parser.parse() == 0;
+
+    ParseRes ret{success, {}, {}};
+    if (!success) {
+        return ret;
+    }
+
+    ret = driver->data.write([&](auto &data) { return fromRawData(success, std::move(data)); });
+    driver->errors.write([&](auto &d_errors) { std::swap(errors, d_errors); });
+
     return ret;
 }
 
@@ -684,7 +688,7 @@ auto AdifModel::openFile(const QString &filename, bool remove) -> std::vector<st
         throw std::runtime_error("Can not open file");
     }
     std::vector<std::string> errors;
-    auto [parse_res, result_records, result_headers] = parse(in, errors);
+    auto [parse_res, result_records, result_headers] = parse(in, errors, ParseMode::Batch);
     if (parse_res) {
         _resetRecords(std::move(result_records), std::move(result_headers));
     }
@@ -715,7 +719,7 @@ auto AdifModel::insertFile(int row, const QString &filename, bool remove)
         throw std::runtime_error("Can not open file");
     }
     std::vector<std::string> errors;
-    auto [parse_res, result_records, result_headers] = parse(in, errors);
+    auto [parse_res, result_records, result_headers] = parse(in, errors, ParseMode::Batch);
     if (parse_res) {
         _insertRecords(row, std::move(result_records), std::move(result_headers));
     }
@@ -741,7 +745,7 @@ auto AdifModel::insertFileAsync(int where, const QString &filename, bool remove)
 std::vector<std::string> AdifModel::insertStringData(int row, std::string data) {
     std::stringstream in(data);
     std::vector<std::string> errors;
-    auto [parse_res, result_records, result_headers] = parse(in, errors);
+    auto [parse_res, result_records, result_headers] = parse(in, errors, ParseMode::Batch);
     if (parse_res) {
         _insertRecords(row, std::move(result_records), std::move(result_headers));
     }

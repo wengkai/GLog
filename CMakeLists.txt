@@ -149,6 +149,7 @@ set(PROJECT_SHARED "${PROJECT_NAME}Core")
 add_library(${PROJECT_SHARED} SHARED ${PROJECT_SOURCES})
 
 target_compile_definitions(${PROJECT_SHARED} PRIVATE GLOG_LIB)
+target_compile_definitions(${PROJECT_SHARED} PRIVATE GLOGKIT_LIB)
 
 list(APPEND EXTRA_LIBS Qt6::Widgets)
 list(APPEND EXTRA_LIBS Qt6::Network)
@@ -570,6 +571,9 @@ install(FILES
 endif()
 
 endif() #DISTRIBUTE_SDK
+
+set(GLOGKIT_INTERNAL_BUILD ON)
+add_subdirectory(${ROOT_DIR}/plugins/was_plugin)
 
 option(BUILD_TESTING "Build the testing suite" ON)
 

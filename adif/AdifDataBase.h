@@ -53,7 +53,7 @@ class AdifDataBase {
 
     std::string get() const;
 
-    std::string_view asView() const { return m_rawValue; }
+    std::string_view asView() const noexcept { return std::string_view(m_rawValue); }
 
     void switchPending() { std::swap(m_rawValue, m_pendingValue); }
 

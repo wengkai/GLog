@@ -8,7 +8,7 @@ namespace Ui {
 class AddQSODialogClass;
 };
 
-class APP_EXPORT AddQSODialog : public QDialog {
+class GLOGKIT_API AddQSODialog : public QDialog {
     Q_OBJECT
 
   public:

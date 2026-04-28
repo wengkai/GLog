@@ -9,7 +9,7 @@ namespace Ui {
 class MapWidgetClass;
 };
 
-class APP_EXPORT MapWidget : public QMainWindow {
+class GLOGKIT_API MapWidget : public QMainWindow {
     Q_OBJECT
 
   public:

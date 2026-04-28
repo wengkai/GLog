@@ -52,6 +52,7 @@
     <addaction name="actionAdd_QSO_Manually"/>
     <addaction name="actionAward"/>
     <addaction name="actionUpdate_FCC_database"/>
+    <addaction name="actionManage_Award_Plugin"/>
    </widget>
    <widget class="QMenu" name="menuAbout">
     <property name="title">
@@ -131,6 +132,11 @@
   <action name="actionAbout_Qt">
    <property name="text">
     <string>About Qt</string>
+   </property>
+  </action>
+  <action name="actionManage_Award_Plugin">
+   <property name="text">
+    <string>Manage Award Plugin</string>
    </property>
   </action>
  </widget>

@@ -24,6 +24,8 @@
 #include "AdifDataBase.h"
 #include "AdifGeneral.h"
 
+#include "GLogKit/IGRecord.h"
+
 template <typename AdifDataType>
 std::shared_ptr<AdifDataBase> make_shared_from_optional(const std::optional<AdifDataType> &opt) {
     if (opt) {
@@ -102,11 +104,11 @@ class AdifDataWrap {
  * @note Essential fields (like mode/submode) are enforced upon construction to
  * maintain ADIF protocol compliance.
  */
-class GRecord {
+class GRecord : public IGRecord {
 
   public:
     using wrapper_type = AdifDataWrap;
-    using MapT = std::map<std::string, wrapper_type>;
+    using MapT = std::map<std::string, wrapper_type, std::less<>>;
     using iterator = MapT::iterator;
     using const_iterator = MapT::const_iterator;
 
@@ -361,6 +363,10 @@ class GRecord {
         }
         stream << "<eor>";
     }
+
+    static Result getValueByField(const IGRecord *rec, const char *field, uint64_t field_len,
+                                  char *result_buf, uint64_t *result_len,
+                                  uint64_t max_result_len) noexcept;
 };
 
 template <typename Ostream> inline Ostream &operator<<(Ostream &stream, const GRecord &record) {

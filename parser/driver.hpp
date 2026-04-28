@@ -2,40 +2,58 @@
 #define GLOG_PARSE_DRIVER
 
 #include <cstring>
-#include "parserdriver.h"
+#include <exception>
+#include <map>
+#include <stdexcept>
+#include <string>
+#include <vector>
 
-#ifndef YY_BUF_SIZE
-#ifdef __ia64__
-/* On IA-64, the buffer size is 16k, not 8k.
- * Moreover, YY_BUF_SIZE is 2*YY_READ_BUF_SIZE in the general case.
- * Ditto for the __ia64__ case accordingly.
- */
-#define YY_BUF_SIZE 32768
-#else
-#define YY_BUF_SIZE 16384
-#endif /* __ia64__ */
-#endif
+#include "Synchronize.h"
 
 namespace GLOG_PARSER {
 
 #ifndef CLASS_SCANNER
 #define CLASS_SCANNER
-class GLogParserDriver : public yyFlexLexer, public ParserDriver {
+
+class ParserDriver {
+
   public:
-    GLogParserDriver(std::istream &arg_yyin, std::ostream &arg_yyout)
-        : yyFlexLexer(arg_yyin, arg_yyout) {}
-    explicit GLogParserDriver(std::istream *arg_yyin = nullptr, std::ostream *arg_yyout = nullptr)
-        : yyFlexLexer(arg_yyin, arg_yyout) {}
-    explicit GLogParserDriver(std::vector<std::string> &errors, std::istream *arg_yyin = nullptr,
-                              std::ostream *arg_yyout = nullptr)
-        : yyFlexLexer(arg_yyin, arg_yyout), ParserDriver(errors) {}
-    int lex(Parser::semantic_type *yylval);
+    explicit ParserDriver() = default;
+    ~ParserDriver() = default;
+
+    virtual int lex(Parser::semantic_type *yylval) = 0;
+    virtual void switch_streams(std::istream &new_in, std::ostream &new_out) = 0;
+
+    virtual void AddRec(std::vector<std::pair<std::string, std::string>> rec) = 0;
+    void AddError(const std::string &msg) {
+        _AddError(msg);
+
+        if (++m_errors >= m_max_error_count) {
+            throw std::runtime_error("Parser halted: reached limit of " +
+                                     std::to_string(m_max_error_count) + " errors. " +
+                                     "Last error: " + msg);
+        }
+    }
+
+    static constexpr size_t MAX_ERROR_COUNT = 100;
+
+    void SetMaxErrorCount(size_t count) { m_max_error_count = count; }
 
   private:
-    // char buf[YY_BUF_SIZE];
+    size_t m_errors = 0;
+    size_t m_max_error_count = MAX_ERROR_COUNT;
+
+  protected:
+    virtual void _AddError(const std::string &msg) = 0;
+    void ClearErrors() {
+        _ClearErrors();
+        m_errors = 0;
+    }
+    virtual void _ClearErrors() = 0;
 };
+
 #else
-class GLogParserDriver;
+class ParserDriver;
 #endif
 
 } // namespace GLOG_PARSER

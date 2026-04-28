@@ -7,7 +7,7 @@ namespace Ui {
 class ConfigureCtyDialogClass;
 };
 
-class APP_EXPORT ConfigureCtyDialog : public QDialog {
+class GLOGKIT_API ConfigureCtyDialog : public QDialog {
     Q_OBJECT
 
     struct LoadContext {

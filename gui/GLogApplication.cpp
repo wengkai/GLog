@@ -2,9 +2,13 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QDateTime>
+#include <QDir>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QFunctionPointer>
 #include <QLabel>
+#include <QLibrary>
+#include <QLibraryInfo>
 #include <QMessageBox>
 #include <QOpenGLWidget>
 #include <QProcess>
@@ -18,9 +22,12 @@
 #include <utility>
 #include "Concurrent.h"
 #include "GCommandLineParser.h"
+#include "LoadedAwardPlugin.h"
 #include "MultiLineDelegate.h"
+#include "Synchronize.h"
 #include "ctydb.h"
 #include "fccdb.h"
+#include "glogparser.h"
 #include "ui_GLogApplication.h"
 
 GLogApplication::GLogApplication(QWidget *parent)
@@ -28,6 +35,9 @@ GLogApplication::GLogApplication(QWidget *parent)
     ui->setupUi(this);
 
     connect(ui->actionAbout_Qt, &QAction::triggered, this, []() { QApplication::aboutQt(); });
+
+    connect(ui->actionManage_Award_Plugin, &QAction::triggered, this,
+            &GLogApplication::manageAwardPluginAction);
 
     connect(
         this, &GLogApplication::information, this,
@@ -180,10 +190,71 @@ GLogApplication::GLogApplication(QWidget *parent)
 
     connect(ui->actionUpdate_FCC_database, &QAction::triggered, this,
             &GLogApplication::updateFccDatabase);
+
+    stdinReader = std::make_shared<StdinReaderWorker>();
+    constexpr int STDIN_TIMER_INTERVAL = 1000;
+    stdinReaderTimer.setInterval(STDIN_TIMER_INTERVAL);
+    connect(&stdinReaderTimer, &QTimer::timeout, this, &GLogApplication::moveDataFromStdin);
+    // 无执行器默认行为：投递到QThreadPool::globalInstance()
+    GLogConcurrent::makeFuture([stdinReader = this->stdinReader]() { return stdinReader->run(); })
+        .then(this,
+              [=](int parse_ret) {
+                  stdinReaderTimer.stop();
+                  // 管道不可用或中断，静默返回
+                  if (parse_ret == StdinReaderWorker::PipeUnavailable ||
+                      parse_ret == StdinReaderWorker::Interrupt) {
+                      return;
+                  }
+                  moveDataFromStdin();
+                  auto count = stdinReader->errors.requireRead()->size();
+                  // 其他错误码，提示用户解析异常终止+错误数量并返回
+                  if (parse_ret != StdinReaderWorker::Success) {
+                      QMessageBox::critical(
+                          this, tr("Error"),
+                          tr("Parse exception terminated. %1 errors found.").arg(count),
+                          QMessageBox::StandardButton::Ok);
+                      return;
+                  }
+                  // 出现一条以上的解析错误，警告错误数量
+                  if (count > 0) {
+                      QMessageBox::warning(this, tr("Warning"), tr("%1 errors found").arg(count),
+                                           QMessageBox::StandardButton::Ok);
+                  }
+              })
+        .onFailed(this, [this](const std::exception &e) {
+            stdinReaderTimer.stop();
+            QMessageBox::critical(this, tr("Error"), e.what(), QMessageBox::StandardButton::Ok);
+        });
+
+    stdinReaderTimer.start();
+}
+
+void GLogApplication::moveDataFromStdin() {
+    using DataType = std::remove_reference_t<decltype(stdinReader->data)>::MyType;
+    DataType m_data;
+    stdinReader->data.write([&](auto &data) { // 使用写代理移动数据
+        std::swap(m_data, data);
+    });
+    if (m_data.empty()) {
+        return;
+    }
+    // 投递到模型专用FIFOBackendThreadExecutor，确保插入顺序不变
+    GLogConcurrent::makeFuture(
+        [this, m_data = std::move(m_data)]() {
+            auto res = AdifModel::fromRawData(true, std::move(m_data));
+            model->insertRecords(
+                -1, std::move(res.parse_records),
+                std::move(
+                    res.parse_headers)); // 内部使用QMetaObject::invokeMethod回到主线程插入数据
+        },
+        *(model->getFIFOBackendThreadExecutor()));
 }
 
 GLogApplication::~GLogApplication() {
-    QThreadPool::globalInstance()->waitForDone();
+    stdinReaderTimer.stop();
+    stdinReader->interrupt();
+    QThreadPool::globalInstance()->waitForDone(); // 程序结束前的最后等待
+    QCoreApplication::processEvents();
     delete ui;
 }
 
@@ -355,6 +426,60 @@ void GLogApplication::saveDone() {
 void GLogApplication::setCilpboard(QMimeData *mimeData) {
     QApplication::clipboard()->setMimeData(mimeData);
     QMessageBox::information(this, tr("Copy"), tr("Done"), QMessageBox::StandardButton::Ok);
+}
+
+void GLogApplication::manageAwardPluginAction() {
+    auto pluginFile = QFileDialog::getOpenFileName(
+        this, tr("Load Plugin"), "..", tr("Libraries (*.dll *.so* *.dylib);;All Files (*)"));
+
+    if (pluginFile.isEmpty()) return;
+
+    QFileInfo fi(pluginFile);
+    if (!fi.exists()) {
+        QMessageBox::critical(this, tr("Error"), tr("File does not exist."));
+        return;
+    }
+
+    QString canonicalPath = fi.canonicalFilePath();
+    if (canonicalPath.isEmpty()) {
+        QMessageBox::critical(this, tr("Error"), tr("Cannot resolve canonical file path."));
+        return;
+    }
+
+    auto it = std::find_if(
+        m_award_plugins.begin(), m_award_plugins.end(), [&](const LoadedAwardPlugin &p) {
+            return QString::compare(p.filename, canonicalPath, Qt::CaseInsensitive) == 0;
+        });
+
+    if (it != m_award_plugins.end()) {
+        QMessageBox::information(this, tr("Info"),
+                                 tr("Plugin '%1' is already loaded.").arg(it->pluginName()));
+        return;
+    }
+
+    auto myLib = std::make_unique<QLibrary>(canonicalPath);
+    if (!myLib->load()) {
+        QMessageBox::critical(this, tr("Error"),
+                              tr("Could not load library: %1").arg(myLib->errorString()));
+        return;
+    }
+
+    LoadedAwardPlugin loadedAwardPlugin{canonicalPath, std::move(myLib)};
+
+    if (!loadedAwardPlugin.valid()) {
+        auto error_msg = tr("Library is missing required export symbols.\n");
+        for (const auto &msg : loadedAwardPlugin.errors) {
+            error_msg += (msg + '\n');
+        }
+        QMessageBox::critical(this, tr("Error"), error_msg);
+        return;
+    }
+
+    auto callback = static_cast<IGRecordGetValueByField>(&GRecord::getValueByField);
+
+    QString name = loadedAwardPlugin.pluginName();
+    m_award_plugins.push_back(std::move(loadedAwardPlugin));
+    QMessageBox::information(this, tr("Loaded"), tr("Successfully loaded: %1").arg(name));
 }
 
 void GLogApplication::updateFccDatabase() {
@@ -570,5 +695,3 @@ void GLogApplication::updateFccDatabase() {
             emit enableAction(ui->actionAward);
         });
 }
-
-AwardPlugin::~AwardPlugin() = default;

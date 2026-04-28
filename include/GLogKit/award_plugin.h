@@ -3,40 +3,23 @@
 
 #include <GLogKit/app_export.h>
 
+#include <GLogKit/IGRecord.h>
+
 #include <cstdint>
 
-/**
- * @class AwardPlugin
- *
- * @note ThreadSafety:
- * This class is not designed for concurrent
- * multi-threaded access to a single instance.
- */
-class APP_EXPORT AwardPlugin {
-  public:
-    virtual ~AwardPlugin();
-    virtual const char *pluginName() const noexcept = 0;
-    // Prepare persistent data (init database). Return
-    // true if the data is already prepared
-    virtual bool install() noexcept = 0;
-    // Clean up all the persistent data
-    virtual bool uninstall() noexcept = 0;
-    // Prepare for batch evaluation
-    virtual bool beforeEvaluate() noexcept = 0;
-    // Clean up after batch evaluation
-    virtual bool afterEvaluate() noexcept = 0;
-    virtual bool evaluate(const char *QSO, unsigned long long len) noexcept = 0;
-
-    virtual const char *getResult() const noexcept = 0;
-    virtual const char *getLastError() const noexcept = 0;
-    virtual void deleteString(const char *) noexcept = 0;
-};
-
-#ifndef GLOG_LIB
+#ifndef GLOGKIT_LIB
 extern "C" {
-AwardPlugin *create_glog_award_plugin();
-void destroy_glog_award_plugin(AwardPlugin *);
+DECL_EXPORT const char *pluginName();
+DECL_EXPORT bool install();
+DECL_EXPORT bool uninstall();
+DECL_EXPORT bool beforeEvaluate();
+DECL_EXPORT bool afterEvaluate();
+DECL_EXPORT bool evaluate(const IGRecord *QSO, IGRecordGetValueByField callback);
+DECL_EXPORT void getResult(char *result_buf, uint64_t *result_len, uint64_t max_result_len);
+DECL_EXPORT void getLastError(char *result_buf, uint64_t *result_len, uint64_t max_result_len);
 }
+#else
+#error "Unexpected include in building GLogKitCore"
 #endif
 
 #endif // AWARD_PLUGIN_H
