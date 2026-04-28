@@ -6,28 +6,30 @@
 class TestMainWindow : public QObject {
     Q_OBJECT
 
+    GLogApplication *m_app = nullptr;
+
   private slots:
-    void initTestCase() { qDebug("Initializing Test Suite..."); }
+    void initTestCase() {
+        qDebug("Initializing Test Suite...");
+        m_app = new GLogApplication();
+    }
 
     void testWindowTitle() {
-        GLogApplication w;
-        w.setWindowTitle("Test Title");
-        QCOMPARE(w.windowTitle(), QString("Test Title"));
+        m_app->setWindowTitle("Test Title");
+        QCOMPARE(m_app->windowTitle(), QString("Test Title"));
     }
 
     void testLogic() {
-        GLogApplication w;
-        QVERIFY(w.isVisible() == false);
+        QVERIFY(m_app->isVisible() == false);
         qDebug() << "Successfully created GLogApplication with UI!";
     }
 
-    void cleanupTestCase() { qDebug("Cleaning up..."); }
+    void cleanupTestCase() {
+        qDebug("Cleaning up...");
+        delete m_app;
+        m_app = nullptr;
+    }
 };
 
-int main(int argc, char *argv[]) {
-    // std::cout << "Current PATH: " << std::getenv("PATH") << std::endl;
-    QApplication app(argc, argv);
-    TestMainWindow tc;
-    return QTest::qExec(&tc, argc, argv);
-}
+QTEST_MAIN(TestMainWindow)
 #include "hello_ctest.moc"

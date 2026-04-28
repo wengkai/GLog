@@ -15,10 +15,12 @@ class CtyDBTest : public QObject {
 
     bool networkOk = false;
     CtyDB *ctydb = nullptr;
+    GLogApplication *m_app = nullptr;
 
   private slots:
     void initTestCase() {
         qDebug("Initializing Test Suite...");
+        m_app = new GLogApplication();
         {
             QNetworkAccessManager manager;
             auto req = QNetworkRequest(QUrl("https://www.country-files.com/"));
@@ -46,8 +48,7 @@ class CtyDBTest : public QObject {
         {
             QEventLoop loop;
             bool done = false;
-            GLogApplication w;
-            QObject::connect(&w, &GLogApplication::initCtyDBDone, [&]() {
+            QObject::connect(m_app, &GLogApplication::initCtyDBDone, [&]() {
                 loop.quit();
                 done = true;
             });
@@ -74,14 +75,10 @@ class CtyDBTest : public QObject {
 
     void cleanupTestCase() {
         qDebug("Cleaning up...");
-        QCoreApplication::processEvents();
+        delete m_app;
+        m_app = nullptr;
     }
 };
 
-int main(int argc, char *argv[]) {
-    QApplication app(argc, argv);
-    CtyDBTest tc;
-    return QTest::qExec(&tc, argc, argv);
-}
-
+QTEST_MAIN(CtyDBTest)
 #include "ctydb_test.moc"
