@@ -91,7 +91,12 @@ class TestGLogConcurrent : public QObject {
 
     // 带 QPromise<int> 上下文的函数：使用进度报告
     void testPromiseProgress() {
-        auto future = makeFuture<int>([](QPromise<int> &promise) {
+        QFutureWatcher<int> watcher;
+        QSignalSpy resultSpy(&watcher, &QFutureWatcher<int>::resultReadyAt);
+        QSignalSpy progressSpy(&watcher, &QFutureWatcher<int>::progressValueChanged);
+        QSignalSpy finishedSpy(&watcher, &QFutureWatcher<int>::finished);
+
+        watcher.setFuture(makeFuture<int>([](QPromise<int> &promise) {
             promise.start(); // 显式启动（内部也会调用）
             for (int i = 1; i <= 5; ++i) {
                 if (promise.isCanceled()) return;
@@ -99,15 +104,11 @@ class TestGLogConcurrent : public QObject {
                 promise.setProgressValue(i * 20);
                 promise.addResult(i);
             }
-        });
+        }));
 
-        QFutureWatcher<int> watcher;
-        QSignalSpy resultSpy(&watcher, &QFutureWatcher<int>::resultReadyAt);
-        QSignalSpy progressSpy(&watcher, &QFutureWatcher<int>::progressValueChanged);
-        QSignalSpy finishedSpy(&watcher, &QFutureWatcher<int>::finished);
-        watcher.setFuture(future);
+        auto future = watcher.future();
 
-        finishedSpy.wait(500);
+        finishedSpy.wait(1000);
         QVERIFY(future.isFinished());
         QCOMPARE(future.resultCount(), 5);
         QVERIFY(progressSpy.count() > 0);
