@@ -47,7 +47,8 @@ class CtyDBTest : public QObject {
     void testCtyDBInit() {
         {
             QEventLoop loop;
-            bool done = false;
+            ctydb = GLogApplication::getCtyDBInstance();
+            bool done = ctydb->ready();
             QObject::connect(m_app, &GLogApplication::initCtyDBDone, [&]() {
                 loop.quit();
                 done = true;
@@ -59,7 +60,6 @@ class CtyDBTest : public QObject {
                 });
                 loop.exec();
             }
-            ctydb = GLogApplication::getCtyDBInstance();
             if (networkOk && !ctydb->getDBHint().startsWith("https:")) {
                 QVERIFY2(false, "Network feature incomplete.");
             }
