@@ -34,6 +34,11 @@
 
 #include "AdifFreqBandFactory.h"
 
+#include "AdifEnumTypes.h"
+
+#include "AdifCreditList.h"
+#include "AdifIOTARefNo.h"
+
 #include "AdifGeneral.h"
 
 #endif // ADIF_DATA_TYPES_H

@@ -3,11 +3,13 @@
 
 // clang-format off
 
+#include "CaseInsensitiveLess.h"
+
 
 namespace ADIF {
-using AntPathMap = std::map<std::string, std::string>;
+using AntPathMap = std::map<std::string, std::string, CaseInsensitiveLess>;
 
-static const AntPathMap ANT_PATH_MAP = {
+inline const AntPathMap ANT_PATH_MAP = {
     {"G", "grayline"},
     {"O", "other"},
     {"S", "short path"},

@@ -3,6 +3,8 @@
 
 // clang-format off
 
+#include "CaseInsensitiveLess.h"
+
 
 namespace ADIF {
 /**
@@ -10,9 +12,9 @@ namespace ADIF {
  * Maps Contest-ID codes to their official descriptions.
  */
 
-using ContestIdMap = std::map<std::string, std::string>;
+using ContestIdMap = std::map<std::string, std::string, CaseInsensitiveLess>;
 
-static const ContestIdMap CONTEST_ID_MAP = {
+inline const ContestIdMap CONTEST_ID_MAP = {
     {"070-160M-SPRINT", "PODXS Great Pumpkin Sprint"},
     {"070-3-DAY", "PODXS Three Day Weekend"},
     {"070-31-FLAVORS", "PODXS 31 Flavors"},

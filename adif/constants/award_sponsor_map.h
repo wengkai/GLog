@@ -3,15 +3,17 @@
 
 // clang-format off
 
+#include "CaseInsensitiveLess.h"
+
 
 namespace ADIF {
-using AwardSponsorMap = std::map<std::string, std::string>;
+using AwardSponsorMap = std::map<std::string, std::string, CaseInsensitiveLess>;
 
 /**
  * @brief ADIF Award Sponsor Prefixes
  * Used for validating SPONSOR_PROGRAM_AWARD format.
  */
-static const AwardSponsorMap AWARD_SPONSOR_MAP = {
+inline const AwardSponsorMap AWARD_SPONSOR_MAP = {
     {"ADIF_", "ADIF Development Group"},
     {"ARI_", "ARI - l'Associazione Radioamatori Italiani"},
     {"ARRL_", "ARRL - American Radio Relay League"},

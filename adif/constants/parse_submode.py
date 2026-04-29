@@ -31,11 +31,11 @@ def generate_submode_map():
         "    std::string parent_mode; // (MODE)\n"
         "    std::string description; \n"
         "};\n\n"
-        "using SubmodeMap = std::map<std::string, SubmodeEntry>;\n\n"
+        "using SubmodeMap = std::map<std::string, SubmodeEntry, CaseInsensitiveLess>;\n\n"
         "/**\n"
         " * @brief ADIF Submode to Parent Mode mapping\n"
         " */\n"
-        "static const SubmodeMap SUBMODE_MAP = {\n" 
+        "inline const SubmodeMap SUBMODE_MAP = {\n" 
         + "\n".join(map_entries) +
         "\n};"
     )

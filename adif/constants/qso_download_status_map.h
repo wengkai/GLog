@@ -3,14 +3,16 @@
 
 // clang-format off
 
+#include "CaseInsensitiveLess.h"
+
 
 namespace ADIF {
 /**
  * ADIF QSO Download Status Enumeration
  */
-using QsoDownloadStatusMap = std::map<std::string, std::string>;
+using QsoDownloadStatusMap = std::map<std::string, std::string, CaseInsensitiveLess>;
 
-static const QsoDownloadStatusMap QSO_DOWNLOAD_STATUS_MAP = {
+inline const QsoDownloadStatusMap QSO_DOWNLOAD_STATUS_MAP = {
     {"Y", "the QSO has been downloaded from the online service"},
     {"N", "the QSO has not been downloaded from the online service"},
     {"I", "ignore or invalid"},

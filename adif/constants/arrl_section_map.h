@@ -3,6 +3,8 @@
 
 // clang-format off
 
+#include "CaseInsensitiveLess.h"
+
 
 namespace ADIF {
 struct ArrlSectionInfo {
@@ -12,9 +14,9 @@ struct ArrlSectionInfo {
     std::string deleted_date;
 };
 
-using ArrlSectionMap = std::map<std::string, ArrlSectionInfo>;
+using ArrlSectionMap = std::map<std::string, ArrlSectionInfo, CaseInsensitiveLess>;
 
-static const ArrlSectionMap ARRL_SECTION_MAP = {
+inline const ArrlSectionMap ARRL_SECTION_MAP = {
     {"AL", {"Alabama", {291}, "", ""}},
     {"AK", {"Alaska", {6}, "", ""}},
     {"AB", {"Alberta", {1}, "", ""}},

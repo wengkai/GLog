@@ -32,7 +32,7 @@ def generate_dxcc_map():
 
     map_entries.sort(key=lambda x: x[0])
 
-    formatted_lines = [f'        {{{c}, {{"{n}", {d}}}}},' for c, n, d in map_entries]
+    formatted_lines = [f'        {{"{c}", {{"{n}", {d}}}}},' for c, n, d in map_entries]
 
     cpp_content = """
 
@@ -41,27 +41,9 @@ struct DXCCEntity {
     bool is_deleted;
 };
 
-/**
- * @brief DXCC Entity Container
- */
-class DXCCContainer : public std::vector<std::pair<int, DXCCEntity>> {
-public:
-    using std::vector<std::pair<int, DXCCEntity>>::vector; 
+using DXCCContainer = std::map<std::string, DXCCEntity, CaseInsensitiveLess>;
 
-    const_iterator find(int code) const {
-        auto it = std::lower_bound(begin(), end(), code, 
-            [](const std::pair<int, DXCCEntity>& element, int val) {
-                return element.first < val;
-            });
-        return (it != end() && it->first == code) ? it : end();
-    }
-    
-    bool contains(int code) const {
-        return find(code) != end();
-    }
-};
-
-static const DXCCContainer DXCC_MAP = {
+inline const DXCCContainer DXCC_MAP = {
 """ + "\n".join(formatted_lines) + "\n};" 
     
     require = """#include <vector>

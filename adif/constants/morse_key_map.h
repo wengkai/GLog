@@ -3,6 +3,8 @@
 
 // clang-format off
 
+#include "CaseInsensitiveLess.h"
+
 
 namespace ADIF {
 struct MorseKeyInfo {
@@ -10,9 +12,9 @@ struct MorseKeyInfo {
     std::string composition; 
 };
 
-using MorseKeyMap = std::map<std::string, MorseKeyInfo>;
+using MorseKeyMap = std::map<std::string, MorseKeyInfo, CaseInsensitiveLess>;
 
-static const MorseKeyMap MORSE_KEY_MAP = {
+inline const MorseKeyMap MORSE_KEY_MAP = {
     {"SK", {"Straight Key", "a human makes the dits and dahs and builds characters"}},
     {"SS", {"Sideswiper", "a human makes the dits and dahs and builds characters"}},
     {"BUG", {"Mechanical semi-automatic keyer or Bug", "a machine makes the dits and a human makes the dahs and builds characters."}},

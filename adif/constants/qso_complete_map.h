@@ -3,14 +3,16 @@
 
 // clang-format off
 
+#include "CaseInsensitiveLess.h"
+
 
 namespace ADIF {
 /**
  * ADIF QSO Complete Enumeration
  */
-using QsoCompleteMap = std::map<std::string, std::string>;
+using QsoCompleteMap = std::map<std::string, std::string, CaseInsensitiveLess>;
 
-static const QsoCompleteMap QSO_COMPLETE_MAP = {
+inline const QsoCompleteMap QSO_COMPLETE_MAP = {
     {"Y", "yes"},
     {"N", "no"},
     {"NIL", "not heard"},

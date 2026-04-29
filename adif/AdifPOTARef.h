@@ -4,6 +4,7 @@
 #include <cctype>
 #include <optional>
 #include <string>
+#include <string_view>
 #include "AdifDataBase.h"
 #include "AdifString.h"
 
@@ -20,30 +21,30 @@ class AdifPOTARef : public AdifDataBase {
     ADIF_DATA_TYPE_CLONE_DEC(AdifPOTARef)
 
   public:
-    static bool check(const std::string &data) {
+    static bool check(std::string_view data) {
         size_t len = data.length();
         if (len < 6 || len > 17) return false;
 
         size_t dashPos = data.find('-');
         size_t atPos = data.find('@');
 
-        if (dashPos == std::string::npos || dashPos == 0) return false;
+        if (dashPos == std::string_view::npos || dashPos == 0) return false;
 
-        std::string xxxx = data.substr(0, dashPos);
+        std::string_view xxxx = data.substr(0, dashPos);
         if (xxxx.length() > 4) return false;
         if (!AdifString::check(xxxx)) return false;
 
-        size_t numEnd = (atPos == std::string::npos) ? len : atPos;
+        size_t numEnd = (atPos == std::string_view::npos) ? len : atPos;
         if (numEnd <= dashPos + 1) return false;
 
-        std::string nnnnn = data.substr(dashPos + 1, numEnd - (dashPos + 1));
+        std::string_view nnnnn = data.substr(dashPos + 1, numEnd - (dashPos + 1));
         if (nnnnn.length() != 4 && nnnnn.length() != 5) return false;
         if (!std::all_of(nnnnn.begin(), nnnnn.end(), ::isdigit)) return false;
 
-        if (atPos != std::string::npos) {
+        if (atPos != std::string_view::npos) {
             if (atPos < dashPos + 5) return false;
 
-            std::string yyyyyy = data.substr(atPos + 1);
+            std::string_view yyyyyy = data.substr(atPos + 1);
             if (yyyyyy.length() < 4 || yyyyyy.length() > 6) return false;
             if (!AdifString::check(yyyyyy)) return false;
         }

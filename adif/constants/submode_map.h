@@ -3,6 +3,8 @@
 
 // clang-format off
 
+#include "CaseInsensitiveLess.h"
+
 
 namespace ADIF {
 struct SubmodeEntry {
@@ -10,12 +12,12 @@ struct SubmodeEntry {
     std::string description; 
 };
 
-using SubmodeMap = std::map<std::string, SubmodeEntry>;
+using SubmodeMap = std::map<std::string, SubmodeEntry, CaseInsensitiveLess>;
 
 /**
  * @brief ADIF Submode to Parent Mode mapping
  */
-static const SubmodeMap SUBMODE_MAP = {
+inline const SubmodeMap SUBMODE_MAP = {
     {"8PSK125", { "PSK", "" } },
     {"8PSK125F", { "PSK", "" } },
     {"8PSK125FL", { "PSK", "" } },

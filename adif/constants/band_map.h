@@ -3,6 +3,8 @@
 
 // clang-format off
 
+#include "CaseInsensitiveLess.h"
+
 
 namespace ADIF {
 struct BandRange {
@@ -10,9 +12,9 @@ struct BandRange {
     std::string upper_mhz;
 };
 
-using BandMap = std::map<std::string, BandRange, std::less<>>;
+using BandMap = std::map<std::string, BandRange, CaseInsensitiveLess>;
 
-static const BandMap BAND_MAP = {
+inline const BandMap BAND_MAP = {
     {"2190M", {".1357", ".1378"}},
     {"630M", {".472", ".479"}},
     {"560M", {".501", ".504"}},

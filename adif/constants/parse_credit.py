@@ -30,8 +30,8 @@ def generate_credit_map():
         "    std::string award;   \n"
         "    std::string facet;   \n"
         "};\n\n"
-        "using CreditMap = std::map<std::string, CreditInfo>;\n\n"
-        "static const CreditMap CREDIT_MAP = {\n" 
+        "using CreditMap = std::map<std::string, CreditInfo, CaseInsensitiveLess>;\n\n"
+        "inline const CreditMap CREDIT_MAP = {\n" 
         + "\n".join(map_entries) +
         "\n};"
     )

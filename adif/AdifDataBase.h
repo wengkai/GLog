@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <functional>
 #include <iostream>
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
@@ -12,18 +13,36 @@
 
 #define ADIF_DATA_CLONE
 #ifdef ADIF_DATA_CLONE
+
 #define ADIF_DATA_BASE_CLONE_DEC virtual AdifDataBase *_clone() const = 0;
-#define ADIF_DATA_TYPE_CLONE_DEC(classname)                                                        \
-    virtual AdifDataBase *_clone() const override;                                                 \
+
+#define ADIF_DATA_TYPE_CLONE_BASE_CONS_DEC(classname)                                              \
     explicit classname(std::string value, std::string pendingValue, std::any externed)             \
         : AdifDataBase(std::move(value), std::move(pendingValue), std::move(externed)) {}
+
+#define ADIF_DATA_TYPE_CLONE_DEC(classname)                                                        \
+    virtual AdifDataBase *_clone() const override;                                                 \
+    ADIF_DATA_TYPE_CLONE_BASE_CONS_DEC(classname)
+
+#define ADIF_DATA_TYPE_CLONE_DERIVED_CONS_DEC(classname, base)                                     \
+    explicit classname(std::string value, std::string pendingValue, std::any externed)             \
+        : base(std::move(value), std::move(pendingValue), std::move(externed)) {}
+
+#define ADIF_DATA_TYPE_CLONE_DERIVED_DEC(classname, base)                                          \
+    virtual AdifDataBase *_clone() const override;                                                 \
+    ADIF_DATA_TYPE_CLONE_DERIVED_CONS_DEC(classname, base)
+
 #define ADIF_DATA_TYPE_CLONE_IMP(classname)                                                        \
     auto classname ::_clone() const->AdifDataBase * {                                              \
         return new classname(m_rawValue, m_pendingValue, externed);                                \
     }
+
 #else
 #define ADIF_DATA_BASE_CLONE_DEC
+#define ADIF_DATA_TYPE_CLONE_BASE_CONS_DEC(classname)
 #define ADIF_DATA_TYPE_CLONE_DEC(classname)
+#define ADIF_DATA_TYPE_CLONE_DERIVED_CONS_DEC(classname, base)
+#define ADIF_DATA_TYPE_CLONE_DERIVED_DEC(classname, base)
 #define ADIF_DATA_TYPE_CLONE_IMP(classname)
 #endif
 

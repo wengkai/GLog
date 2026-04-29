@@ -3,6 +3,8 @@
 
 // clang-format off
 
+#include "CaseInsensitiveLess.h"
+
 
 namespace ADIF {
 struct QslViaInfo {
@@ -10,9 +12,9 @@ struct QslViaInfo {
     std::string description;
 };
 
-using QslViaMap = std::map<std::string, QslViaInfo>;
+using QslViaMap = std::map<std::string, QslViaInfo, CaseInsensitiveLess>;
 
-static const QslViaMap QSL_VIA_MAP = {
+inline const QslViaMap QSL_VIA_MAP = {
     {"B", {false, "bureau"}},
     {"D", {false, "direct"}},
     {"E", {false, "electronic"}},

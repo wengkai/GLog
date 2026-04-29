@@ -39,8 +39,8 @@ def generate_arrl_section_map():
         "    std::string from_date;\n"
         "    std::string deleted_date;\n"
         "};\n\n"
-        "using ArrlSectionMap = std::map<std::string, ArrlSectionInfo>;\n\n"
-        "static const ArrlSectionMap ARRL_SECTION_MAP = {\n" 
+        "using ArrlSectionMap = std::map<std::string, ArrlSectionInfo, CaseInsensitiveLess>;\n\n"
+        "inline const ArrlSectionMap ARRL_SECTION_MAP = {\n" 
         + "\n".join(map_entries) +
         "\n};"
     )

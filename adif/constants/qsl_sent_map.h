@@ -3,6 +3,8 @@
 
 // clang-format off
 
+#include "CaseInsensitiveLess.h"
+
 
 namespace ADIF {
 #ifndef QSL_STATUS_INFO_DEFINED
@@ -14,9 +16,9 @@ struct QslStatusInfo {
 };
 #endif
 
-using QslSentMap = std::map<std::string, QslStatusInfo>;
+using QslSentMap = std::map<std::string, QslStatusInfo, CaseInsensitiveLess>;
 
-static const QslSentMap QSL_SENT_MAP = {
+inline const QslSentMap QSL_SENT_MAP = {
     {"Y", {false, "yes", "an outgoing QSL card has been sent ; the QSO has been uploaded to, and accepted by, the online service"}},
     {"N", {false, "no", "do not send an outgoing QSL card ; do not upload the QSO to the online service"}},
     {"R", {false, "requested", "the contacted station has requested a QSL card ; the contacted station has requested the QSO be uploaded to the online service"}},

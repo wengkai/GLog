@@ -21,12 +21,12 @@ def generate_award_sponsor_map():
         map_entries.append(cpp_line)
 
     cpp_content = (
-        "using AwardSponsorMap = std::map<std::string, std::string>;\n\n"
+        "using AwardSponsorMap = std::map<std::string, std::string, CaseInsensitiveLess>;\n\n"
         "/**\n"
         " * @brief ADIF Award Sponsor Prefixes\n"
         " * Used for validating SPONSOR_PROGRAM_AWARD format.\n"
         " */\n"
-        "static const AwardSponsorMap AWARD_SPONSOR_MAP = {\n" 
+        "inline const AwardSponsorMap AWARD_SPONSOR_MAP = {\n" 
         + "\n".join(map_entries) +
         "\n};"
     )

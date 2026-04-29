@@ -3,6 +3,8 @@
 
 // clang-format off
 
+#include "CaseInsensitiveLess.h"
+
 
 namespace ADIF {
 struct RegionEntry {
@@ -17,9 +19,9 @@ struct RegionEntry {
 /**
  * @brief ADIF Region Multimap
  */
-using RegionMap = std::multimap<std::string, RegionEntry>;
+using RegionMap = std::multimap<std::string, RegionEntry, CaseInsensitiveLess>;
 
-static const RegionMap REGION_MAP = {
+inline const RegionMap REGION_MAP = {
     {"NONE", { 0, "Not within a WAE or CQ region that is within a DXCC entity", "", "", "", "" } },
     {"IV", { 206, "ITU Vienna", "4U1V", "CQ,WAE", "", "" } },
     {"AI", { 248, "African Italy", "IG9", "CQ", "", "" } },

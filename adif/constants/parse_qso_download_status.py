@@ -27,8 +27,8 @@ def generate_qso_download_status_map():
         "/**\n"
         " * ADIF QSO Download Status Enumeration\n"
         " */\n"
-        "using QsoDownloadStatusMap = std::map<std::string, std::string>;\n\n"
-        "static const QsoDownloadStatusMap QSO_DOWNLOAD_STATUS_MAP = {\n" 
+        "using QsoDownloadStatusMap = std::map<std::string, std::string, CaseInsensitiveLess>;\n\n"
+        "inline const QsoDownloadStatusMap QSO_DOWNLOAD_STATUS_MAP = {\n" 
         + "\n".join(map_entries) +
         "\n};"
     )

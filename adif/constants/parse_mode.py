@@ -46,9 +46,9 @@ def generate_mode_map():
         "    bool import_only;               \n"
         "    std::vector<std::string> submodes; \n"
         "};\n\n"
-        "using ModeMap = std::map<std::string, ModeInfo>;\n\n"
+        "using ModeMap = std::map<std::string, ModeInfo, CaseInsensitiveLess>;\n\n"
         "#endif\n"
-        "static const ModeMap MODE_MAP = {\n" 
+        "inline const ModeMap MODE_MAP = {\n" 
         + "\n".join(map_entries) +
         "\n};"
     )

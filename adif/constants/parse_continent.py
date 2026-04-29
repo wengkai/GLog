@@ -25,8 +25,8 @@ def generate_continent_map():
 
     cpp_content = (
         "// ADIF Continent Enumeration Mapping\n"
-        "using ContinentMap = std::map<std::string, std::string>;\n\n"
-        "static const ContinentMap CONTINENT_MAP = {\n" 
+        "using ContinentMap = std::map<std::string, std::string, CaseInsensitiveLess>;\n\n"
+        "inline const ContinentMap CONTINENT_MAP = {\n" 
         + "\n".join(map_entries) +
         "\n};"
     )

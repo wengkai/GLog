@@ -12,3 +12,4 @@ CMakeLists.txt.user
 *.log
 AppDir/
 __pycache__/
+*.sqlite

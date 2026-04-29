@@ -52,8 +52,8 @@ def generate_qsl_rcvd_map():
         "    std::string description;\n"
         "};\n"
         "#endif\n\n"
-        "using QslRcvdMap = std::map<std::string, QslStatusInfo>;\n\n"
-        "static const QslRcvdMap QSL_RCVD_MAP = {\n" 
+        "using QslRcvdMap = std::map<std::string, QslStatusInfo, CaseInsensitiveLess>;\n\n"
+        "inline const QslRcvdMap QSL_RCVD_MAP = {\n" 
         + "\n".join(map_entries) +
         "\n};"
     )

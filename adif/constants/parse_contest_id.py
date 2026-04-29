@@ -28,8 +28,8 @@ def generate_contest_id_map():
         " * @brief ADIF Contest-ID Enumeration\n"
         " * Maps Contest-ID codes to their official descriptions.\n"
         " */\n\n"
-        "using ContestIdMap = std::map<std::string, std::string>;\n\n"
-        "static const ContestIdMap CONTEST_ID_MAP = {\n" 
+        "using ContestIdMap = std::map<std::string, std::string, CaseInsensitiveLess>;\n\n"
+        "inline const ContestIdMap CONTEST_ID_MAP = {\n" 
         + "\n".join(map_entries) +
         "\n};"
     )

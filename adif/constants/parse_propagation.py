@@ -33,8 +33,8 @@ def generate_propagation_map():
         "/**\n"
         " * ADIF Propagation Modes\n"
         " */\n"
-        "using PropagationMap = std::map<std::string, std::string>;\n\n"
-        "static const PropagationMap PROPAGATION_MAP = {\n" 
+        "using PropagationMap = std::map<std::string, std::string, CaseInsensitiveLess>;\n\n"
+        "inline const PropagationMap PROPAGATION_MAP = {\n" 
         + "\n".join(map_entries) +
         "\n};"
     )

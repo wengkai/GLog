@@ -47,8 +47,8 @@ def generate_qsl_sent_map():
         "    std::string description;\n"
         "};\n"
         "#endif\n\n"
-        "using QslSentMap = std::map<std::string, QslStatusInfo>;\n\n"
-        "static const QslSentMap QSL_SENT_MAP = {\n" 
+        "using QslSentMap = std::map<std::string, QslStatusInfo, CaseInsensitiveLess>;\n\n"
+        "inline const QslSentMap QSL_SENT_MAP = {\n" 
         + "\n".join(map_entries) +
         "\n};"
     )

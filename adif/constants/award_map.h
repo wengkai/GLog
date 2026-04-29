@@ -3,6 +3,8 @@
 
 // clang-format off
 
+#include "CaseInsensitiveLess.h"
+
 
 namespace ADIF {
 /**
@@ -10,9 +12,9 @@ namespace ADIF {
  * Key: Award Name, Value: true if the award is import-only.
  */
 
-using AwardMap = std::map<std::string, bool>;
+using AwardMap = std::map<std::string, bool, CaseInsensitiveLess>;
 
-static const AwardMap AWARD_MAP = {
+inline const AwardMap AWARD_MAP = {
     {"AJA", true},
     {"CQDX", true},
     {"CQDXFIELD", true},

@@ -51,8 +51,8 @@ def generate_region_map():
         "/**\n"
         " * @brief ADIF Region Multimap\n"
         " */\n"
-        "using RegionMap = std::multimap<std::string, RegionEntry>;\n\n"
-        "static const RegionMap REGION_MAP = {\n" 
+        "using RegionMap = std::multimap<std::string, RegionEntry, CaseInsensitiveLess>;\n\n"
+        "inline const RegionMap REGION_MAP = {\n" 
         + "\n".join(map_entries) +
         "\n};"
     )

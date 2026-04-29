@@ -1,6 +1,13 @@
 import requests
+import requests_cache
 import os
 from bs4 import BeautifulSoup
+
+requests_cache.install_cache(
+    'adif_cache',
+    backend='sqlite',
+    expire_after=86400
+)
 
 ADIF_URL = "https://adif.org.uk/316/ADIF_316.htm"
 HEADERS = {
@@ -28,6 +35,7 @@ def save_cpp_header(filename, content, require = None):
         f.write(f"#ifndef {guard_name}\n")
         f.write(f"#define {guard_name}\n\n")
         f.write("// clang-format off\n\n")
+        f.write('#include "CaseInsensitiveLess.h"\n\n')
         if require is not None:
             f.write(require)
         f.write("\nnamespace ADIF {\n")

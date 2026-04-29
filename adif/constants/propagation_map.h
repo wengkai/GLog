@@ -3,14 +3,16 @@
 
 // clang-format off
 
+#include "CaseInsensitiveLess.h"
+
 
 namespace ADIF {
 /**
  * ADIF Propagation Modes
  */
-using PropagationMap = std::map<std::string, std::string>;
+using PropagationMap = std::map<std::string, std::string, CaseInsensitiveLess>;
 
-static const PropagationMap PROPAGATION_MAP = {
+inline const PropagationMap PROPAGATION_MAP = {
     {"AS", "Aircraft Scatter"},
     {"AUE", "Aurora-E"},
     {"AUR", "Aurora"},

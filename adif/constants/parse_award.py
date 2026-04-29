@@ -33,8 +33,8 @@ def generate_award_map():
         " * @brief ADIF Award Enumeration (Import-only markers included)\n"
         " * Key: Award Name, Value: true if the award is import-only.\n"
         " */\n\n"
-        "using AwardMap = std::map<std::string, bool>;\n\n"
-        "static const AwardMap AWARD_MAP = {\n" 
+        "using AwardMap = std::map<std::string, bool, CaseInsensitiveLess>;\n\n"
+        "inline const AwardMap AWARD_MAP = {\n" 
         + "\n".join(map_entries) +
         "\n};"
     )

@@ -27,8 +27,8 @@ def generate_qsl_medium_map():
         "/**\n"
         " * ADIF QSL Medium Enumeration\n"
         " */\n"
-        "using QslMediumMap = std::map<std::string, std::string>;\n\n"
-        "static const QslMediumMap QSL_MEDIUM_MAP = {\n" 
+        "using QslMediumMap = std::map<std::string, std::string, CaseInsensitiveLess>;\n\n"
+        "inline const QslMediumMap QSL_MEDIUM_MAP = {\n" 
         + "\n".join(map_entries) +
         "\n};"
     )

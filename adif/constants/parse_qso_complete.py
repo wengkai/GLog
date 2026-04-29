@@ -27,8 +27,8 @@ def generate_qso_complete_map():
         "/**\n"
         " * ADIF QSO Complete Enumeration\n"
         " */\n"
-        "using QsoCompleteMap = std::map<std::string, std::string>;\n\n"
-        "static const QsoCompleteMap QSO_COMPLETE_MAP = {\n" 
+        "using QsoCompleteMap = std::map<std::string, std::string, CaseInsensitiveLess>;\n\n"
+        "inline const QsoCompleteMap QSO_COMPLETE_MAP = {\n" 
         + "\n".join(map_entries) +
         "\n};"
     )

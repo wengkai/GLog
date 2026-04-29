@@ -1,5 +1,9 @@
-#include <map>
-#include <string>
+#ifndef ADIF_FIELD_MAP_H_GENERATED_H
+#define ADIF_FIELD_MAP_H_GENERATED_H
+
+// clang-format off
+
+#include "CaseInsensitiveLess.h"
 
 /**
  * @file adif_field_map.h
@@ -7,8 +11,7 @@
 
 #include <unordered_map>
 
-#ifndef ADIF_FIELD_MAP_H
-#define ADIF_FIELD_MAP_H
+namespace ADIF {
 
 static const std::unordered_map<std::string, AdifFactoryFunc> ADIF_FIELD_FACTORY = {
     NEW_FIELD_ENTRY(a_index, AdifNumber),
@@ -18,61 +21,84 @@ static const std::unordered_map<std::string, AdifFactoryFunc> ADIF_FIELD_FACTORY
     NEW_FIELD_ENTRY(altitude, AdifNumber),
     NEW_FIELD_ENTRY(ant_az, AdifNumber),
     NEW_FIELD_ENTRY(ant_el, AdifNumber),
+    NEW_FIELD_ENTRY(ant_path, AdifAntPath),
+    NEW_FIELD_ENTRY(arrl_sect, AdifArrlSection),
+    NEW_FIELD_ENTRY(band_rx, AdifBandRx),
     NEW_FIELD_ENTRY(call, AdifString),
     NEW_FIELD_ENTRY(check, AdifString),
     NEW_FIELD_ENTRY(class, AdifString),
     NEW_FIELD_ENTRY(clublog_qso_upload_date, AdifDate),
+    NEW_FIELD_ENTRY(clublog_qso_upload_status, AdifQsoUploadStatus),
     NEW_FIELD_ENTRY(comment, AdifString),
     NEW_FIELD_ENTRY(comment_intl, AdifIntlString),
+    NEW_FIELD_ENTRY(cont, AdifContinent),
     NEW_FIELD_ENTRY(contacted_op, AdifString),
     NEW_FIELD_ENTRY(contest_id, AdifString),
     NEW_FIELD_ENTRY(country, AdifString),
     NEW_FIELD_ENTRY(country_intl, AdifIntlString),
     NEW_FIELD_ENTRY(cqz, AdifPositiveInteger),
+    NEW_FIELD_ENTRY(credit_granted, AdifCreditList),
+    NEW_FIELD_ENTRY(credit_submitted, AdifCreditList),
+    NEW_FIELD_ENTRY(dcl_qsl_rcvd, AdifQslRcvd),
+    NEW_FIELD_ENTRY(dcl_qsl_sent, AdifQslSent),
     NEW_FIELD_ENTRY(dcl_qslrdate, AdifDate),
     NEW_FIELD_ENTRY(dcl_qslsdate, AdifDate),
     NEW_FIELD_ENTRY(distance, AdifNumber),
+    NEW_FIELD_ENTRY(dxcc, AdifDxcc),
     NEW_FIELD_ENTRY(email, AdifString),
     NEW_FIELD_ENTRY(eq_call, AdifString),
+    NEW_FIELD_ENTRY(eqsl_ag, AdifEqslAg),
+    NEW_FIELD_ENTRY(eqsl_qsl_rcvd, AdifQslRcvd),
+    NEW_FIELD_ENTRY(eqsl_qsl_sent, AdifQslSent),
     NEW_FIELD_ENTRY(eqsl_qslrdate, AdifDate),
     NEW_FIELD_ENTRY(eqsl_qslsdate, AdifDate),
     NEW_FIELD_ENTRY(fists, AdifPositiveInteger),
     NEW_FIELD_ENTRY(fists_cc, AdifPositiveInteger),
     NEW_FIELD_ENTRY(force_init, AdifBoolean),
-    NEW_FIELD_ENTRY(freq, AdifNumber),
     NEW_FIELD_ENTRY(freq_rx, AdifNumber),
     NEW_FIELD_ENTRY(gridsquare, AdifGridSquare),
     NEW_FIELD_ENTRY(gridsquare_ext, AdifGridSquareExt),
     NEW_FIELD_ENTRY(guest_op, AdifString),
     NEW_FIELD_ENTRY(hamlogeu_qso_upload_date, AdifDate),
+    NEW_FIELD_ENTRY(hamlogeu_qso_upload_status, AdifQsoUploadStatus),
     NEW_FIELD_ENTRY(hamqth_qso_upload_date, AdifDate),
+    NEW_FIELD_ENTRY(hamqth_qso_upload_status, AdifQsoUploadStatus),
     NEW_FIELD_ENTRY(hrdlog_qso_upload_date, AdifDate),
+    NEW_FIELD_ENTRY(hrdlog_qso_upload_status, AdifQsoUploadStatus),
+    NEW_FIELD_ENTRY(iota, AdifIOTARefNo),
     NEW_FIELD_ENTRY(iota_island_id, AdifPositiveInteger),
     NEW_FIELD_ENTRY(ituz, AdifPositiveInteger),
     NEW_FIELD_ENTRY(k_index, AdifInteger),
     NEW_FIELD_ENTRY(lat, AdifLocation),
     NEW_FIELD_ENTRY(lon, AdifLocation),
+    NEW_FIELD_ENTRY(lotw_qsl_rcvd, AdifQslRcvd),
+    NEW_FIELD_ENTRY(lotw_qsl_sent, AdifQslSent),
     NEW_FIELD_ENTRY(lotw_qslrdate, AdifDate),
     NEW_FIELD_ENTRY(lotw_qslsdate, AdifDate),
     NEW_FIELD_ENTRY(max_bursts, AdifNumber),
     NEW_FIELD_ENTRY(morse_key_info, AdifString),
+    NEW_FIELD_ENTRY(morse_key_type, AdifMorseKey),
     NEW_FIELD_ENTRY(ms_shower, AdifString),
     NEW_FIELD_ENTRY(my_altitude, AdifNumber),
     NEW_FIELD_ENTRY(my_antenna, AdifString),
     NEW_FIELD_ENTRY(my_antenna_intl, AdifIntlString),
+    NEW_FIELD_ENTRY(my_arrl_sect, AdifArrlSection),
     NEW_FIELD_ENTRY(my_city, AdifString),
     NEW_FIELD_ENTRY(my_city_intl, AdifIntlString),
     NEW_FIELD_ENTRY(my_country, AdifString),
     NEW_FIELD_ENTRY(my_country_intl, AdifIntlString),
     NEW_FIELD_ENTRY(my_cq_zone, AdifPositiveInteger),
+    NEW_FIELD_ENTRY(my_dxcc, AdifDxcc),
     NEW_FIELD_ENTRY(my_fists, AdifPositiveInteger),
     NEW_FIELD_ENTRY(my_gridsquare, AdifGridSquare),
     NEW_FIELD_ENTRY(my_gridsquare_ext, AdifGridSquareExt),
+    NEW_FIELD_ENTRY(my_iota, AdifIOTARefNo),
     NEW_FIELD_ENTRY(my_iota_island_id, AdifPositiveInteger),
     NEW_FIELD_ENTRY(my_itu_zone, AdifPositiveInteger),
     NEW_FIELD_ENTRY(my_lat, AdifLocation),
     NEW_FIELD_ENTRY(my_lon, AdifLocation),
     NEW_FIELD_ENTRY(my_morse_key_info, AdifString),
+    NEW_FIELD_ENTRY(my_morse_key_type, AdifMorseKey),
     NEW_FIELD_ENTRY(my_name, AdifString),
     NEW_FIELD_ENTRY(my_name_intl, AdifIntlString),
     NEW_FIELD_ENTRY(my_postal_code, AdifString),
@@ -100,20 +126,29 @@ static const std::unordered_map<std::string, AdifFactoryFunc> ADIF_FIELD_FACTORY
     NEW_FIELD_ENTRY(pfx, AdifString),
     NEW_FIELD_ENTRY(pota_ref, AdifPOTARefList),
     NEW_FIELD_ENTRY(precedence, AdifString),
+    NEW_FIELD_ENTRY(prop_mode, AdifPropagation),
     NEW_FIELD_ENTRY(public_key, AdifString),
     NEW_FIELD_ENTRY(qrzcom_qso_download_date, AdifDate),
+    NEW_FIELD_ENTRY(qrzcom_qso_download_status, AdifQsoDownloadStatus),
     NEW_FIELD_ENTRY(qrzcom_qso_upload_date, AdifDate),
+    NEW_FIELD_ENTRY(qrzcom_qso_upload_status, AdifQsoUploadStatus),
+    NEW_FIELD_ENTRY(qsl_rcvd, AdifQslRcvd),
+    NEW_FIELD_ENTRY(qsl_rcvd_via, AdifQslVia),
+    NEW_FIELD_ENTRY(qsl_sent, AdifQslSent),
+    NEW_FIELD_ENTRY(qsl_sent_via, AdifQslVia),
     NEW_FIELD_ENTRY(qsl_via, AdifString),
     NEW_FIELD_ENTRY(qslmsg, AdifMultilineString),
     NEW_FIELD_ENTRY(qslmsg_intl, AdifIntlMultilineString),
     NEW_FIELD_ENTRY(qslmsg_rcvd, AdifMultilineString),
     NEW_FIELD_ENTRY(qslrdate, AdifDate),
     NEW_FIELD_ENTRY(qslsdate, AdifDate),
+    NEW_FIELD_ENTRY(qso_complete, AdifQsoComplete),
     NEW_FIELD_ENTRY(qso_date, AdifDate),
     NEW_FIELD_ENTRY(qso_date_off, AdifDate),
     NEW_FIELD_ENTRY(qso_random, AdifBoolean),
     NEW_FIELD_ENTRY(qth, AdifString),
     NEW_FIELD_ENTRY(qth_intl, AdifIntlString),
+    NEW_FIELD_ENTRY(region, AdifRegion),
     NEW_FIELD_ENTRY(rig, AdifMultilineString),
     NEW_FIELD_ENTRY(rig_intl, AdifIntlMultilineString),
     NEW_FIELD_ENTRY(rst_rcvd, AdifString),
@@ -134,7 +169,6 @@ static const std::unordered_map<std::string, AdifFactoryFunc> ADIF_FIELD_FACTORY
     NEW_FIELD_ENTRY(station_callsign, AdifString),
     NEW_FIELD_ENTRY(stx, AdifInteger),
     NEW_FIELD_ENTRY(stx_string, AdifString),
-    NEW_FIELD_ENTRY(submode, AdifString),
     NEW_FIELD_ENTRY(swl, AdifBoolean),
     NEW_FIELD_ENTRY(ten_ten, AdifPositiveInteger),
     NEW_FIELD_ENTRY(time_off, AdifTime),
@@ -147,4 +181,8 @@ static const std::unordered_map<std::string, AdifFactoryFunc> ADIF_FIELD_FACTORY
     NEW_FIELD_ENTRY(wwff_ref, AdifWWFFRef),
 };
 
-#endif // ADIF_FIELD_MAP_H
+} // namespace ADIF
+
+// clang-format on
+
+#endif // ADIF_FIELD_MAP_H_GENERATED_H

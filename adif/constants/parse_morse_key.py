@@ -30,8 +30,8 @@ def generate_morse_key_map():
         "    std::string meaning;     \n"
         "    std::string composition; \n"
         "};\n\n"
-        "using MorseKeyMap = std::map<std::string, MorseKeyInfo>;\n\n"
-        "static const MorseKeyMap MORSE_KEY_MAP = {\n" 
+        "using MorseKeyMap = std::map<std::string, MorseKeyInfo, CaseInsensitiveLess>;\n\n"
+        "inline const MorseKeyMap MORSE_KEY_MAP = {\n" 
         + "\n".join(map_entries) +
         "\n};"
     )

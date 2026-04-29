@@ -27,8 +27,8 @@ def generate_qso_upload_status_map():
         "/**\n"
         " * ADIF QSO Upload Status Enumeration\n"
         " */\n"
-        "using QsoUploadStatusMap = std::map<std::string, std::string>;\n\n"
-        "static const QsoUploadStatusMap QSO_UPLOAD_STATUS_MAP = {\n" 
+        "using QsoUploadStatusMap = std::map<std::string, std::string, CaseInsensitiveLess>;\n\n"
+        "inline const QsoUploadStatusMap QSO_UPLOAD_STATUS_MAP = {\n" 
         + "\n".join(map_entries) +
         "\n};"
     )

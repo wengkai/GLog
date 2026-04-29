@@ -26,8 +26,8 @@ def generate_ant_path_map():
         map_entries.append(f'    {{"{abbr}", "{meaning}"}},')
 
     cpp_content = (
-        "using AntPathMap = std::map<std::string, std::string>;\n\n"
-        "static const AntPathMap ANT_PATH_MAP = {\n"  
+        "using AntPathMap = std::map<std::string, std::string, CaseInsensitiveLess>;\n\n"
+        "inline const AntPathMap ANT_PATH_MAP = {\n"  
         + "\n".join(map_entries) +
         "\n};"
     )

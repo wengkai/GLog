@@ -134,8 +134,8 @@ auto GRecord::_createField(const std::string &key_normalized, std::string value)
     }
 
     // general rules
-    auto it = ADIF_FIELD_FACTORY.find(key_normalized);
-    if (it != ADIF_FIELD_FACTORY.end()) {
+    auto it = ADIF::ADIF_FIELD_FACTORY.find(key_normalized);
+    if (it != ADIF::ADIF_FIELD_FACTORY.end()) {
         return wrapper_type(it->second(std::move(value))); // return nullptr when invalid
     }
 

@@ -34,8 +34,8 @@ def generate_qsl_via_map():
         "    bool import_only;\n"
         "    std::string description;\n"
         "};\n\n"
-        "using QslViaMap = std::map<std::string, QslViaInfo>;\n\n"
-        "static const QslViaMap QSL_VIA_MAP = {\n" 
+        "using QslViaMap = std::map<std::string, QslViaInfo, CaseInsensitiveLess>;\n\n"
+        "inline const QslViaMap QSL_VIA_MAP = {\n" 
         + "\n".join(map_entries) +
         "\n};"
     )

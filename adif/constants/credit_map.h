@@ -3,6 +3,8 @@
 
 // clang-format off
 
+#include "CaseInsensitiveLess.h"
+
 
 namespace ADIF {
 struct CreditInfo {
@@ -11,9 +13,9 @@ struct CreditInfo {
     std::string facet;   
 };
 
-using CreditMap = std::map<std::string, CreditInfo>;
+using CreditMap = std::map<std::string, CreditInfo, CaseInsensitiveLess>;
 
-static const CreditMap CREDIT_MAP = {
+inline const CreditMap CREDIT_MAP = {
     {"CQDX", {"CQ Magazine", "DX", "Mixed"}},
     {"CQDX_BAND", {"CQ Magazine", "DX", "Band"}},
     {"CQDX_MODE", {"CQ Magazine", "DX", "Mode"}},

@@ -5,6 +5,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include "AdifCommaList.h"
 #include "AdifDataBase.h"
 #include "AdifPOTARef.h"
 
@@ -13,6 +14,8 @@
  *
  */
 class AdifPOTARefList : public AdifDataBase {
+    using ListUtil = AdifCommaList<AdifPOTARef>;
+
   protected:
     explicit AdifPOTARefList(std::string value) : AdifDataBase(std::move(value)) {
         m_rawValue = std::move(normalize(m_rawValue));
@@ -21,54 +24,12 @@ class AdifPOTARefList : public AdifDataBase {
     ADIF_DATA_TYPE_CLONE_DEC(AdifPOTARefList)
 
     static std::string normalize(const std::string &data) {
-        std::string normalized;
-        std::stringstream ss(data);
-        std::string item;
-        bool first = true;
-
-        while (std::getline(ss, item, ',')) {
-            item.erase(0, item.find_first_not_of(" "));
-            item.erase(item.find_last_not_of(" ") + 1);
-
-            if (!item.empty()) {
-                if (!first) normalized += ",";
-                normalizeDataToUpper(item);
-                normalized += item;
-                first = false;
-            }
-        }
-
-        return normalized;
+        return ListUtil::normalize(data,
+                                   [](std::string &d) { AdifDataBase::normalizeDataToUpper(d); });
     }
 
   public:
-    static bool check(const std::string &data) {
-        if (data.empty()) return false;
-
-        size_t lastPos = data.find_last_not_of(" ");
-        if (lastPos == std::string::npos || data[lastPos] == ',') {
-            return false;
-        }
-
-        std::stringstream ss(data);
-        std::string item;
-        bool hasValidItem = false;
-
-        while (std::getline(ss, item, ',')) {
-            size_t first = item.find_first_not_of(" ");
-            if (first == std::string::npos) return false;
-
-            size_t last = item.find_last_not_of(" ");
-            std::string trimmedItem = item.substr(first, (last - first + 1));
-
-            if (!AdifPOTARef::check(trimmedItem)) {
-                return false;
-            }
-            hasValidItem = true;
-        }
-
-        return hasValidItem;
-    }
+    static bool check(std::string_view data) { return ListUtil::check(data); }
 
     static std::optional<AdifPOTARefList> create(const std::string &data) {
         if (check(data)) {

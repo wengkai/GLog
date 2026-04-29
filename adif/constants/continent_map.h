@@ -3,12 +3,14 @@
 
 // clang-format off
 
+#include "CaseInsensitiveLess.h"
+
 
 namespace ADIF {
 // ADIF Continent Enumeration Mapping
-using ContinentMap = std::map<std::string, std::string>;
+using ContinentMap = std::map<std::string, std::string, CaseInsensitiveLess>;
 
-static const ContinentMap CONTINENT_MAP = {
+inline const ContinentMap CONTINENT_MAP = {
     {"NA", "North America"},
     {"SA", "South America"},
     {"EU", "Europe"},

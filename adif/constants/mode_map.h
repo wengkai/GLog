@@ -3,6 +3,8 @@
 
 // clang-format off
 
+#include "CaseInsensitiveLess.h"
+
 
 namespace ADIF {
 #ifndef MODE_MAP_T
@@ -12,10 +14,10 @@ struct ModeInfo {
     std::vector<std::string> submodes; 
 };
 
-using ModeMap = std::map<std::string, ModeInfo>;
+using ModeMap = std::map<std::string, ModeInfo, CaseInsensitiveLess>;
 
 #endif
-static const ModeMap MODE_MAP = {
+inline const ModeMap MODE_MAP = {
     {"AM", {false, {}}},
     {"ARDOP", {false, {}}},
     {"ATV", {false, {}}},

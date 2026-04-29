@@ -8,7 +8,10 @@
 
 // External Dependencies
 #include <algorithm>
+#include <map>
+#include <string>
 #include <vector>
+#include "CaseInsensitiveLess.h"
 
 #include "ant_path_map.h"
 #include "arrl_section_map.h"
@@ -19,6 +22,7 @@
 #include "continent_map.h"
 #include "credit_map.h"
 #include "dxcc_map.h"
+#include "eqsl_ag_map.h"
 #include "mode_map.h"
 #include "morse_key_map.h"
 #include "propagation_map.h"

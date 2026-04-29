@@ -29,8 +29,8 @@ def generate_band_map():
         "    std::string lower_mhz;\n"
         "    std::string upper_mhz;\n"
         "};\n\n"
-        "using BandMap = std::map<std::string, BandRange, std::less<>>;\n\n"
-        "static const BandMap BAND_MAP = {\n" 
+        "using BandMap = std::map<std::string, BandRange, CaseInsensitiveLess>;\n\n"
+        "inline const BandMap BAND_MAP = {\n" 
         + "\n".join(map_entries) +
         "\n};"
     )
