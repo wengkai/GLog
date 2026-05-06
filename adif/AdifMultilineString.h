@@ -64,8 +64,14 @@ class AdifMultilineString : public AdifDataBase {
                     result.push_back('\n');
                 }
             } else if (c == '\n') {
-                result.push_back('\r');
-                result.push_back('\n');
+                if (i + 1 < data.size() && data[i + 1] == '\r') {
+                    result.push_back('\r');
+                    result.push_back('\n');
+                    ++i;
+                } else {
+                    result.push_back('\r');
+                    result.push_back('\n');
+                }
             } else {
                 result.push_back(c);
             }
