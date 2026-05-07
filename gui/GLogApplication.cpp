@@ -116,6 +116,9 @@ GLogApplication::GLogApplication(QWidget *parent)
     auto *mapWidget = new MapWidget(model, this);
     connect(ui->actionMap_View, &QAction::triggered, mapWidget, &MapWidget::show);
     connect(ui->actionMap_View, &QAction::triggered, mapWidget, &MapWidget::dataVisualize);
+    duplicatesManager = new DuplicatesManager(model, this);
+    connect(ui->actionManage_Duplicates, &QAction::triggered, duplicatesManager,
+            &DuplicatesManager::exec);
 
     auto *ctydb = CtyDB::instance();
     connect(ctydb, &CtyDB::dbHintChanged, mapWidget, &MapWidget::initCtyMarkers,

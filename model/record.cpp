@@ -227,6 +227,36 @@ GRecord GRecord::cloneForSyncOrder() const {
     return snapshot;
 }
 
+auto GRecord::merge(const std::vector<GRecord> &others) -> bool {
+    if (others.empty()) {
+        return false;
+    }
+    std::unordered_map<std::string, wrapper_type> merged_map;
+    for (const auto &other : others) {
+        for (const auto &[key, wrap] : other.m_map) {
+            if (!wrap) {
+                continue;
+            }
+            auto iter0 = m_map.find(key);
+            if (iter0 != m_map.end() && iter0->second) {
+                if (iter0->second->compare(*(wrap.getPtr())) != AdifDataBase::equal_to) {
+                    return false;
+                }
+                continue;
+            }
+            auto [iter1, inserted] = merged_map.try_emplace(key, wrap);
+            if (!inserted && iter1->second &&
+                iter1->second->compare(*(wrap.getPtr())) != AdifDataBase::equal_to) {
+                return false;
+            }
+        }
+    }
+    for (auto &[key, wrap] : merged_map) {
+        m_map[key] = wrapper_type{wrap->clone()};
+    }
+    return true;
+}
+
 auto GRecord::tryRemoveField(const std::string &key) -> bool {
     auto key_normalized = normalizeKey(key);
     if (special_fields.count(key_normalized) != 0) {

@@ -4,6 +4,7 @@
 #include <QFuture>
 #include <QList>
 #include <QMimeData>
+#include <QPersistentModelIndex>
 #include <QStandardItemModel>
 #include <iostream>
 #include <map>
@@ -130,6 +131,10 @@ class AdifModel : public QAbstractTableModel {
         return &m_fifo_exec;
     }
 
+    // 以特定字段组为基准返回重复记录
+    std::vector<std::vector<QPersistentModelIndex>>
+    findDuplicates(const std::vector<std::string> &fields) const;
+
     struct AwardRes {
         QString DXCC = "0";
         QString WAC_ARRL = "0";
@@ -138,9 +143,13 @@ class AdifModel : public QAbstractTableModel {
         QString WAS = "Invaild";
     };
     AwardRes diffEntNameCountForAward() const;
+    size_t deleteRowsPersistent(std::vector<QPersistentModelIndex> indexes);
+    bool mergeRows(QModelIndex major, QModelIndexList indexes);
+    QFuture<bool> mergeRowsAsync(QModelIndex major, QModelIndexList indexes);
+    QFuture<size_t> deleteRowsAsync(QModelIndexList indexes);
 
   public slots:
-    void deleteRows(QModelIndexList indexes);
+    size_t deleteRows(QModelIndexList indexes);
     void sortSelectedColumn(int column, Qt::SortOrder order);
     void removeSelectedColumn(int column);
     void mapCallSignInView(bool keepOrigin);

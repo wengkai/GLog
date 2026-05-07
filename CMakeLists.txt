@@ -124,12 +124,14 @@ list (APPEND UI_FILES ${ROOT_DIR}/gui/SearchBar.ui)
 list (APPEND UI_FILES ${ROOT_DIR}/gui/MapWidget.ui)
 list (APPEND UI_FILES ${ROOT_DIR}/gui/ConfigureCtyDialog.ui)
 list (APPEND UI_FILES ${ROOT_DIR}/gui/AddQSODialog.ui)
+list (APPEND UI_FILES ${ROOT_DIR}/gui/DuplicatesManager.ui)
 
 list (APPEND UI_INCLUDES ${ROOT_DIR}/gui/GLogApplication.h)
 list (APPEND UI_INCLUDES ${ROOT_DIR}/gui/SearchBar.h)
 list (APPEND UI_INCLUDES ${ROOT_DIR}/gui/MapWidget.h)
 list (APPEND UI_INCLUDES ${ROOT_DIR}/gui/ConfigureCtyDialog.h)
 list (APPEND UI_INCLUDES ${ROOT_DIR}/gui/AddQSODialog.h)
+list (APPEND UI_INCLUDES ${ROOT_DIR}/gui/DuplicatesManager.h)
 
 set(PROJECT_SOURCES
 #        ${ROOT_DIR}/main.cpp
@@ -138,6 +140,7 @@ set(PROJECT_SOURCES
         ${ROOT_DIR}/gui/MapWidget.cpp
         ${ROOT_DIR}/gui/ConfigureCtyDialog.cpp
         ${ROOT_DIR}/gui/AddQSODialog.cpp
+        ${ROOT_DIR}/gui/DuplicatesManager.cpp
         ${UI_FILES}
         ${UI_INCLUDES}
 )

@@ -220,6 +220,8 @@ class GRecord : public IGRecord {
      */
     GRecord cloneForSyncOrder() const;
 
+    bool merge(const std::vector<GRecord> &others);
+
     static inline bool less(const GRecord &a, const GRecord &b,
                             const std::vector<std::string> &fields) {
         for (auto &field : fields) {

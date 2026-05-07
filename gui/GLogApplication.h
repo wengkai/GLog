@@ -14,6 +14,7 @@
 #include "AddQSODialog.h"
 #include "ConfigureCtyDialog.h"
 #include "DropAbleTableView.h"
+#include "DuplicatesManager.h"
 #include "GlobalNetwork.h"
 #include "MapWidget.h"
 #include "SearchBar.h"
@@ -80,6 +81,7 @@ class GLOGKIT_API GLogApplication : public QMainWindow {
     MapGraphicsView *mapView = nullptr;
     ConfigureCtyDialog *configureCtyDialog = nullptr;
     AddQSODialog *addQSODialog = nullptr;
+    DuplicatesManager *duplicatesManager = nullptr;
 
     std::vector<LoadedAwardPlugin> m_award_plugins;
     std::shared_ptr<StdinReaderWorker> stdinReader;

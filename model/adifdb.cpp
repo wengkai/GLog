@@ -22,6 +22,7 @@
 #include <iostream>
 #include <sstream>
 #include <type_traits>
+#include "CaseInsensitiveLess.h"
 #include "Concurrent.h"
 #include "fccdb.h"
 
@@ -561,6 +562,48 @@ auto AdifModel::diffEntNameCountForAward() const -> AdifModel::AwardRes {
     return res;
 }
 
+auto AdifModel::deleteRowsPersistent(std::vector<QPersistentModelIndex> indexes) -> size_t {
+    QModelIndexList rows;
+    for (auto &index : indexes) {
+        if (index.isValid()) {
+            rows.append(index);
+        }
+    }
+    return deleteRows(std::move(rows));
+}
+
+bool AdifModel::mergeRows(QModelIndex major, QModelIndexList indexes) {
+    if (!major.isValid() || indexes.size() == 0) {
+        return false;
+    }
+    std::vector<Record> merged_records;
+    merged_records.reserve(indexes.size());
+    for (auto &index : indexes) {
+        if (!index.isValid()) {
+            continue;
+        }
+        merged_records.push_back(records[index.row()]);
+    }
+    auto major_row = major.row();
+    if (!records[major_row].merge(merged_records)) {
+        return false;
+    }
+    QMetaObject::invokeMethod(this, [this, major_row]() mutable {
+        emit dataChanged(createIndex(major_row, 0), createIndex(major_row, columnCount()));
+    });
+    return true;
+}
+
+QFuture<bool> AdifModel::mergeRowsAsync(QModelIndex major, QModelIndexList indexes) {
+    return GLogConcurrent::makeFuture(
+        [this, major, indexes]() -> bool { return mergeRows(major, indexes); }, m_fifo_exec);
+}
+
+QFuture<size_t> AdifModel::deleteRowsAsync(QModelIndexList indexes) {
+    return GLogConcurrent::makeFuture([this, indexes]() -> size_t { return deleteRows(indexes); },
+                                      m_fifo_exec);
+}
+
 auto AdifModel::fromRawData(bool success,
                             std::vector<std::vector<std::pair<std::string, std::string>>> raw_data)
     -> ParseRes {
@@ -755,6 +798,38 @@ std::vector<std::string> AdifModel::insertStringData(int row, std::string data) 
     return errors;
 }
 
+auto AdifModel::findDuplicates(const std::vector<std::string> &fields) const
+    -> std::vector<std::vector<QPersistentModelIndex>> {
+    if (records.empty() || fields.empty()) {
+        return {};
+    }
+
+    // 1. Grouping Phase
+    auto m_less = [&](const Record &a, const Record &b) { return Record::less(a, b, fields); };
+    // Key: Record, Value: List of row integers (saves memory over QModelIndex)
+    std::map<Record, std::vector<int>, decltype(m_less)> groups(m_less);
+    for (int i = 0; i < static_cast<int>(records.size()); ++i) {
+        groups[records[i]].push_back(i);
+    }
+
+    // 2. Collection Phase
+    std::vector<std::vector<QPersistentModelIndex>> duplicates;
+    for (const auto &[_r, rowList] : groups) {
+        if (rowList.size() > 1) {
+            std::vector<QPersistentModelIndex> p_indices;
+            p_indices.reserve(rowList.size());
+
+            for (int row : rowList) {
+                // Create index on the fly and convert to persistent
+                p_indices.emplace_back(createIndex(row, 0));
+            }
+            duplicates.push_back(std::move(p_indices));
+        }
+    }
+
+    return duplicates;
+}
+
 auto AdifModel::insertStringDataAsync(int row, std::string data)
     -> QFuture<std::vector<std::string>> {
     return GLogConcurrent::makeFuture(
@@ -820,12 +895,12 @@ void AdifModel::removeSelectedColumn(int column) {
     endRemoveColumns();
 }
 
-void AdifModel::deleteRows(QModelIndexList indexes) {
+auto AdifModel::deleteRows(QModelIndexList indexes) -> size_t {
     indexes.erase(std::remove_if(indexes.begin(), indexes.end(),
                                  [](const QModelIndex &idx) { return !idx.isValid(); }),
                   indexes.end());
     if (indexes.empty()) {
-        return;
+        return 0;
     }
     std::sort(indexes.begin(), indexes.end(),
               [](const QModelIndex &a, const QModelIndex &b) { return a.row() < b.row(); });
@@ -843,9 +918,11 @@ void AdifModel::deleteRows(QModelIndexList indexes) {
             --idx;
             continue;
         }
-        beginRemoveRows(QModelIndex(), deletebegin, deleteend - 1);
+        QMetaObject::invokeMethod(this, [this, deletebegin, deleteend]() mutable {
+            emit beginRemoveRows(QModelIndex(), deletebegin, deleteend - 1);
+        });
         records.erase(records.begin() + deletebegin, records.begin() + deleteend);
-        endRemoveRows();
+        QMetaObject::invokeMethod(this, [this]() mutable { emit endRemoveRows(); });
         if (idx == 0) {
             break;
         }
@@ -867,10 +944,13 @@ void AdifModel::deleteRows(QModelIndexList indexes) {
             continue;
         }
         auto cloumn = static_cast<int>(iter - rheaders_begin());
-        beginRemoveColumns(QModelIndex(), cloumn, cloumn);
+        QMetaObject::invokeMethod(this, [this, cloumn]() mutable {
+            emit beginRemoveColumns(QModelIndex(), cloumn, cloumn);
+        });
         iter = rheaders.erase(iter);
-        endRemoveColumns();
+        QMetaObject::invokeMethod(this, [this]() mutable { emit endRemoveColumns(); });
     }
+    return indexes.size();
 }
 
 QModelIndex AdifModel::findNext(const QModelIndex &start, Condition condition,
