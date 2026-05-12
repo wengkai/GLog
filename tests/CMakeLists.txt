@@ -10,7 +10,7 @@ macro(add_test_unit test_name)
 
     target_link_libraries(${test_name} PRIVATE 
         ${PROJECT_SHARED}
-        ${EXTRA_LIBS}
+        ${GLOGKIT_APP_LINK_LIBS}
         Qt6::Test
     )
 

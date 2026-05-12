@@ -8,7 +8,7 @@
  * @brief AdifIntlString: IntlString (I)
  *
  */
-class AdifIntlString : public AdifDataBase {
+class GLOGKIT_API AdifIntlString : public AdifDataBase {
   protected:
     explicit AdifIntlString(std::string value) : AdifDataBase(std::move(value)) {}
 

@@ -5,10 +5,11 @@
 #include <QMimeData>
 #include <QTableView>
 #include "GHeaderView.h"
+#include "app_export.h"
 
 class AdifModel;
 
-class DropAbleTableView : public QTableView {
+class GLOGKIT_API DropAbleTableView : public QTableView {
     Q_OBJECT
 
   private:

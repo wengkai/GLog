@@ -19,7 +19,7 @@ struct ModeInfo {
 
 using ModeMap = std::map<std::string, ModeInfo>;
 
-class AdifModeFactory {
+class GLOGKIT_API AdifModeFactory {
 
     static bool _m_check(const std::string &mode, const std::string &submode);
 
@@ -40,7 +40,7 @@ class AdifModeFactory {
 /**
  * @brief AdifMode
  */
-class AdifMode : public AdifDataBase {
+class GLOGKIT_API AdifMode : public AdifDataBase {
     friend class AdifSubMode;
     friend class AdifModeFactory;
 
@@ -72,7 +72,7 @@ class AdifMode : public AdifDataBase {
 /**
  * @brief AdifSubMode
  */
-class AdifSubMode : public AdifDataBase {
+class GLOGKIT_API AdifSubMode : public AdifDataBase {
     friend class AdifMode;
     friend class AdifModeFactory;
 

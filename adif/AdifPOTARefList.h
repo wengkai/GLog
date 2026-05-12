@@ -13,7 +13,7 @@
  * @brief AdifPOTARefList: POTA
  *
  */
-class AdifPOTARefList : public AdifDataBase {
+class GLOGKIT_API AdifPOTARefList : public AdifDataBase {
     using ListUtil = AdifCommaList<AdifPOTARef>;
 
   protected:

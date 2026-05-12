@@ -10,7 +10,7 @@
  * @brief AdifGridSquare
  *
  */
-class AdifGridSquare : public AdifDataBase {
+class GLOGKIT_API AdifGridSquare : public AdifDataBase {
   protected:
     explicit AdifGridSquare(std::string value) : AdifDataBase(std::move(value)) {
         normalizeDataToUpper();

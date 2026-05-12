@@ -12,10 +12,12 @@
 #include <functional>
 #include <memory>
 
+#include "app_export.h"
+
 class SqliteDbExecutor;
 
 // 改进后的事务 RAII 类，支持正确嵌套与错误传播
-struct SqlTransaction {
+struct GLOGKIT_API SqlTransaction {
     friend class SqliteDbExecutor;
 
   public:
@@ -43,7 +45,7 @@ struct SqlTransaction {
 /**
  * @brief SQLite 数据库专用执行器
  */
-class SqliteDbExecutor {
+class GLOGKIT_API SqliteDbExecutor {
   public:
     explicit SqliteDbExecutor(const QString &dbPath);
     ~SqliteDbExecutor();
@@ -61,7 +63,7 @@ class SqliteDbExecutor {
     QSqlDatabase &database();
 
   private:
-    class Worker : public QObject {
+    class GLOGKIT_API Worker : public QObject {
       public:
         Worker(QString dbPath, QString connName);
         ~Worker();

@@ -15,7 +15,9 @@
 #include <QThread>
 #include <unordered_map>
 
-class MarkerPointItem : public QGraphicsEllipseItem {
+#include "app_export.h"
+
+class GLOGKIT_API MarkerPointItem : public QGraphicsEllipseItem {
   public:
     MarkerPointItem(qreal x, qreal y, qreal w, qreal h, QGraphicsItem *parent = nullptr);
     void setLabel(QGraphicsItem *label);
@@ -28,7 +30,7 @@ class MarkerPointItem : public QGraphicsEllipseItem {
     QGraphicsItem *m_label = nullptr;
 };
 
-class MarkerItem : public QGraphicsItemGroup {
+class GLOGKIT_API MarkerItem : public QGraphicsItemGroup {
   public:
     MarkerItem(const QString &text, qreal size, QGraphicsItem *parent = nullptr);
     void setPointOpacity(qreal opacity);
@@ -43,7 +45,7 @@ class MarkerItem : public QGraphicsItemGroup {
     QGraphicsSimpleTextItem *label;
 };
 
-class MapGraphicsView : public QGraphicsView {
+class GLOGKIT_API MapGraphicsView : public QGraphicsView {
     Q_OBJECT
 
   public:

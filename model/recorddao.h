@@ -8,10 +8,12 @@
 #include <string>
 #include <vector>
 
+#include "app_export.h"
+
 class SqliteDbExecutor;
 class GRecord;
 
-class GRecordDao {
+class GLOGKIT_API GRecordDao {
   public:
     // 初始化数据库表结构（若不存在则创建）。失败抛出 std::runtime_error。
     static void initSchema(SqliteDbExecutor &exec);

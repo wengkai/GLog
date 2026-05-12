@@ -12,7 +12,7 @@
  * @brief AdifPOTARef: Parks on the Air
  *
  */
-class AdifPOTARef : public AdifDataBase {
+class GLOGKIT_API AdifPOTARef : public AdifDataBase {
   protected:
     explicit AdifPOTARef(std::string value) : AdifDataBase(std::move(value)) {
         normalizeDataToUpper();

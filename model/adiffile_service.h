@@ -8,10 +8,12 @@
 #include <string>
 #include <vector>
 
+#include "app_export.h"
+
 class AdifModel;
 
 /** File/string load and save orchestration around {@link AdifModel}. */
-class AdifFileService : public QObject {
+class GLOGKIT_API AdifFileService : public QObject {
     Q_OBJECT
 
   public:

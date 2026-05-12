@@ -15,7 +15,7 @@
  *    - (ASCII 32)
  *    - MM.MMM: (00.000-59.999)
  */
-class AdifLocation : public AdifDataBase {
+class GLOGKIT_API AdifLocation : public AdifDataBase {
   protected:
     explicit AdifLocation(std::string value) : AdifDataBase(std::move(value)) {
         m_rawValue[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(m_rawValue[0])));

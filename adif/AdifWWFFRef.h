@@ -11,7 +11,7 @@
  * @brief AdifWWFFRef: (World Wildlife Flora & Fauna)
  *
  */
-class AdifWWFFRef : public AdifDataBase {
+class GLOGKIT_API AdifWWFFRef : public AdifDataBase {
   protected:
     explicit AdifWWFFRef(std::string value) : AdifDataBase(std::move(value)) {
         normalizeDataToUpper();

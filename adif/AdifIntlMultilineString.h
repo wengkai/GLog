@@ -9,7 +9,7 @@
  * @brief AdifIntlMultilineString: IntlMultilineString (G)
  *
  */
-class AdifIntlMultilineString : public AdifDataBase {
+class GLOGKIT_API AdifIntlMultilineString : public AdifDataBase {
   protected:
     explicit AdifIntlMultilineString(std::string &&value) : AdifDataBase(std::move(value)) {}
 

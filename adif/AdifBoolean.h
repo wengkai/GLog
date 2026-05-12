@@ -9,7 +9,7 @@
  * @brief AdifBoolean: Boolean (B)
  *
  */
-class AdifBoolean : public AdifDataBase {
+class GLOGKIT_API AdifBoolean : public AdifDataBase {
   protected:
     explicit AdifBoolean(std::string value) : AdifDataBase(std::move(value)) { m_normalize(); }
 

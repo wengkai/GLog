@@ -6,10 +6,12 @@
 
 #include "record.h"
 
+#include "app_export.h"
+
 class IAwardPluginsManager;
 
 /** DXCC/WAC/CQZ counts plus enabled award plugin summaries for the given QSO rows. */
-class AwardEntityCountReport {
+class GLOGKIT_API AwardEntityCountReport {
   public:
     explicit AwardEntityCountReport(IAwardPluginsManager *broker = nullptr);
 

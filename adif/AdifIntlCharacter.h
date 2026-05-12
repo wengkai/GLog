@@ -8,7 +8,7 @@
  * @brief AdifIntlCharacter
  *
  */
-class AdifIntlCharacter : public AdifDataBase {
+class GLOGKIT_API AdifIntlCharacter : public AdifDataBase {
   protected:
     explicit AdifIntlCharacter(std::string value) : AdifDataBase(std::move(value)) {}
 

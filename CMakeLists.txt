@@ -163,6 +163,11 @@ list(APPEND EXTRA_LIBS Qt6::SvgWidgets)
 list(APPEND EXTRA_LIBS Qt6::OpenGLWidgets)
 list(APPEND EXTRA_LIBS Qt6::Sql)
 
+# Static libs merged into ${PROJECT_SHARED}; do not link them again into exe/tests (LNK2005).
+set(GLOGKIT_CORE_MERGED_LIBS adif parser model tools)
+set(GLOGKIT_APP_LINK_LIBS ${EXTRA_LIBS})
+list(REMOVE_ITEM GLOGKIT_APP_LINK_LIBS ${GLOGKIT_CORE_MERGED_LIBS})
+
 target_link_libraries(${PROJECT_SHARED}
     PRIVATE
         ${EXTRA_LIBS}
@@ -175,13 +180,10 @@ target_include_directories(${PROJECT_SHARED} PUBLIC
 	$<INSTALL_INTERFACE:include>
 )
 
-if(WIN32)
-    set_target_properties(${PROJECT_SHARED} PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
-    if(MSVC)
-        set_target_properties(${PROJECT_SHARED} PROPERTIES 
-            LINK_FLAGS "/ignore:4197"
-        )
-    endif()
+if(WIN32 AND MSVC)
+    set_target_properties(${PROJECT_SHARED} PROPERTIES
+        LINK_FLAGS "/ignore:4197"
+    )
 endif()
 
 qt_add_executable(${PROJECT_NAME} ${ROOT_DIR}/main.cpp)
@@ -190,7 +192,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES ENABLE_EXPORTS TRUE)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE 
     ${PROJECT_SHARED}
-    ${EXTRA_LIBS}
+    ${GLOGKIT_APP_LINK_LIBS}
 )
 
 if (WIN32)

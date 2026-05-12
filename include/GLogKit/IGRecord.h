@@ -3,7 +3,9 @@
 
 #include <cstdint>
 
-class IGRecord {
+#include <GLogKit/app_export.h>
+
+class GLOGKIT_API IGRecord {
   public:
     enum class Result : uint8_t {
         NoError = 0,

@@ -13,7 +13,7 @@
  * 3. 01 <= MM <= 12
  * 4. 01 <= DD <= DaysInMonth(MM, YYYY)
  */
-class AdifDate : public AdifDataBase {
+class GLOGKIT_API AdifDate : public AdifDataBase {
   protected:
     explicit AdifDate(std::string value) : AdifDataBase(std::move(value)) {}
 

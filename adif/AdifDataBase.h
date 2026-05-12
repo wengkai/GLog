@@ -11,6 +11,8 @@
 #include <string>
 #include <string_view>
 
+#include "app_export.h"
+
 #define ADIF_DATA_CLONE
 #ifdef ADIF_DATA_CLONE
 
@@ -33,7 +35,7 @@
     ADIF_DATA_TYPE_CLONE_DERIVED_CONS_DEC(classname, base)
 
 #define ADIF_DATA_TYPE_CLONE_IMP(classname)                                                        \
-    auto classname ::_clone() const->AdifDataBase * {                                              \
+    GLOGKIT_API AdifDataBase *classname ::_clone() const {                                         \
         return new classname(m_rawValue, m_pendingValue, externed);                                \
     }
 
@@ -49,7 +51,7 @@
 /**
  * @brief ADIF Meta Base
  */
-class AdifDataBase {
+class GLOGKIT_API AdifDataBase {
   protected:
     std::string m_rawValue;
     std::string m_pendingValue;

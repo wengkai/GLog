@@ -23,6 +23,8 @@
 #include "Concurrent.h"
 #include "Synchronize.h"
 
+#include "app_export.h"
+
 class AdifFileService;
 
 /**
@@ -33,12 +35,12 @@ class AdifFileService;
  * the snapshot can be moved across threads without aliasing the model's
  * internal state.
  */
-struct AdifModelSnapshot {
+struct GLOGKIT_API AdifModelSnapshot {
     std::vector<GRecord> records;
     std::vector<std::string> columnHeaders;
 };
 
-class AdifModel : public QAbstractTableModel {
+class GLOGKIT_API AdifModel : public QAbstractTableModel {
     Q_OBJECT
 
   public:

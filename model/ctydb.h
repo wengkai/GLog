@@ -16,7 +16,9 @@
 #include <shared_mutex>
 #include <variant>
 
-struct CtyEntry {
+#include "app_export.h"
+
+struct GLOGKIT_API CtyEntry {
     int location_id = -1;
     bool valid = false;
     QString name;      // Entity Name
@@ -30,7 +32,7 @@ struct CtyEntry {
     bool ARRL_sponsored = false;
 };
 
-class CtyDB : public QObject {
+class GLOGKIT_API CtyDB : public QObject {
 
     Q_OBJECT
 

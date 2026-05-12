@@ -31,7 +31,7 @@ template <typename Derived> class AdifEnumBase : public AdifDataBase {
 };
 
 #define ADIF_ENUM_DEC(classname)                                                                   \
-    class classname : public AdifEnumBase<classname> {                                             \
+    class GLOGKIT_API classname : public AdifEnumBase<classname> {                                 \
         friend class AdifEnumBase<classname>;                                                      \
         explicit classname(std::string v) : AdifEnumBase(std::move(v)) {                           \
             AdifDataBase::normalizeDataToUpper(m_rawValue);                                        \

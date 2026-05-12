@@ -5,7 +5,7 @@
 #include <string>
 #include "AdifDataBase.h"
 
-class AdifIOTARefNo : public AdifDataBase {
+class GLOGKIT_API AdifIOTARefNo : public AdifDataBase {
   protected:
     explicit AdifIOTARefNo(std::string value) : AdifDataBase(std::move(value)) {
         AdifDataBase::normalizeDataToUpper(m_rawValue);

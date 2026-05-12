@@ -6,11 +6,13 @@
 #include <QNetworkRequest>
 #include <QUrl>
 
+#include "app_export.h"
+
 namespace GLogNetwork {
-QNetworkAccessManager *instance();
-void init(QObject *parent);
-QNetworkReply *get(const QString &url);
-void setGeneralHeader(QNetworkRequest &req);
+GLOGKIT_API QNetworkAccessManager *instance();
+GLOGKIT_API void init(QObject *parent);
+GLOGKIT_API QNetworkReply *get(const QString &url);
+GLOGKIT_API void setGeneralHeader(QNetworkRequest &req);
 template <typename Done> void get(const QString &url, Done done) {
     auto rep = get(url);
     QObject::connect(rep, &QNetworkReply::finished, [=]() {

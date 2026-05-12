@@ -3,7 +3,9 @@
 
 #include <QHeaderView>
 
-class GHeaderView : public QHeaderView {
+#include "app_export.h"
+
+class GLOGKIT_API GHeaderView : public QHeaderView {
     Q_OBJECT
 
   public:

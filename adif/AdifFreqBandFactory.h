@@ -18,7 +18,7 @@ using BandMap = std::map<std::string, BandRange>;
 class AdifFreq;
 class AdifBand;
 
-class AdifFreq : public AdifDataBase {
+class GLOGKIT_API AdifFreq : public AdifDataBase {
     friend class AdifBand;
     friend class AdifFreqBandFactory;
 
@@ -54,7 +54,7 @@ class AdifFreq : public AdifDataBase {
     AdifFreq &operator=(const AdifFreq &) = delete;
 };
 
-class AdifBand : public AdifDataBase {
+class GLOGKIT_API AdifBand : public AdifDataBase {
     friend class AdifFreq;
     friend class AdifFreqBandFactory;
 
@@ -86,7 +86,7 @@ class AdifBand : public AdifDataBase {
     AdifBand &operator=(const AdifBand &) = delete;
 };
 
-class AdifFreqBandFactory {
+class GLOGKIT_API AdifFreqBandFactory {
   public:
     static bool check(const std::string &freq, const std::string &band);
 

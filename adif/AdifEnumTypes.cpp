@@ -1,9 +1,10 @@
 #include "AdifEnumTypes.h"
 
+#include "app_export.h"
 #include "constants/adif_constants.h"
 
 #define ADIF_ENUM_IMPL(classname, static_map)                                                      \
-    template <> auto AdifEnumValidator<classname>::check(std::string_view data)->bool {            \
+    template <> GLOGKIT_API bool AdifEnumValidator<classname>::check(std::string_view data) {      \
         return (static_map).count(data);                                                           \
     }                                                                                              \
     ADIF_DATA_TYPE_CLONE_IMP(classname)

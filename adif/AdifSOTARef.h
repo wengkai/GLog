@@ -11,7 +11,7 @@
  * @brief AdifSOTARef: SOTA
  *
  */
-class AdifSOTARef : public AdifDataBase {
+class GLOGKIT_API AdifSOTARef : public AdifDataBase {
   protected:
     explicit AdifSOTARef(std::string value) : AdifDataBase(std::move(value)) {
         normalizeDataToUpper();

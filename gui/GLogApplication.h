@@ -18,7 +18,6 @@
 #include "GlobalNetwork.h"
 #include "MapWidget.h"
 #include "SearchBar.h"
-#include "StdinReader.h"
 #include "adifdb.h"
 #include "app_export.h"
 
@@ -27,6 +26,7 @@ inline void initAssetsResource() { Q_INIT_RESOURCE(assets); }
 class FIFOBackendThreadExecutor;
 class AwardPluginManager;
 class AdifFileService;
+class StdinReaderWorker;
 
 namespace Ui {
 class GLogApplicationClass;

@@ -6,6 +6,8 @@
 #include <memory>
 #include <vector>
 
+#include "app_export.h"
+
 class AdifModel;
 
 struct DuplicateNode {
@@ -27,7 +29,7 @@ struct DuplicateNode {
     std::vector<std::unique_ptr<DuplicateNode>> children;
 };
 
-class DuplicatesModel : public QAbstractItemModel {
+class GLOGKIT_API DuplicatesModel : public QAbstractItemModel {
     Q_OBJECT
 
   public:

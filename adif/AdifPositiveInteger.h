@@ -9,7 +9,7 @@
  * @brief AdifPositiveInteger
  *
  */
-class AdifPositiveInteger : public AdifDataBase {
+class GLOGKIT_API AdifPositiveInteger : public AdifDataBase {
   protected:
     explicit AdifPositiveInteger(std::string value) : AdifDataBase(std::move(value)) {}
 

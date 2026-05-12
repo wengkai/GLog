@@ -10,7 +10,7 @@
  *
  *  (ASCII 32-126)
  */
-class AdifString : public AdifDataBase {
+class GLOGKIT_API AdifString : public AdifDataBase {
   protected:
     explicit AdifString(std::string value) : AdifDataBase(std::move(value)) {}
 

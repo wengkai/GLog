@@ -13,7 +13,7 @@
  * 3. 00 <= MM <= 59
  * 4. 00 <= SS <= 59
  */
-class AdifTime : public AdifDataBase {
+class GLOGKIT_API AdifTime : public AdifDataBase {
   protected:
     explicit AdifTime(std::string value) : AdifDataBase(std::move(value)) {}
 

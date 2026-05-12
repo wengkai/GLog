@@ -8,7 +8,7 @@
 /**
  * @brief AdifGeneral
  */
-class AdifGeneral : public AdifDataBase {
+class GLOGKIT_API AdifGeneral : public AdifDataBase {
   protected:
     explicit AdifGeneral(std::string value) : AdifDataBase(std::move(value)) {}
 

@@ -9,7 +9,7 @@
  * @brief AdifNumber: Number (N)
  *
  */
-class AdifNumber : public AdifDataBase {
+class GLOGKIT_API AdifNumber : public AdifDataBase {
   protected:
     explicit AdifNumber(std::string value) : AdifDataBase(std::move(value)) {}
 

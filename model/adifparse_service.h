@@ -9,8 +9,10 @@
 
 #include "record.h"
 
+#include "app_export.h"
+
 /** Stateless ADIF text parsing; no Qt model dependency. */
-class AdifParseService {
+class GLOGKIT_API AdifParseService {
   public:
     using Record = GRecord;
 

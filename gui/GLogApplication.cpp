@@ -20,6 +20,7 @@
 #include "Concurrent.h"
 #include "GCommandLineParser.h"
 #include "MultiLineDelegate.h"
+#include "StdinReader.h"
 #include "Synchronize.h"
 #include "adiffile_service.h"
 #include "adifparse_service.h"

@@ -6,8 +6,8 @@
 #include "AdifCommaList.h"
 #include "AdifDataBase.h"
 
-class AdifCreditList : public AdifDataBase {
-    class AdifCreditItem {
+class GLOGKIT_API AdifCreditList : public AdifDataBase {
+    class GLOGKIT_API AdifCreditItem {
       public:
         static bool check(std::string_view data);
         static void normalize(std::string &data);

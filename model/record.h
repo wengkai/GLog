@@ -25,6 +25,7 @@
 #include "AdifGeneral.h"
 
 #include "GLogKit/IGRecord.h"
+#include "app_export.h"
 
 template <typename AdifDataType>
 std::shared_ptr<AdifDataBase> make_shared_from_optional(const std::optional<AdifDataType> &opt) {
@@ -42,7 +43,7 @@ std::shared_ptr<AdifDataBase> make_shared_from_optional(std::optional<AdifDataTy
     return nullptr;
 }
 
-class AdifDataWrap {
+class GLOGKIT_API AdifDataWrap {
 
     using Mybase = std::shared_ptr<AdifDataBase>;
 
@@ -108,7 +109,7 @@ class AdifDataWrap {
  * @note Essential fields (like mode/submode) are enforced upon construction to
  * maintain ADIF protocol compliance.
  */
-class GRecord : public IGRecord {
+class GLOGKIT_API GRecord : public IGRecord {
 
   public:
     using wrapper_type = AdifDataWrap;

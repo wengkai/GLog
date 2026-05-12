@@ -14,7 +14,9 @@
 #include "SqliteDbExecutor.h"
 #include "record.h"
 
-class GRecordRepository {
+#include "app_export.h"
+
+class GLOGKIT_API GRecordRepository {
     // 持有之前审查过的执行器
     std::shared_ptr<SqliteDbExecutor> m_dbExec;
 

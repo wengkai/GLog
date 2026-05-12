@@ -12,7 +12,7 @@
 /**
  * @brief AdifGridSquareList
  */
-class AdifGridSquareList : public AdifDataBase {
+class GLOGKIT_API AdifGridSquareList : public AdifDataBase {
     using ListUtil = AdifCommaList<AdifGridSquare>;
 
   protected:
