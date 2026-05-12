@@ -215,7 +215,7 @@ jobs:
 
       - name: Setup ENV
         run: |
-          brew install bison flex
+          brew install bison flex ccache lld
           echo "$(brew --prefix bison)/bin" >> $GITHUB_PATH
           echo "$(brew --prefix flex)/bin" >> $GITHUB_PATH
           echo "$(brew --prefix llvm@20)/bin/" >> $GITHUB_PATH
@@ -231,15 +231,17 @@ jobs:
 
       - name: Configure CMake
         run: |
+          export FLEX_INCLUDE_DIRS="$(brew --prefix flex)/include"
           cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH=$Qt6_DIR \
             -DCMAKE_INSTALL_PREFIX=/Applications \
-            -DFLEX_INCLUDE_DIRS="$(brew --prefix flex)/include"
+            -DFLEX_INCLUDE_DIRS="$FLEX_INCLUDE_DIRS" \
+            -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld"
 
       - name: Build & Test
         run: |
-          cmake --build build --config Release --parallel
+          cmake --build build --config Release -j4
           cd build
           ctest -C Release --output-on-failure --verbose
 
