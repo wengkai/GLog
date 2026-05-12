@@ -28,7 +28,9 @@ DuplicatesManager::DuplicatesManager(AdifModel *model, QWidget *parent)
     ui->treeView->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(ui->treeView, &QTreeView::customContextMenuRequested, this, [this](const QPoint &pos) {
         auto index = ui->treeView->indexAt(pos);
-        if (!index.isValid()) return;
+        if (!index.isValid()) {
+            return;
+        }
 
         QMenu menu(this);
         auto *setMajorAction = menu.addAction(tr("Set as major"));
@@ -46,7 +48,9 @@ void DuplicatesManager::RefreshDuplicates() {
     for (auto &field : fields) {
         field = field.trimmed();
     }
-    if (fields.isEmpty()) return;
+    if (fields.isEmpty()) {
+        return;
+    }
     std::vector<std::string> fieldNames;
     fieldNames.reserve(fields.size());
     for (auto &field : fields) {
@@ -59,24 +63,38 @@ void DuplicatesManager::RefreshDuplicates() {
 
 void DuplicatesManager::RemoveMinors() {
     if (QMessageBox::question(this, tr("Confirm"),
-                              tr("Are you sure to delete all minor records?")) != QMessageBox::Yes)
+                              tr("Are you sure to delete all minor records?")) !=
+        QMessageBox::StandardButton::Yes) {
         return;
+    }
+    removeMinorsAfterConfirmed();
+}
 
+void DuplicatesManager::removeMinorsAfterConfirmed() {
     auto minors = m_duplicatesModel->collectMinors();
-    if (minors.empty()) return;
+    if (minors.empty()) {
+        return;
+    }
     ui->removeMinorsButton->setEnabled(false);
     m_model->deleteRowsAsync(std::move(minors)).then(this, [this](size_t count) {
-        if (count == 0) return;
-        QMessageBox::information(this, tr("Done"), tr("Deleted %1 rows").arg(count));
+        if (count == 0) {
+            return;
+        }
+        emit userInformation(tr("Done"), tr("Deleted %1 rows").arg(count));
         RefreshDuplicates();
         ui->removeMinorsButton->setEnabled(true);
     });
 }
 
 void DuplicatesManager::MergeToMajor() {
-    if (QMessageBox::question(this, tr("Confirm"), tr("Merge to major?")) != QMessageBox::Yes)
+    if (QMessageBox::question(this, tr("Confirm"), tr("Merge to major?")) !=
+        QMessageBox::StandardButton::Yes) {
         return;
+    }
+    mergeToMajorAfterConfirmed();
+}
 
+void DuplicatesManager::mergeToMajorAfterConfirmed() {
     auto groups = m_duplicatesModel->collectGroups();
 
     QList<QFuture<bool>> futures;
@@ -89,25 +107,27 @@ void DuplicatesManager::MergeToMajor() {
         .then(this, [this](QList<QFuture<bool>> results) {
             // RefreshDuplicates();
             assert(results.size() == m_duplicatesModel->groupCount());
-            int ok = 0, fail = 0;
-            for (size_t i = 0; i < results.size(); ++i) {
+            int ok = 0;
+            int fail = 0;
+            m_duplicatesModel->beginUpdateAll();
+            for (qsizetype i = 0; i < results.size(); ++i) {
                 if (results[i].result()) {
                     m_duplicatesModel->setGroupStatus(i, DuplicateNode::GroupStatus::Success);
-                    m_duplicatesModel->updateGroupData(i);
+                    // m_duplicatesModel->updateGroupData(i);
                     ++ok;
                 } else {
                     m_duplicatesModel->setGroupStatus(i, DuplicateNode::GroupStatus::Failed);
                     ++fail;
                 }
             }
+            m_duplicatesModel->endUpdateAll();
 
-            QMessageBox::information(this, tr("Done"),
-                                     tr("Merged %1 success, %2 failed").arg(ok).arg(fail));
+            emit userInformation(tr("Done"), tr("Merged %1 success, %2 failed").arg(ok).arg(fail));
             ui->mergeToMajorButton->setEnabled(true);
         });
 }
 
-int DuplicatesManager::exec() {
+auto DuplicatesManager::exec() -> int {
     RefreshDuplicates();
     return QDialog::exec();
 }

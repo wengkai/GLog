@@ -9,6 +9,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "app_export.h"
+
 class AdifModel;
 class DuplicatesModel;
 
@@ -16,7 +18,7 @@ namespace Ui {
 class DuplicatesManagerClass;
 }
 
-class DuplicatesManager : public QDialog {
+class GLOGKIT_API DuplicatesManager : public QDialog {
     Q_OBJECT
 
   public:
@@ -28,11 +30,19 @@ class DuplicatesManager : public QDialog {
     const QBrush kSuccessGroupBrush{QBrush(QColor(0, 255, 0, 60))};
     const QBrush kFailedGroupBrush{QBrush(QColor(255, 0, 0, 60))};
 
+    // ==== no question box api ====
+
+    void removeMinorsAfterConfirmed();
+    void mergeToMajorAfterConfirmed();
+
   public slots:
     void RefreshDuplicates();
     void RemoveMinors();
     void MergeToMajor();
     virtual int exec() override;
+
+  signals:
+    void userInformation(const QString &title, const QString &text);
 
   private:
     Ui::DuplicatesManagerClass *ui;

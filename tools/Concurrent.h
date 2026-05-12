@@ -10,6 +10,7 @@
 #include <exception>
 #include <functional>
 #include <type_traits>
+#include <utility>
 
 namespace GLogConcurrent {
 
@@ -26,6 +27,16 @@ struct MainThreadExecutor {
     }
 };
 
+/**
+ * Run @p f on the GUI thread and block the caller until it finishes (MainThreadExecutor +
+ * waitForFinished). Safe from worker threads; on the GUI thread the callable runs inline.
+ * If you call from the GUI thread while it is blocked waiting on the calling thread, you
+ * may deadlock.
+ */
+template <class F> inline void runOnMainThreadSync(F &&f) {
+    makeFuture(std::forward<F>(f), MainThreadExecutor{});
+}
+
 class FIFOBackendThreadExecutor {
 
     QThreadPool m_thread_pool;
@@ -34,6 +45,14 @@ class FIFOBackendThreadExecutor {
     explicit FIFOBackendThreadExecutor() { m_thread_pool.setMaxThreadCount(1); }
     template <typename Callable> inline void start(Callable &&functionToRun) {
         m_thread_pool.start(std::forward<Callable>(functionToRun));
+    }
+    // destructor will process events until all tasks are finished
+    ~FIFOBackendThreadExecutor() { waitForDone(); }
+    void waitForDone() { m_thread_pool.waitForDone(); }
+    void waitForDoneAndProcessEvents() {
+        while (m_thread_pool.activeThreadCount() > 0) {
+            QCoreApplication::processEvents();
+        }
     }
 };
 

@@ -44,7 +44,6 @@ class WASPlugin {
     QSet<QString> m_workedStates;
     mutable QString m_lastError;
     mutable QString m_cachedResult;
-    bool m_installed;
 };
 
 #endif

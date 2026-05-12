@@ -99,7 +99,9 @@ class TestGLogConcurrent : public QObject {
         watcher.setFuture(makeFuture<int>([](QPromise<int> &promise) {
             promise.start(); // 显式启动（内部也会调用）
             for (int i = 1; i <= 5; ++i) {
-                if (promise.isCanceled()) return;
+                if (promise.isCanceled()) {
+                    return;
+                }
                 QThread::msleep(20);
                 promise.setProgressValue(i * 20);
                 promise.addResult(i);
@@ -148,7 +150,9 @@ class TestGLogConcurrent : public QObject {
             capturedPromise = &promise;
             promise.start();
             for (int i = 0; i < 10; ++i) {
-                if (promise.isCanceled()) return;
+                if (promise.isCanceled()) {
+                    return;
+                }
                 QThread::msleep(50);
                 promise.addResult(i);
             }

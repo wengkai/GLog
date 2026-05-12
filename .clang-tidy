@@ -1,4 +1,4 @@
-Checks: 'bugprone-*,performance-*,readability-*,modernize-*,clang-analyzer-*'
+Checks: 'bugprone-*,performance-*,readability-*,modernize-*,clang-analyzer-*,-readability-identifier-length,-readability-magic-numbers'
 
 WarningsAsErrors: ''
 

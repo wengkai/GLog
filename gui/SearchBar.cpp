@@ -1,5 +1,4 @@
 #include "SearchBar.h"
-#include <QMessageBox>
 #include "ui_SearchBar.h"
 
 SearchBar::SearchBar(QWidget *parent) : QDialog(parent), ui(new Ui::SearchBarClass()) {

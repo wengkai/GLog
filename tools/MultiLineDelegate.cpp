@@ -4,7 +4,7 @@ MultiLineDelegate::MultiLineDelegate(QWidget *parent) : QStyledItemDelegate(pare
 
 auto MultiLineDelegate::createEditor(QWidget *parent, const QStyleOptionViewItem &option,
                                      const QModelIndex &index) const -> QWidget * {
-    QPlainTextEdit *editor = new QPlainTextEdit(parent);
+    auto *editor = new QPlainTextEdit(parent);
     editor->installEventFilter(const_cast<MultiLineDelegate *>(this));
     return editor;
 }
@@ -18,9 +18,9 @@ void MultiLineDelegate::setModelData(QWidget *editor, QAbstractItemModel *model,
     model->setData(index, qobject_cast<QPlainTextEdit *>(editor)->toPlainText());
 }
 
-bool MultiLineDelegate::eventFilter(QObject *obj, QEvent *event) {
+auto MultiLineDelegate::eventFilter(QObject *obj, QEvent *event) -> bool {
     if (event->type() == QEvent::KeyPress) {
-        QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
+        auto *keyEvent = static_cast<QKeyEvent *>(event);
 
         if (keyEvent->key() == Qt::Key_Return || keyEvent->key() == Qt::Key_Enter) {
             // Check if modifiers like Shift or Ctrl are pressed
@@ -28,8 +28,8 @@ bool MultiLineDelegate::eventFilter(QObject *obj, QEvent *event) {
             if (!(keyEvent->modifiers() & Qt::ShiftModifier) &&
                 !(keyEvent->modifiers() & Qt::ControlModifier)) {
 
-                QPlainTextEdit *editor = qobject_cast<QPlainTextEdit *>(obj);
-                if (editor) {
+                auto *editor = qobject_cast<QPlainTextEdit *>(obj);
+                if (editor != nullptr) {
                     emit commitData(editor);
                     emit closeEditor(editor);
                 }

@@ -12,6 +12,10 @@ on:
 permissions:
   contents: read
 
+env:
+  ADIF_VOLUME_STRESS: "1"
+  # ADIF_EXTREME_TEST: "1"
+
 jobs:
   build-linux:
     runs-on: ubuntu-latest

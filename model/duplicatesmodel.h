@@ -40,9 +40,9 @@ class DuplicatesModel : public QAbstractItemModel {
     QModelIndex parent(const QModelIndex &child) const override;
     int rowCount(const QModelIndex &parent) const override;
     int columnCount(const QModelIndex &) const override { return 1; }
-    QVariant data(const QModelIndex &index, int role) const override;
+    QVariant data(const QModelIndex &idx, int role) const override;
 
-    void setMajor(const QModelIndex &index);
+    void setMajor(const QModelIndex &idx);
 
     QModelIndexList collectMinors() const;
 
@@ -54,6 +54,8 @@ class DuplicatesModel : public QAbstractItemModel {
     size_t groupCount() const;
     void updateGroupData(size_t groupIndex);
     void setGroupStatus(size_t groupIndex, DuplicateNode::GroupStatus status);
+    void beginUpdateAll();
+    void endUpdateAll();
 
   private:
     DuplicateNode *nodeFromIndex(const QModelIndex &idx) const;

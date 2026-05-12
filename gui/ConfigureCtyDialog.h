@@ -39,6 +39,7 @@ class GLOGKIT_API ConfigureCtyDialog : public QDialog {
   signals:
     void startLoadDB(const LoadContext &ctx);
     void endLoadDB(QString load_hint);
+    void loadFinishedInformation(const QString &message);
 
   private:
     Ui::ConfigureCtyDialogClass *ui;

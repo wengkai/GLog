@@ -3,10 +3,12 @@
 #include "constants/adif_constants.h"
 
 #define ADIF_ENUM_IMPL(classname, static_map)                                                      \
-    template <> bool AdifEnumValidator<classname>::check(std::string_view data) {                  \
-        return static_map.count(data);                                                             \
+    template <> auto AdifEnumValidator<classname>::check(std::string_view data)->bool {            \
+        return (static_map).count(data);                                                           \
     }                                                                                              \
     ADIF_DATA_TYPE_CLONE_IMP(classname)
+
+// NOLINTBEGIN(modernize-use-trailing-return-type)
 
 ADIF_ENUM_IMPL(AdifAntPath, ADIF::ANT_PATH_MAP)
 ADIF_ENUM_IMPL(AdifArrlSection, ADIF::ARRL_SECTION_MAP)
@@ -28,3 +30,5 @@ ADIF_ENUM_IMPL(AdifQsoComplete, ADIF::QSO_COMPLETE_MAP)
 ADIF_ENUM_IMPL(AdifQsoDownloadStatus, ADIF::QSO_DOWNLOAD_STATUS_MAP)
 ADIF_ENUM_IMPL(AdifQsoUploadStatus, ADIF::QSO_UPLOAD_STATUS_MAP)
 ADIF_ENUM_IMPL(AdifRegion, ADIF::REGION_MAP)
+
+// NOLINTEND(modernize-use-trailing-return-type)

@@ -3,10 +3,11 @@
 #include <QFont>
 #include <QGraphicsEllipseItem>
 #include <QGraphicsSceneEvent>
-#include <QMessageBox>
 #include <QMouseEvent>
 #include <QOpenGLWidget>
+#include <QPainterPath>
 #include <QWheelEvent>
+#include <cmath>
 
 MarkerPointItem::MarkerPointItem(qreal x, qreal y, qreal w, qreal h, QGraphicsItem *parent)
     : QGraphicsEllipseItem(x, y, w, h, parent) {
@@ -108,30 +109,56 @@ auto MapGraphicsView::createMarker(const QString &title, const qreal &lon, const
 }
 
 auto MapGraphicsView::createLine(const qreal &lon1, const qreal &lat1, const qreal &lon2,
-                                 const qreal &lat2, const QPen &pen) const -> QGraphicsLineItem * {
-    QPointF p1 = mapLonAndLat(lon1, lat1);
-    QPointF p2 = mapLonAndLat(lon2, lat2);
+                                 const qreal &lat2, const QPen &pen) -> QGraphicsPathItem * {
+    const QPointF p1 = mapLonAndLat(lon1, lat1);
+    const QPointF p2 = mapLonAndLat(lon2, lat2);
 
-    auto *lineItem = new QGraphicsLineItem(QLineF(p1, p2));
+    QPainterPath path;
+    path.moveTo(p1);
+
+    const qreal dx = p2.x() - p1.x();
+    const qreal dy = p2.y() - p1.y();
+    const qreal chordLen = std::hypot(dx, dy);
+    if (chordLen < 1e-6) {
+        path.lineTo(p2);
+    } else {
+        // Scene-space arc: control point on perpendicular bisector of chord (flat map plane).
+        constexpr qreal kBulge = 0.22;
+        const QPointF mid((p1.x() + p2.x()) * 0.5, (p1.y() + p2.y()) * 0.5);
+        const qreal invLen = 1.0 / chordLen;
+        const QPointF perp(-dy * invLen, dx * invLen);
+        const QPointF ctrl = mid + perp * (kBulge * chordLen);
+        path.quadTo(ctrl, p2);
+    }
+
+    auto *pathItem = new QGraphicsPathItem(path);
 
     auto m_pen = pen;
     m_pen.setWidthF(pen.widthF() / m_zoomnum);
-    lineItem->setPen(m_pen);
+    pathItem->setPen(m_pen);
 
-    lineItem->setZValue(1.5);
+    pathItem->setZValue(1.5);
 
-    connect(this, &MapGraphicsView::zoomChanged, [=](qreal from, qreal to) {
-        auto p = lineItem->pen();
+    auto conn = connect(this, &MapGraphicsView::zoomChanged, [=](qreal from, qreal to) {
+        auto p = pathItem->pen();
         p.setWidthF(pen.widthF() * from / to);
-        lineItem->setPen(p);
+        pathItem->setPen(p);
     });
 
-    return lineItem;
+    m_connections_hash[pathItem] = conn;
+
+    return pathItem;
 }
 
 void MapGraphicsView::addItem(QGraphicsItem *item) { m_scene->addItem(item); }
 
-void MapGraphicsView::removeItem(QGraphicsItem *item) { m_scene->removeItem(item); }
+void MapGraphicsView::removeItem(QGraphicsItem *item) {
+    auto conn = m_connections_hash.extract(item);
+    if (conn) {
+        disconnect(conn.mapped());
+    }
+    m_scene->removeItem(item);
+}
 
 void MapGraphicsView::mouseMoveEvent(QMouseEvent *event) {
     QGraphicsView::mouseMoveEvent(event);

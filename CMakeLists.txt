@@ -125,6 +125,7 @@ list (APPEND UI_FILES ${ROOT_DIR}/gui/MapWidget.ui)
 list (APPEND UI_FILES ${ROOT_DIR}/gui/ConfigureCtyDialog.ui)
 list (APPEND UI_FILES ${ROOT_DIR}/gui/AddQSODialog.ui)
 list (APPEND UI_FILES ${ROOT_DIR}/gui/DuplicatesManager.ui)
+list (APPEND UI_FILES ${ROOT_DIR}/gui/AwardPluginManager.ui)
 
 list (APPEND UI_INCLUDES ${ROOT_DIR}/gui/GLogApplication.h)
 list (APPEND UI_INCLUDES ${ROOT_DIR}/gui/SearchBar.h)
@@ -132,6 +133,7 @@ list (APPEND UI_INCLUDES ${ROOT_DIR}/gui/MapWidget.h)
 list (APPEND UI_INCLUDES ${ROOT_DIR}/gui/ConfigureCtyDialog.h)
 list (APPEND UI_INCLUDES ${ROOT_DIR}/gui/AddQSODialog.h)
 list (APPEND UI_INCLUDES ${ROOT_DIR}/gui/DuplicatesManager.h)
+list (APPEND UI_INCLUDES ${ROOT_DIR}/gui/AwardPluginManager.h)
 
 set(PROJECT_SOURCES
 #        ${ROOT_DIR}/main.cpp
@@ -141,6 +143,7 @@ set(PROJECT_SOURCES
         ${ROOT_DIR}/gui/ConfigureCtyDialog.cpp
         ${ROOT_DIR}/gui/AddQSODialog.cpp
         ${ROOT_DIR}/gui/DuplicatesManager.cpp
+        ${ROOT_DIR}/gui/AwardPluginManager.cpp
         ${UI_FILES}
         ${UI_INCLUDES}
 )
@@ -583,6 +586,38 @@ option(BUILD_TESTING "Build the testing suite" ON)
 if(BUILD_TESTING)
 enable_testing()
 add_subdirectory(tests)
+
+if(WIN32)
+    set(GLOG_COVERAGE_CTEST_CONFIG "$<CONFIG>" CACHE STRING
+        "CTest -C value for the coverage custom target (match your MSVC configuration, e.g. Debug or RelWithDebInfo)")
+    # Note: $ENV{ProgramFiles(x86)} is invalid CMake syntax; use bracket form if needed.
+    find_program(OpenCppCoverage NAMES OpenCppCoverage.exe
+        HINTS
+            "$ENV{ProgramFiles}/OpenCppCoverage"
+            "$ENV{ProgramW6432}/OpenCppCoverage"
+            "$ENV{ProgramFiles\(x86\)}/OpenCppCoverage"
+    )
+    if(OpenCppCoverage)
+        add_custom_target(coverage
+            COMMAND powershell -NoProfile -ExecutionPolicy Bypass -File
+                "${CMAKE_SOURCE_DIR}/scripts/Generate-TestCoverage.ps1"
+                -OpenCppCoverage "${OpenCppCoverage}"
+                -BuildDir "${CMAKE_BINARY_DIR}"
+                -SourceRoot "${CMAKE_SOURCE_DIR}"
+                -Config "${GLOG_COVERAGE_CTEST_CONFIG}"
+            WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
+            COMMENT "OpenCppCoverage + ctest (build ${GLOG_COVERAGE_CTEST_CONFIG} with PDBs first)"
+            VERBATIM
+        )
+        if(GLOG_TEST_EXECUTABLE_TARGETS)
+            add_dependencies(coverage ${GLOG_TEST_EXECUTABLE_TARGETS})
+        endif()
+        message(STATUS "OpenCppCoverage: ${GLOG_TEST_EXECUTABLE_TARGETS}")
+    else()
+        message(STATUS "OpenCppCoverage.exe not found; coverage target disabled")
+    endif()
+endif()
+
 endif()
 
 

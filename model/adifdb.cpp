@@ -6,25 +6,22 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QItemSelectionModel>
-#include <QMessageBox>
 #include <QPointer>
 #include <QProcess>
 #include <QRegularExpression>
-#include <QSaveFile>
+#include <QStringList>
 #include <QTemporaryDir>
 #include <QTemporaryFile>
-#include <QTextStream>
 #include <QTimer>
 #include <QUrl>
 #include <algorithm>
 #include <cstdlib>
-#include <fstream>
 #include <iostream>
 #include <sstream>
 #include <type_traits>
 #include "CaseInsensitiveLess.h"
 #include "Concurrent.h"
-#include "fccdb.h"
+#include "adiffile_service.h"
 
 #ifdef _WIN32
 #include <io.h>
@@ -34,62 +31,20 @@
 #define IS_PIPED (!isatty(fileno(stdin)))
 #endif
 
-static QTextStream &operator<<(QTextStream &stream, const std::string &str) {
-    stream << QString::fromStdString(str);
-    return stream;
+namespace {
+
+void attachBackupFailureLogger(QFuture<void> fut) {
+    fut.onFailed(QCoreApplication::instance(), [](const std::exception &e) {
+        qWarning() << "GRecordRepository backup task failed:" << e.what();
+    });
 }
 
-static QTextStream &operator<<(QTextStream &stream, std::string_view sv) {
-    stream << QString::fromUtf8(sv);
-    return stream;
-}
-
-template <typename Ostream>
-void AdifModel::_toCsv(Ostream &stream, std::vector<Record> p_records,
-                       std::vector<std::string> p_rheaders) {
-    auto iter1 = p_rheaders.begin();
-    while (true) {
-        stream << (*iter1);
-        ++iter1;
-        if (iter1 == p_rheaders.end()) {
-            break;
-        }
-        stream << ',';
-    }
-    stream << "\n";
-
-    auto iter2 = p_records.begin();
-    while (true) {
-        auto &record = *iter2;
-        for (auto h = p_rheaders.begin(); h != p_rheaders.end(); ++h) {
-            if (h != p_rheaders.begin()) {
-                stream << ',';
-            }
-            auto iter3 = record.find(*h);
-            if (iter3 == record.end()) {
-                continue;
-            }
-            stream << iter3->second;
-        }
-        ++iter2;
-        if (iter2 == p_records.end()) {
-            break;
-        }
-        stream << "\n";
-    }
-}
-
-template <typename Ostream>
-void AdifModel::_toAdif(Ostream &stream, std::vector<Record> p_records) {
-    for (const auto &record : p_records) {
-        stream << record << "\n";
-    }
-}
+} // namespace
 
 void AdifModel::newViewWithRows(const QModelIndexList &indexes) const {
     auto *mineData = mimeData(indexes);
     GLogConcurrent::makeFuture([text = mineData->data("text/plain")]() {
-        QProcess *process = new QProcess();
+        auto *process = new QProcess();
         QObject::connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
                          process, &QObject::deleteLater);
         process->setProcessChannelMode(QProcess::ForwardedChannels);
@@ -191,32 +146,50 @@ void AdifModel::deselectAll(const QString &key, const QString &value, bool isReg
     emit deselectRows(rows);
 }
 
-auto AdifModel::addHeader(std::string header) -> QFuture<bool> {
-    return GLogConcurrent::makeFuture(
-        [this, header = std::move(header)]() { return _addHeader(std::move(header)); },
-        GLogConcurrent::MainThreadExecutor{});
-}
+auto AdifModel::addHeader(std::string header) -> bool { return _addHeader(std::move(header)); }
 
-auto AdifModel::_addHeader(std::string header) -> bool {
+auto AdifModel::_addHeaderCheck(const std::string &header) const
+    -> std::pair<bool, std::vector<std::string>::const_iterator> {
     if (sheaders.count(header) != 0) {
-        return false;
+        return {false, rheaders.end()};
     }
     auto iter = std::lower_bound(rheaders_begin(), rheaders.end(), header);
     if (iter != rheaders.end() && *iter == header) {
+        return {false, rheaders.end()};
+    }
+    return {true, iter};
+}
+
+auto AdifModel::_addHeader(std::string header) -> bool {
+    bool inserted = false;
+    GLogConcurrent::runOnMainThreadSync([this, header = std::move(header), &inserted]() mutable {
+        auto [check, iter] = _addHeaderCheck(header);
+        if (!check) {
+            return;
+        }
+        auto column = static_cast<int>(iter - rheaders_begin());
+        beginInsertColumns(QModelIndex(), column, column);
+        rheaders.insert(iter, std::move(header));
+        endInsertColumns();
+        inserted = true;
+    });
+    return inserted;
+}
+
+auto AdifModel::_addHeaderNoSignal(std::string header) -> bool {
+    auto [check, iter] = _addHeaderCheck(header);
+    if (!check) {
         return false;
     }
-    auto column = static_cast<int>(iter - rheaders_begin());
-    beginInsertColumns(QModelIndex(), column, column);
     rheaders.insert(iter, std::move(header));
-    endInsertColumns();
     return true;
 }
 
 auto AdifModel::_records2StdString(const std::set<int> &rows) const -> std::string {
     std::stringstream stream{};
     for (const auto &row : rows) {
-        if (0 <= row && row < records.size()) {
-            stream << records[row] << "\n";
+        if (0 <= row && row < m_records.size()) {
+            stream << m_records[row] << "\n";
         }
     }
     return stream.str();
@@ -238,53 +211,57 @@ auto AdifModel::getDefaultSortModel(const std::string &field) -> std::vector<std
 }
 
 void AdifModel::mapCallSignInView(bool keepOrigin) {
-    if (records.empty()) {
-        return;
-    }
-    std::string testField = "z_glog_resolved_1";
-    _addHeader(testField);
-    auto *ctydb = CtyDB::instance();
-    emit mapCallSignInViewBegin();
-    std::shared_lock<decltype(ctydb->mutex)> lock0(ctydb->mutex);
+    GLogConcurrent::runOnMainThreadSync([this, keepOrigin]() {
+        if (m_records.empty()) {
+            return;
+        }
+        std::string testField = "z_glog_resolved_1";
+        _addHeader(testField);
+        auto *ctydb = CtyDB::instance();
+        emit mapCallSignInViewBegin();
+        std::shared_lock<decltype(ctydb->mutex)> lock0(ctydb->mutex);
 
-    int failCount = 0;
-    int confictCount = 0;
-    auto writeByKeepOriginFlag = [&](Record &dest, const std::string &key,
-                                     const std::string &value) {
-        if (auto iter = dest.find(key); iter != dest.end() && iter->second->get() != value) {
-            ++confictCount;
-            if (keepOrigin) {
-                return;
+        int failCount = 0;
+        int confictCount = 0;
+        auto writeByKeepOriginFlag = [&](Record &dest, const std::string &key,
+                                         const std::string &value) {
+            if (auto iter = dest.find(key); iter != dest.end() && iter->second->get() != value) {
+                ++confictCount;
+                if (keepOrigin) {
+                    return;
+                }
+            }
+            dest.addOrSetPair(key, value);
+        };
+
+        QString buf;
+        for (auto &record : m_records) {
+            auto call = record.at("call")->get();
+            buf = QString::fromUtf8(call.data(), qsizetype(call.size()));
+            CtyDB::normalizeCallSign(buf);
+            auto result = ctydb->lookUpCallSign(QStringView(buf));
+            if (result.first->valid) {
+                record.addOrSetPair(testField, (result.first->name + result.second).toStdString());
+                // CQZ, ITUZ, CONT, COUNTRY
+                writeByKeepOriginFlag(record, "cqz",
+                                      QString::number(result.first->cq).toStdString());
+                writeByKeepOriginFlag(record, "ituz",
+                                      QString::number(result.first->itu).toStdString());
+                writeByKeepOriginFlag(record, "cont", result.first->continent.toStdString());
+                writeByKeepOriginFlag(record, "country", result.first->name.toStdString());
+            } else {
+                record.addOrSetPair(testField, result.second.toStdString());
+                ++failCount;
             }
         }
-        dest.addOrSetPair(key, value);
-    };
 
-    QString buf;
-    for (auto &record : records) {
-        auto call = record.at("call")->get();
-        buf = QString::fromUtf8(call.data(), qsizetype(call.size()));
-        CtyDB::normalizeCallSign(buf);
-        auto result = ctydb->lookUpCallSign(QStringView(buf));
-        if (result.first->valid) {
-            record.addOrSetPair(testField, (result.first->name + result.second).toStdString());
-            // CQZ, ITUZ, CONT, COUNTRY
-            writeByKeepOriginFlag(record, "cqz", QString::number(result.first->cq).toStdString());
-            writeByKeepOriginFlag(record, "ituz", QString::number(result.first->itu).toStdString());
-            writeByKeepOriginFlag(record, "cont", result.first->continent.toStdString());
-            writeByKeepOriginFlag(record, "country", result.first->name.toStdString());
-        } else {
-            record.addOrSetPair(testField, result.second.toStdString());
-            ++failCount;
-        }
-    }
-
-    emit layoutChanged();
-    emit mapCallSignInViewEnd(failCount, confictCount);
+        emit layoutChanged();
+        emit mapCallSignInViewEnd(failCount, confictCount);
+    });
 }
 
 void AdifModel::_clear() {
-    records.clear();
+    m_records.clear();
     while (rheaders.size() > GRecord::RESOLVE_HEADERS_COUNT) {
         rheaders.pop_back();
     }
@@ -297,7 +274,7 @@ AdifModel::AdifModel(QObject *parent) : QAbstractTableModel(parent) {
     }
 }
 
-auto AdifModel::rowCount(const QModelIndex &parent) const -> int { return int(records.size()); }
+auto AdifModel::rowCount(const QModelIndex &parent) const -> int { return int(m_records.size()); }
 
 auto AdifModel::columnCount(const QModelIndex &parent) const -> int { return int(rheaders.size()); }
 
@@ -310,9 +287,9 @@ auto AdifModel::data(const QModelIndex &index, int role) const -> QVariant {
         return {};
     }
 
-    if (index.column() < rheaders.size() && index.row() < records.size()) {
+    if (index.column() < rheaders.size() && index.row() < m_records.size()) {
         const auto &key = rheaders.at(index.column());
-        const auto &row = records.at(index.row());
+        const auto &row = m_records.at(index.row());
         auto iter = row.find(key);
         if (iter != row.end() && iter->second) {
             return QString::fromUtf8(iter->second->asView());
@@ -337,13 +314,23 @@ auto AdifModel::headerData(int section, Qt::Orientation orientation, int role) c
 auto AdifModel::setData(const QModelIndex &index, const QVariant &value, int role) -> bool {
     if (role == Qt::EditRole) {
         auto v = value.toString().toStdString();
-        if (index.row() < records.size() && index.column() < rheaders.size()) {
+        if (index.row() < m_records.size() && index.column() < rheaders.size()) {
             auto &field = rheaders[index.column()];
             if (field == "qso_date" || field == "time_on") {
                 return false;
             }
-            auto res = records[index.row()].addOrSetPair(field, v);
+            auto res = m_records[index.row()].addOrSetPair(field, v);
             dataChanged(index, index);
+            tryDbBackup([&](const std::shared_ptr<GRecordRepository> &repo) {
+                const int64_t fid = persistFileIdForBackup();
+                auto &rec = m_records[index.row()];
+                const int64_t dbId = rec.getDbId();
+                if (dbId > 0) {
+                    attachBackupFailureLogger(repo->updateFieldAsync(dbId, field, v));
+                } else if (fid > 0) {
+                    attachBackupFailureLogger(repo->upsertRecordAsync(fid, rec));
+                }
+            });
             return res;
         }
     }
@@ -389,33 +376,35 @@ auto AdifModel::dropMimeData(const QMimeData *data, Qt::DropAction action, int r
 
     bool handled = false;
 
-    if (data->hasText()) {
-        std::string s = data->text().toStdString();
-        insertStringDataAsync(beginRow, std::move(s))
-            .then(this,
-                  [](std::vector<std::string> errors) {
+    if (m_file_service) {
+        if (data->hasText()) {
+            std::string s = data->text().toStdString();
+            m_file_service->insertStringDataAsync(beginRow, std::move(s))
+                .then(this,
+                      [](const std::vector<std::string> &errors) {
 
-                  })
-            .onFailed(this, [](const std::exception &e) {
+                      })
+                .onFailed(this, [](const std::exception &e) {
 
-            });
-        handled = true;
-    }
+                });
+            handled = true;
+        }
 
-    if (data->hasUrls()) {
-        auto urls = data->urls();
-        for (auto url = urls.rbegin(); url != urls.rend(); ++url) {
-            QString file = url->toLocalFile();
-            if (!file.isEmpty()) {
-                insertFileAsync(beginRow, file)
-                    .then(this,
-                          [](std::vector<std::string> errors) {
+        if (data->hasUrls()) {
+            auto urls = data->urls();
+            for (auto url = urls.rbegin(); url != urls.rend(); ++url) {
+                QString file = url->toLocalFile();
+                if (!file.isEmpty()) {
+                    m_file_service->insertFileAsync(beginRow, file)
+                        .then(this,
+                              [](const std::vector<std::string> &errors) {
 
-                          })
-                    .onFailed(this, [](const std::exception &e) {
+                              })
+                        .onFailed(this, [](const std::exception &e) {
 
-                    });
-                handled = true;
+                        });
+                    handled = true;
+                }
             }
         }
     }
@@ -425,10 +414,10 @@ auto AdifModel::dropMimeData(const QMimeData *data, Qt::DropAction action, int r
 
 auto AdifModel::insertRows(int row, int count, const QModelIndex &parent) -> bool {
     // std::unique_lock<decltype(mutex)> lock(mutex);
-    // if (count > 0 && row >= 0 && row <= records.size()) {
+    // if (count > 0 && row >= 0 && row <= m_records.size()) {
     //     beginInsertRows(parent, row, row + count - 1);
     //     while (count--) {
-    //         records.insert(records.begin() + row, decltype(records)::value_type{});
+    //         m_records.insert(m_records.begin() + row, decltype(m_records)::value_type{});
     //     }
     //     endInsertRows();
     // }
@@ -436,9 +425,9 @@ auto AdifModel::insertRows(int row, int count, const QModelIndex &parent) -> boo
 }
 
 auto AdifModel::removeRows(int row, int count, const QModelIndex &parent) -> bool {
-    if (row >= 0 && count > 0 && row + count <= records.size()) {
+    if (row >= 0 && count > 0 && row + count <= m_records.size()) {
         beginRemoveRows(parent, row, row + count - 1);
-        records.erase(records.begin() + row, records.begin() + row + count);
+        m_records.erase(m_records.begin() + row, m_records.begin() + row + count);
         endRemoveRows();
         return true;
     }
@@ -458,113 +447,126 @@ auto AdifModel::moveRows(const QModelIndex &sourceParent, int sourceRow, int cou
         return false;
     }
     if (destinationChild > sourceRow) {
-        std::rotate(records.begin() + sourceRow, records.begin() + sourceRow + count,
-                    records.begin() + destinationChild);
+        std::rotate(m_records.begin() + sourceRow, m_records.begin() + sourceRow + count,
+                    m_records.begin() + destinationChild);
     }
     if (destinationChild < sourceRow) {
-        std::rotate(records.begin() + destinationChild, records.begin() + sourceRow,
-                    records.begin() + sourceRow + count);
+        std::rotate(m_records.begin() + destinationChild, m_records.begin() + sourceRow,
+                    m_records.begin() + sourceRow + count);
     }
     endMoveRows();
+    tryDbBackup([&](const std::shared_ptr<GRecordRepository> &repo) {
+        const int64_t fid = persistFileIdForBackup();
+        if (fid <= 0) {
+            return;
+        }
+        std::vector<GRecord> orderVec;
+        orderVec.reserve(m_records.size());
+        for (const auto &rec : m_records) {
+            if (rec.getDbId() > 0) {
+                try {
+                    orderVec.push_back(rec.cloneForSyncOrder());
+                } catch (const std::exception &e) {
+                    qWarning() << "AdifModel::moveRows syncOrder clone skipped:" << e.what();
+                    GRecord placeholder;
+                    orderVec.push_back(std::move(placeholder));
+                }
+            } else {
+                GRecord placeholder;
+                orderVec.push_back(std::move(placeholder));
+            }
+        }
+        attachBackupFailureLogger(repo->syncOrderAsync(orderVec));
+    });
     return true;
 }
 
 void AdifModel::sort(int column, Qt::SortOrder order) {
-    if (0 <= column && column < rheaders.size()) {
-        auto &col = rheaders[column];
-        std::vector<std::string> fields = getDefaultSortModel(col);
-        auto less = [=](const decltype(records)::value_type &a,
-                        const decltype(records)::value_type &b) -> bool {
-            return GRecord::less(a, b, fields);
+    GLogConcurrent::runOnMainThreadSync([this, column, order]() {
+        if (column < 0 || column >= static_cast<int>(rheaders.size())) {
+            return;
+        }
+        std::vector<std::string> fields = getDefaultSortModel(rheaders[column]);
+        auto less = [fields](const Record &a, const Record &b) -> bool {
+            return Record::less(a, b, fields);
         };
         beginResetModel();
         if (order == Qt::AscendingOrder) {
-            std::sort(records.begin(), records.end(),
-                      [=](const decltype(records)::value_type &a,
-                          const decltype(records)::value_type &b) -> bool { return less(a, b); });
+            std::sort(m_records.begin(), m_records.end(),
+                      [&](const Record &a, const Record &b) -> bool { return less(a, b); });
         } else {
-            std::sort(records.begin(), records.end(),
-                      [=](const decltype(records)::value_type &a,
-                          const decltype(records)::value_type &b) -> bool { return less(b, a); });
+            std::sort(m_records.begin(), m_records.end(),
+                      [&](const Record &a, const Record &b) -> bool { return less(b, a); });
         }
         endResetModel();
-    }
+        tryDbBackup([&](const std::shared_ptr<GRecordRepository> &repo) {
+            const int64_t fid = persistFileIdForBackup();
+            if (fid <= 0) {
+                return;
+            }
+            std::vector<GRecord> orderVec;
+            orderVec.reserve(m_records.size());
+            for (const auto &rec : m_records) {
+                if (rec.getDbId() > 0) {
+                    try {
+                        orderVec.push_back(rec.cloneForSyncOrder());
+                    } catch (const std::exception &e) {
+                        qWarning() << "AdifModel::sort syncOrder clone skipped:" << e.what();
+                        GRecord placeholder;
+                        orderVec.push_back(std::move(placeholder));
+                    }
+                } else {
+                    GRecord placeholder;
+                    orderVec.push_back(std::move(placeholder));
+                }
+            }
+            attachBackupFailureLogger(repo->syncOrderAsync(orderVec));
+        });
+    });
 }
 
 AdifModel::~AdifModel() = default;
 
+auto AdifModel::persistFileIdForBackup() const -> int64_t {
+    return m_file_service ? m_file_service->activePersistedFileId() : -1;
+}
+
+auto AdifModel::cloneRecordsForPersistenceSlice(int startRow, int rowCount) const
+    -> std::vector<GRecord> {
+    std::vector<GRecord> out;
+    if (startRow < 0 || startRow > static_cast<int>(m_records.size())) {
+        return out;
+    }
+    const int end = rowCount < 0
+                        ? static_cast<int>(m_records.size())
+                        : std::min(static_cast<int>(m_records.size()), startRow + rowCount);
+    const int span = end - startRow;
+    out.reserve(span > 0 ? static_cast<size_t>(span) : 0);
+    for (int i = startRow; i < end; ++i) {
+        try {
+            out.push_back(m_records[static_cast<size_t>(i)].cloneForPersistence());
+        } catch (const std::exception &e) {
+            qWarning() << "AdifModel: persistence clone skipped at row" << i << ":" << e.what();
+        }
+    }
+    return out;
+}
+
 void AdifModel::clear() {
-    QMetaObject::invokeMethod(
-        this,
-        [this]() mutable {
-            beginResetModel();
-            _clear();
-            endResetModel();
-        },
-        Qt::AutoConnection);
+    GLogConcurrent::runOnMainThreadSync([this]() {
+        beginResetModel();
+        _clear();
+        endResetModel();
+    });
 }
 
 auto AdifModel::records2StdString(const std::set<int> &rows) const -> std::string {
     return _records2StdString(rows);
 }
 
-void AdifModel::toCsv(std::ostream &stream) const { _toCsv(stream, records, rheaders); }
-
-void AdifModel::toAdif(std::ostream &stream) const { _toAdif(stream, records); }
-
-auto AdifModel::diffEntNameCountForAward() const -> AdifModel::AwardRes {
-    AwardRes res;
-    auto *ctydb = CtyDB::instance();
-    std::shared_lock<decltype(ctydb->mutex)> lock0(ctydb->mutex);
-    if (records.empty()) {
-        return res;
-    }
-    std::map<QString, int> counterDXCC;
-    std::map<QString, int> counterWAC_ARRL;
-    std::map<QString, int> counterWAC_NOTARRL;
-    std::map<int, int> counterCQZ;
-    std::map<QString, int> counterWAS;
-    auto *fccdb = FccDB::instance();
-    bool WASSearchVaild = fccdb->beginSearch();
-    QString buf;
-    for (const auto &record : records) {
-        auto call = record.at("call")->get();
-        buf = QString::fromUtf8(call.data(), qsizetype(call.size()));
-        CtyDB::normalizeCallSign(buf);
-        auto result = ctydb->lookUpCallSign(QStringView(buf));
-        if (result.first->valid && result.first->ARRL_sponsored) {
-            ++counterDXCC[result.first->name];
-        }
-        if (result.first->valid && result.first->ARRL_sponsored) {
-            ++counterWAC_ARRL[result.first->continent];
-        }
-        if (result.first->valid) {
-            ++counterWAC_NOTARRL[result.first->continent];
-        }
-        if (result.first->valid) {
-            ++counterCQZ[result.first->cq];
-        }
-        if (WASSearchVaild) {
-            auto state = fccdb->lookupState(buf);
-            if (state.size() == 2) {
-                ++counterWAS[state];
-            }
-        }
-    }
-    if (WASSearchVaild) {
-        fccdb->endSearch();
-        res.WAS = QString::number(counterWAS.size());
-    }
-    res.DXCC = QString::number(counterDXCC.size());
-    res.WAC_ARRL = QString::number(counterWAC_ARRL.size());
-    res.WAC_NOTARRL = QString::number(counterWAC_NOTARRL.size());
-    res.CQZ = QString::number(counterCQZ.size());
-    return res;
-}
-
-auto AdifModel::deleteRowsPersistent(std::vector<QPersistentModelIndex> indexes) -> size_t {
+auto AdifModel::deleteRowsPersistent(const std::vector<QPersistentModelIndex> &indexes) -> size_t {
     QModelIndexList rows;
-    for (auto &index : indexes) {
+    for (const auto &index : indexes) {
         if (index.isValid()) {
             rows.append(index);
         }
@@ -572,141 +574,118 @@ auto AdifModel::deleteRowsPersistent(std::vector<QPersistentModelIndex> indexes)
     return deleteRows(std::move(rows));
 }
 
-bool AdifModel::mergeRows(QModelIndex major, QModelIndexList indexes) {
-    if (!major.isValid() || indexes.size() == 0) {
+auto AdifModel::mergeRows(const QModelIndex &major, const QModelIndexList &indexes) -> bool {
+    if (!major.isValid() || indexes.empty()) {
         return false;
     }
-    std::vector<Record> merged_records;
-    merged_records.reserve(indexes.size());
-    for (auto &index : indexes) {
-        if (!index.isValid()) {
-            continue;
-        }
-        merged_records.push_back(records[index.row()]);
-    }
-    auto major_row = major.row();
-    if (!records[major_row].merge(merged_records)) {
-        return false;
-    }
-    QMetaObject::invokeMethod(this, [this, major_row]() mutable {
-        emit dataChanged(createIndex(major_row, 0), createIndex(major_row, columnCount()));
-    });
-    return true;
-}
-
-QFuture<bool> AdifModel::mergeRowsAsync(QModelIndex major, QModelIndexList indexes) {
-    return GLogConcurrent::makeFuture(
-        [this, major, indexes]() -> bool { return mergeRows(major, indexes); }, m_fifo_exec);
-}
-
-QFuture<size_t> AdifModel::deleteRowsAsync(QModelIndexList indexes) {
-    return GLogConcurrent::makeFuture([this, indexes]() -> size_t { return deleteRows(indexes); },
-                                      m_fifo_exec);
-}
-
-auto AdifModel::fromRawData(bool success,
-                            std::vector<std::vector<std::pair<std::string, std::string>>> raw_data)
-    -> ParseRes {
-    ParseRes ret{success, {}, {}};
-    if (!success) {
-        return ret;
-    }
-    auto &m_records = ret.parse_records;
-    auto &m_headers = ret.parse_headers;
-    m_records.reserve(raw_data.size());
-    for (auto &row : raw_data) {
-        if (row.empty()) {
-            continue;
-        }
-        Record m_record;
-        bool valid = false;
-        for (auto &[key, value] : row) {
-            bool inserted = m_record.addOrSetPairAndNormalizeKey(key, std::move(value));
-            if (inserted) {
-                valid = true;
-                m_headers.insert(std::move(key));
+    bool ok = false;
+    GLogConcurrent::runOnMainThreadSync([this, major, indexes, &ok]() {
+        std::vector<Record> merged_records;
+        merged_records.reserve(indexes.size());
+        for (const auto &index : indexes) {
+            if (!index.isValid()) {
                 continue;
             }
+            merged_records.push_back(m_records[index.row()]);
         }
-        if (!valid) {
-            continue;
+        auto major_row = major.row();
+        if (!m_records[major_row].merge(merged_records)) {
+            return;
         }
-        m_records.push_back(std::move(m_record));
-    }
-    return ret;
+        emit dataChanged(createIndex(major_row, 0), createIndex(major_row, columnCount()));
+        ok = true;
+        tryDbBackup([&](const std::shared_ptr<GRecordRepository> &repo) {
+            const int64_t fid = persistFileIdForBackup();
+            if (fid <= 0) {
+                return;
+            }
+            const auto &majorRec = m_records[major_row];
+            attachBackupFailureLogger(repo->upsertRecordAsync(fid, majorRec));
+        });
+    });
+    return ok;
 }
 
-auto AdifModel::parse(std::istream &in, std::vector<std::string> &errors, ParseMode mode)
-    -> ParseRes {
+auto AdifModel::mergeRowsAsync(QModelIndex major, QModelIndexList indexes) -> QFuture<bool> {
+    return GLogConcurrent::makeFuture(
+        [this, major, indexes = std::move(indexes)]() { return mergeRows(major, indexes); },
+        GLogConcurrent::MainThreadExecutor{});
+}
 
-    std::unique_ptr<GLOG_PARSER::DriverUnsynchronized> driver;
+auto AdifModel::deleteRowsAsync(QModelIndexList indexes) -> QFuture<size_t> {
+    return GLogConcurrent::makeFuture(
+        [this, indexes = std::move(indexes)]() mutable { return deleteRows(std::move(indexes)); },
+        GLogConcurrent::MainThreadExecutor{});
+}
 
-    switch (mode) {
-    case ParseMode::Batch:
-        driver = std::make_unique<GLOG_PARSER::DriverUnsynchronized>(
-            std::make_unique<GLOG_PARSER::LexerBatch>());
-        break;
-
-    case ParseMode::Interactive:
-        driver = std::make_unique<GLOG_PARSER::DriverUnsynchronized>(
-            std::make_unique<GLOG_PARSER::LexerInteractive>());
-        break;
-
-    default:
-        assert(false && "Invalid mode");
-        break;
+void AdifModel::applyFullLoad(AdifParseService::ParseRes &&res) {
+    if (!res.parse_res) {
+        return;
     }
+    _resetRecords(std::move(res.parse_records), std::move(res.parse_headers));
+}
 
-    GLOG_PARSER::Parser parser{driver.get()};
-    driver->switch_streams(in, std::cerr);
-    auto success = parser.parse() == 0;
-
-    ParseRes ret{success, {}, {}};
-    if (!success) {
-        return ret;
+void AdifModel::applyInsertAt(int row, AdifParseService::ParseRes &&res) {
+    if (!res.parse_res) {
+        return;
     }
-
-    ret = driver->data.write([&](auto &data) { return fromRawData(success, std::move(data)); });
-    driver->errors.write([&](auto &d_errors) { std::swap(errors, d_errors); });
-
-    return ret;
+    _insertRecords(row, std::move(res.parse_records), std::move(res.parse_headers));
 }
 
 void AdifModel::_resetRecords(std::vector<Record> new_record,
                               std::unordered_set<std::string> new_headers) {
-    QMetaObject::invokeMethod(
-        this,
+    GLogConcurrent::runOnMainThreadSync(
         [this, new_record = std::move(new_record), new_headers = std::move(new_headers)]() mutable {
             beginResetModel();
             _clear();
-            records = std::move(new_record);
-            for (auto &header : new_headers) {
-                _addHeader(std::move(header));
+            m_records = std::move(new_record);
+            while (!new_headers.empty()) {
+                auto node = new_headers.extract(new_headers.begin());
+                _addHeaderNoSignal(std::move(node.value()));
             }
             endResetModel();
-        },
-        Qt::AutoConnection);
+        });
 }
 
 void AdifModel::_insertRecords(int where, std::vector<Record> new_record,
                                std::unordered_set<std::string> new_headers) {
+    GLogConcurrent::runOnMainThreadSync([this, where, new_record = std::move(new_record),
+                                         new_headers = std::move(new_headers)]() mutable {
+        const int insertCount = static_cast<int>(new_record.size());
+        while (!new_headers.empty()) {
+            auto node = new_headers.extract(new_headers.begin());
+            std::string header = std::move(node.value());
+            auto [check, iter] = _addHeaderCheck(header);
+            if (!check) {
+                continue;
+            }
+            auto column = static_cast<int>(iter - rheaders_begin());
+            beginInsertColumns(QModelIndex(), column, column);
+            rheaders.insert(iter, std::move(header));
+            endInsertColumns();
+        }
 
-    QMetaObject::invokeMethod(
-        this,
-        [this, where, new_record = std::move(new_record),
-         new_headers = std::move(new_headers)]() mutable {
-            for (auto &header : new_headers) {
-                _addHeader(std::move(header));
-            }
-            if (!new_record.empty()) {
-                int row = (where < 0 || where > (int)records.size()) ? (int)records.size() : where;
-                beginInsertRows(QModelIndex(), row, row + (int)new_record.size() - 1);
-                records.insert(records.begin() + row, std::make_move_iterator(new_record.begin()),
-                               std::make_move_iterator(new_record.end()));
-                endInsertRows();
-            }
-        },
-        Qt::AutoConnection);
+        if (!new_record.empty()) {
+            int row = (where < 0 || where > static_cast<int>(m_records.size()))
+                          ? static_cast<int>(m_records.size())
+                          : where;
+            int row_end = row + static_cast<int>(new_record.size()) - 1;
+            beginInsertRows(QModelIndex(), row, row_end);
+            m_records.insert(m_records.begin() + row, std::make_move_iterator(new_record.begin()),
+                             std::make_move_iterator(new_record.end()));
+            endInsertRows();
+            tryDbBackup([&](const std::shared_ptr<GRecordRepository> &repo) {
+                const int64_t fid = persistFileIdForBackup();
+                if (fid <= 0 || insertCount == 0) {
+                    return;
+                }
+                for (int i = 0; i < insertCount; ++i) {
+                    const auto &rec = m_records[static_cast<size_t>(row + i)];
+                    attachBackupFailureLogger(repo->upsertRecordAsync(fid, rec));
+                }
+            });
+        }
+    });
 }
 
 void AdifModel::insertRecords(int where, std::vector<Record> new_record) {
@@ -724,83 +703,9 @@ void AdifModel::insertRecords(int where, std::vector<Record> new_record,
     _insertRecords(where, std::move(new_record), std::move(new_headers));
 }
 
-auto AdifModel::openFile(const QString &filename, bool remove) -> std::vector<std::string> {
-    QFileInfo file(filename);
-    std::ifstream in(file.filesystemAbsoluteFilePath());
-    if (!in) {
-        throw std::runtime_error("Can not open file");
-    }
-    std::vector<std::string> errors;
-    auto [parse_res, result_records, result_headers] = parse(in, errors, ParseMode::Batch);
-    if (parse_res) {
-        _resetRecords(std::move(result_records), std::move(result_headers));
-    }
-    in.close();
-    if (remove) {
-        QFile::remove(QFileInfo(filename).absoluteFilePath());
-    }
-    if (!parse_res) {
-        throw std::runtime_error(errors.empty() ? "Unknown parse error" : errors.back());
-    }
-    return errors;
-}
-
-auto AdifModel::openFileAsync(const QString &filename, bool remove)
-    -> QFuture<std::vector<std::string>> {
-    return GLogConcurrent::makeFuture(
-        [this, filename = filename, remove](QPromise<std::vector<std::string>> &promise) {
-            promise.addResult(openFile(filename, remove));
-        },
-        m_fifo_exec);
-}
-
-auto AdifModel::insertFile(int row, const QString &filename, bool remove)
-    -> std::vector<std::string> {
-    QFileInfo file(filename);
-    std::ifstream in(file.filesystemAbsoluteFilePath());
-    if (!in) {
-        throw std::runtime_error("Can not open file");
-    }
-    std::vector<std::string> errors;
-    auto [parse_res, result_records, result_headers] = parse(in, errors, ParseMode::Batch);
-    if (parse_res) {
-        _insertRecords(row, std::move(result_records), std::move(result_headers));
-    }
-    in.close();
-    if (remove) {
-        QFile::remove(QFileInfo(filename).absoluteFilePath());
-    }
-    if (!parse_res) {
-        throw std::runtime_error(errors.empty() ? "Unknown parse error" : errors.back());
-    }
-    return errors;
-}
-
-auto AdifModel::insertFileAsync(int where, const QString &filename, bool remove)
-    -> QFuture<std::vector<std::string>> {
-    return GLogConcurrent::makeFuture(
-        [this, filename = filename, where, remove](QPromise<std::vector<std::string>> &promise) {
-            promise.addResult(insertFile(where, filename, remove));
-        },
-        m_fifo_exec);
-}
-
-std::vector<std::string> AdifModel::insertStringData(int row, std::string data) {
-    std::stringstream in(data);
-    std::vector<std::string> errors;
-    auto [parse_res, result_records, result_headers] = parse(in, errors, ParseMode::Batch);
-    if (parse_res) {
-        _insertRecords(row, std::move(result_records), std::move(result_headers));
-    }
-    if (!parse_res) {
-        throw std::runtime_error(errors.empty() ? "Unknown parse error" : errors.back());
-    }
-    return errors;
-}
-
 auto AdifModel::findDuplicates(const std::vector<std::string> &fields) const
     -> std::vector<std::vector<QPersistentModelIndex>> {
-    if (records.empty() || fields.empty()) {
+    if (m_records.empty() || fields.empty()) {
         return {};
     }
 
@@ -808,8 +713,8 @@ auto AdifModel::findDuplicates(const std::vector<std::string> &fields) const
     auto m_less = [&](const Record &a, const Record &b) { return Record::less(a, b, fields); };
     // Key: Record, Value: List of row integers (saves memory over QModelIndex)
     std::map<Record, std::vector<int>, decltype(m_less)> groups(m_less);
-    for (int i = 0; i < static_cast<int>(records.size()); ++i) {
-        groups[records[i]].push_back(i);
+    for (int i = 0; i < static_cast<int>(m_records.size()); ++i) {
+        groups[m_records[i]].push_back(i);
     }
 
     // 2. Collection Phase
@@ -830,140 +735,134 @@ auto AdifModel::findDuplicates(const std::vector<std::string> &fields) const
     return duplicates;
 }
 
-auto AdifModel::insertStringDataAsync(int row, std::string data)
-    -> QFuture<std::vector<std::string>> {
-    return GLogConcurrent::makeFuture(
-        [this, row, data = std::move(data)]() { return insertStringData(row, std::move(data)); },
-        m_fifo_exec);
-}
-
-void AdifModel::saveAs(const QString &filename) const {
-    if (records.empty()) {
-        return;
-    }
-    std::vector<Record> p_records;
-    p_records.reserve(records.size());
-    for (const auto &record : records) {
-        p_records.emplace_back(record.clone());
-    }
-    auto headersCopy = rheaders;
-    GLogConcurrent::makeFuture(
-        [filename = filename, p_records = std::move(p_records),
-         p_rheaders = std::move(headersCopy)]() mutable {
-            QSaveFile outFile(filename);
-            if (!outFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
-                throw std::runtime_error("Cannot open file for writing");
-            }
-            QTextStream stream(&outFile);
-            bool handled = false;
-            if (filename.endsWith(".csv", Qt::CaseInsensitive)) {
-                AdifModel::_toCsv(stream, std::move(p_records), std::move(p_rheaders));
-                handled = true;
-            }
-            if (filename.endsWith(".adi", Qt::CaseInsensitive) ||
-                filename.endsWith(".adif", Qt::CaseInsensitive)) {
-                AdifModel::_toAdif(stream, std::move(p_records));
-                handled = true;
-            }
-            if (!handled) {
-                throw std::runtime_error("Unsupported file extension");
-            }
-            if (!outFile.commit()) {
-                throw std::runtime_error("Failed to commit changes to file");
-            }
-        },
-        m_fifo_exec)
-        .then(QCoreApplication::instance(),
-              []() { QMessageBox::information(nullptr, tr("Save"), tr("Succeed")); })
-        .onFailed(QCoreApplication::instance(), [](const std::exception &e) {
-            QMessageBox::critical(nullptr, tr("Save"), tr("Failed: ") + e.what());
-        });
-}
-
 void AdifModel::sortSelectedColumn(int column, Qt::SortOrder order) { sort(column, order); }
 
 void AdifModel::removeSelectedColumn(int column) {
-    if (column < sheaders.size() || column >= rheaders.size()) {
-        return;
-    }
-    beginRemoveColumns(QModelIndex(), column, column);
-    auto field = rheaders.at(column);
-    for (auto &record : records) {
-        record.tryRemoveField(field);
-    }
-    rheaders.erase(rheaders.begin() + column);
-    endRemoveColumns();
+    GLogConcurrent::runOnMainThreadSync([this, column]() {
+        if (column < static_cast<int>(sheaders.size()) ||
+            column >= static_cast<int>(rheaders.size())) {
+            return;
+        }
+        beginRemoveColumns(QModelIndex(), column, column);
+        auto field = rheaders.at(column);
+        for (auto &record : m_records) {
+            record.tryRemoveField(field);
+        }
+        rheaders.erase(rheaders.begin() + column);
+        endRemoveColumns();
+        tryDbBackup([&](const std::shared_ptr<GRecordRepository> &repo) {
+            const std::string removedKey = field;
+            for (const auto &record : m_records) {
+                const int64_t dbId = record.getDbId();
+                if (dbId > 0) {
+                    attachBackupFailureLogger(repo->deleteFieldAsync(dbId, removedKey));
+                }
+            }
+        });
+    });
 }
 
 auto AdifModel::deleteRows(QModelIndexList indexes) -> size_t {
-    indexes.erase(std::remove_if(indexes.begin(), indexes.end(),
-                                 [](const QModelIndex &idx) { return !idx.isValid(); }),
-                  indexes.end());
-    if (indexes.empty()) {
-        return 0;
-    }
-    std::sort(indexes.begin(), indexes.end(),
-              [](const QModelIndex &a, const QModelIndex &b) { return a.row() < b.row(); });
-    indexes.erase(
-        std::unique(indexes.begin(), indexes.end(),
-                    [](const QModelIndex &a, const QModelIndex &b) { return a.row() == b.row(); }),
-        indexes.end());
-    auto idx = indexes.size() - 1;
-    int deletebegin = indexes.at(idx).row();
-    int deleteend = deletebegin + 1;
-    while (true) {
-        if (idx > 0 && indexes.at(idx - 1).row() >= 0 &&
-            indexes.at(idx - 1).row() == deletebegin - 1) {
-            --deletebegin;
-            --idx;
-            continue;
+    size_t removed = 0;
+    GLogConcurrent::runOnMainThreadSync([this, indexes = std::move(indexes), &removed]() mutable {
+        indexes.erase(std::remove_if(indexes.begin(), indexes.end(),
+                                     [](const QModelIndex &idx) { return !idx.isValid(); }),
+                      indexes.end());
+        if (indexes.empty()) {
+            return;
         }
-        QMetaObject::invokeMethod(this, [this, deletebegin, deleteend]() mutable {
-            emit beginRemoveRows(QModelIndex(), deletebegin, deleteend - 1);
-        });
-        records.erase(records.begin() + deletebegin, records.begin() + deleteend);
-        QMetaObject::invokeMethod(this, [this]() mutable { emit endRemoveRows(); });
-        if (idx == 0) {
-            break;
-        }
-        --idx;
-        deletebegin = indexes.at(idx).row();
-        deleteend = deletebegin + 1;
-    }
-    auto iter = rheaders_begin();
-    while (iter != rheaders.end()) {
-        bool valid = false;
-        for (auto &record : records) {
-            if (record.find(*iter) != record.end()) {
-                valid = true;
-                break;
+        std::sort(indexes.begin(), indexes.end(),
+                  [](const QModelIndex &a, const QModelIndex &b) { return a.row() < b.row(); });
+        indexes.erase(std::unique(indexes.begin(), indexes.end(),
+                                  [](const QModelIndex &a, const QModelIndex &b) {
+                                      return a.row() == b.row();
+                                  }),
+                      indexes.end());
+        std::vector<int64_t> dbIdsToRemove;
+        dbIdsToRemove.reserve(indexes.size());
+        for (const auto &idx : indexes) {
+            const int64_t id = m_records.at(idx.row()).getDbId();
+            if (id > 0) {
+                dbIdsToRemove.push_back(id);
             }
         }
-        if (valid) {
-            ++iter;
-            continue;
+        std::sort(dbIdsToRemove.begin(), dbIdsToRemove.end());
+        dbIdsToRemove.erase(std::unique(dbIdsToRemove.begin(), dbIdsToRemove.end()),
+                            dbIdsToRemove.end());
+        auto idx = indexes.size() - 1;
+        int deletebegin = indexes.at(idx).row();
+        int deleteend = deletebegin + 1;
+        while (true) {
+            if (idx > 0 && indexes.at(idx - 1).row() >= 0 &&
+                indexes.at(idx - 1).row() == deletebegin - 1) {
+                --deletebegin;
+                --idx;
+                continue;
+            }
+            beginRemoveRows(QModelIndex(), deletebegin, deleteend - 1);
+            m_records.erase(m_records.begin() + deletebegin, m_records.begin() + deleteend);
+            endRemoveRows();
+            if (idx == 0) {
+                break;
+            }
+            --idx;
+            deletebegin = indexes.at(idx).row();
+            deleteend = deletebegin + 1;
         }
-        auto cloumn = static_cast<int>(iter - rheaders_begin());
-        QMetaObject::invokeMethod(this, [this, cloumn]() mutable {
-            emit beginRemoveColumns(QModelIndex(), cloumn, cloumn);
+        auto iter = rheaders_begin();
+        while (iter != rheaders.end()) {
+            bool valid = false;
+            for (auto &record : m_records) {
+                if (record.find(*iter) != record.end()) {
+                    valid = true;
+                    break;
+                }
+            }
+            if (valid) {
+                ++iter;
+                continue;
+            }
+            auto cloumn = static_cast<int>(iter - rheaders_begin());
+            beginRemoveColumns(QModelIndex(), cloumn, cloumn);
+            iter = rheaders.erase(iter);
+            endRemoveColumns();
+        }
+        removed = indexes.size();
+        tryDbBackup([&](const std::shared_ptr<GRecordRepository> &repo) {
+            for (const int64_t id : dbIdsToRemove) {
+                attachBackupFailureLogger(repo->deleteRecordAsync(id));
+            }
         });
-        iter = rheaders.erase(iter);
-        QMetaObject::invokeMethod(this, [this]() mutable { emit endRemoveColumns(); });
-    }
-    return indexes.size();
+    });
+    return removed;
 }
 
-QModelIndex AdifModel::findNext(const QModelIndex &start, Condition condition,
-                                const std::string &field) const {
+auto AdifModel::snapshotAsync() const -> QFuture<AdifModelSnapshot> {
+    return GLogConcurrent::makeFuture(
+        [this]() -> AdifModelSnapshot {
+            AdifModelSnapshot snap;
+            snap.records.reserve(m_records.size());
+            for (const auto &r : m_records) {
+                snap.records.emplace_back(r.clone());
+            }
+            snap.columnHeaders = rheaders;
+            return snap;
+        },
+        GLogConcurrent::MainThreadExecutor{});
+}
+
+auto AdifModel::findNext(const QModelIndex &start, const Condition &condition,
+                         const std::string &field) const -> QModelIndex {
     auto ret = QModelIndex();
-    if (records.empty()) {
+    if (m_records.empty()) {
         return ret;
     }
     int row = start.isValid() ? start.row() : 0;
+    auto record_count = int(m_records.size());
     bool finded = false;
-    for (int i = 0; i <= records.size() && !finded; ++i, ++row) {
-        row %= records.size();
-        auto &record = records.at(row);
+    for (int i = 0; i <= record_count && !finded; ++i, ++row) {
+        row %= record_count;
+        const auto &record = m_records.at(row);
         if (field.empty()) {
             int startColumn = 0;
             if (i == 0) {
@@ -994,15 +893,15 @@ QModelIndex AdifModel::findNext(const QModelIndex &start, Condition condition,
     return ret;
 }
 
-QList<int> AdifModel::findAll(Condition condition, const std::string &field) const {
+auto AdifModel::findAll(const Condition &condition, const std::string &field) const -> QList<int> {
     QList<int> rows;
-    if (records.empty()) {
+    if (m_records.empty()) {
         return rows;
     }
-    for (int i = 0; i < records.size(); ++i) {
-        auto &record = records[i];
+    for (int i = 0; i < m_records.size(); ++i) {
+        const auto &record = m_records[i];
         if (field.empty()) {
-            for (auto &h : rheaders) {
+            for (const auto &h : rheaders) {
                 auto iter = record.find(h);
                 if (iter != record.end() && condition(iter->second->get())) {
                     rows.append(i);

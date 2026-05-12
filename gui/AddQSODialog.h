@@ -18,6 +18,10 @@ class GLOGKIT_API AddQSODialog : public QDialog {
   protected slots:
     void accept() override;
 
+  signals:
+    void userInformation(const QString &title, const QString &text);
+    void userWarning(const QString &title, const QString &text);
+
   private:
     Ui::AddQSODialogClass *ui = nullptr;
     AdifModel *m_model = nullptr;

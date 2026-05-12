@@ -1,10 +1,14 @@
 #ifndef MAPWIDGET
 #define MAPWIDGET
 
+#include <vector>
 #include "MapGraphicsView.h"
 #include "adifdb.h"
 #include "app_export.h"
 #include "record.h"
+
+class QGraphicsPathItem;
+
 namespace Ui {
 class MapWidgetClass;
 };
@@ -31,12 +35,15 @@ class GLOGKIT_API MapWidget : public QMainWindow {
     void dataVisualizeRe();
 
   private:
+    void clearRouteLines();
+
     Ui::MapWidgetClass *ui;
     QString title;
     QString m_db_hint;
     size_t add_markers_begin = 0;
-    QList<MarkerItem *> m_markers;
-    QList<int> m_position_count;
+    std::vector<MarkerItem *> m_markers;
+    std::vector<QGraphicsPathItem *> m_route_lines;
+    std::vector<int> m_position_count;
     std::atomic<bool> m_markers_ready = false;
     AdifModel *m_model;
 };

@@ -66,7 +66,7 @@ auto CtyDB::loadDBString(const QString &cty, const QString &db_hint)
                 } else {
                     my_ent->location_id = it->second;
                 }
-                m_pattern = m_pattern.left(prefixEnd);
+                m_pattern = m_pattern.left(qsizetype(prefixEnd));
                 // https://www.country-files.com/cty-dat-format/
                 // Software is expected to parse the file from top to bottom.  If a duplicate
                 // callsign is found, simply ignore it the second time

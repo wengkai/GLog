@@ -22,12 +22,14 @@ struct SpecialRules {
     using MyMapT = std::map<std::string, wrapper_type, std::less<>>;
     using iterator = MyMapT::iterator;
     using const_iterator = MyMapT::const_iterator;
-    using FunctionT = std::function<void(MyMapT &, const_iterator)>;
+    using FunctionT = std::function<void(MyMapT &, const const_iterator &)>;
 
     template <typename TSelf, typename TPeer>
-    static void linkPeers(MyMapT &map, const_iterator iter, const std::string &peerName) {
+    static void linkPeers(MyMapT &map, const const_iterator &iter, const std::string &peerName) {
         auto me = iter->second.getPtr<TSelf>();
-        if (!me || me->hasPeer()) return;
+        if (!me || me->hasPeer()) {
+            return;
+        }
 
         auto peer_iter = map.find(peerName);
         if (peer_iter != map.end()) {
@@ -48,25 +50,25 @@ struct SpecialRules {
 
         {"mode",
          {
-             [](MyMapT &map, const_iterator iter) { // beforeSet
+             [](MyMapT &map, const const_iterator &iter) { // beforeSet
                  linkPeers<AdifMode, AdifSubMode>(map, iter, "submode");
              },
          }},
         {"submode",
          {
-             [](MyMapT &map, const_iterator iter) { // beforeSet
+             [](MyMapT &map, const const_iterator &iter) { // beforeSet
                  linkPeers<AdifSubMode, AdifMode>(map, iter, "mode");
              },
          }},
         {"freq",
          {
-             [](MyMapT &map, const_iterator iter) { // beforeSet
+             [](MyMapT &map, const const_iterator &iter) { // beforeSet
                  linkPeers<AdifFreq, AdifBand>(map, iter, "band");
              },
          }},
         {"band",
          {
-             [](MyMapT &map, const_iterator iter) { // beforeSet
+             [](MyMapT &map, const const_iterator &iter) { // beforeSet
                  linkPeers<AdifBand, AdifFreq>(map, iter, "freq");
              },
          }},
@@ -119,7 +121,7 @@ auto GRecord::_addOrSetPair(const std::string &key_normalized, std::string value
     return false;
 }
 
-void GRecord::_beforeSet(const_iterator iter) {
+void GRecord::_beforeSet(const const_iterator &iter) {
     auto func_iter = special_fields.find(iter->first);
     if (func_iter != special_fields.end()) {
         func_iter->second.beforeSet(m_map, iter);
@@ -173,7 +175,7 @@ GRecord::GRecord() : m_dbInternalId(std::make_shared<std::atomic<int64_t>>(INVAL
     valid = _emplaceEssentialFields(m_map);
 }
 
-GRecord GRecord::remap() const {
+auto GRecord::remap() const -> GRecord {
     GRecord snapshot;
     for (const auto &[key, value] : m_map) {
         if (value) {
@@ -184,7 +186,7 @@ GRecord GRecord::remap() const {
     return snapshot;
 }
 
-GRecord GRecord::clone() const {
+auto GRecord::clone() const -> GRecord {
 #ifdef ADIF_DATA_CLONE
     GRecord snapshot;
     for (const auto &[key, value] : m_map) {
@@ -198,7 +200,7 @@ GRecord GRecord::clone() const {
 #endif
 }
 
-GRecord GRecord::cloneForPersistence() const {
+auto GRecord::cloneForPersistence() const -> GRecord {
     GRecord snapshot(construct_nop{});
     if (!valid || !m_dbInternalId) {
         throw std::runtime_error(
@@ -215,7 +217,7 @@ GRecord GRecord::cloneForPersistence() const {
     return snapshot;
 }
 
-GRecord GRecord::cloneForSyncOrder() const {
+auto GRecord::cloneForSyncOrder() const -> GRecord {
     GRecord snapshot(construct_nop{});
     if (!valid || !m_dbInternalId) {
         throw std::runtime_error(
@@ -295,11 +297,11 @@ auto /* static callback for plugins */
 GRecord::getValueByField(const IGRecord *rec, const char *field, uint64_t field_len,
                          char *result_buf, uint64_t *result_len, uint64_t max_result_len) noexcept
     -> Result {
-    if (!result_len) {
+    if (result_len == nullptr) {
         return Result::InvalidResultLenOutput;
     }
     *result_len = 0;
-    if (!rec || !field || field_len == 0) {
+    if ((rec == nullptr) || (field == nullptr) || field_len == 0) {
         return Result::InvalidInput;
     }
     const auto *This = static_cast<const GRecord *>(rec);
@@ -317,7 +319,7 @@ GRecord::getValueByField(const IGRecord *rec, const char *field, uint64_t field_
         return Result::NoError;
     }
     *result_len = ret_len;
-    if (!result_buf || max_result_len < ret_len) {
+    if ((result_buf == nullptr) || max_result_len < ret_len) {
         return Result::Overflow;
     }
     std::copy_n(ret_sv.data(), ret_len, result_buf);

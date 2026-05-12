@@ -145,7 +145,7 @@ auto AdifModeFactory::check(const std::string &mode, const std::string &submode)
                     AdifSubMode::normalizeDataToUpper(submode));
 }
 
-const ModeMap &AdifModeFactory::getModeMap() {
+auto AdifModeFactory::getModeMap() -> const ModeMap & {
     static ModeMap map{[]() -> ModeMap {
         ModeMap m_map;
         for (const auto &[key, value] : ADIF::MODE_MAP) {

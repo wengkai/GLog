@@ -21,9 +21,9 @@ static const auto &QSL_MEDIUM_MAP = ADIF::QSL_MEDIUM_MAP;
  * A member of the Credit enumeration followed by a colon and an ampersand-delimited list of members
  * of the QSL_Medium enumeration.
  */
-bool AdifCreditList::AdifCreditItem::check(std::string_view data) {
+auto AdifCreditList::AdifCreditItem::check(std::string_view data) -> bool {
     // Case 1: a pure Credit value
-    if (CREDIT_MAP.count(data)) {
+    if (CREDIT_MAP.count(data) != 0) {
         return true;
     }
 
@@ -34,7 +34,7 @@ bool AdifCreditList::AdifCreditItem::check(std::string_view data) {
     }
 
     const std::string_view credit_part = data.substr(0, colon_pos);
-    if (!CREDIT_MAP.count(credit_part)) {
+    if (CREDIT_MAP.count(credit_part) == 0) {
         return false; // unknown Credit
     }
 
@@ -48,18 +48,14 @@ bool AdifCreditList::AdifCreditItem::check(std::string_view data) {
     size_t end;
     while ((end = media_part.find('&', start)) != std::string_view::npos) {
         const auto medium = media_part.substr(start, end - start);
-        if (medium.empty() || !QSL_MEDIUM_MAP.count(medium)) {
+        if (medium.empty() || (QSL_MEDIUM_MAP.count(medium) == 0)) {
             return false;
         }
         start = end + 1;
     }
     // Handle the last medium (or the only one if no '&' was found)
     const auto last_medium = media_part.substr(start);
-    if (last_medium.empty() || !QSL_MEDIUM_MAP.count(last_medium)) {
-        return false;
-    }
-
-    return true;
+    return !last_medium.empty() && (QSL_MEDIUM_MAP.count(last_medium) != 0);
 }
 
 void AdifCreditList::AdifCreditItem::normalize(std::string &data) {

@@ -1,20 +1,28 @@
 #include "was_plugin.h"
 
 #include <QtCore/QCoreApplication>
+#include <QtCore/QDateTime>
 #include <QtCore/QDebug>
 #include <QtCore/QDir>
+#include <QtCore/QEventLoop>
 #include <QtCore/QFile>
+#include <QtCore/QFileInfo>
 #include <QtCore/QJsonArray>
 #include <QtCore/QJsonDocument>
 #include <QtCore/QJsonObject>
+#include <QtCore/QObject>
+#include <QtCore/QProcess>
 #include <QtCore/QRegularExpression>
 #include <QtCore/QStandardPaths>
 #include <QtCore/QTextStream>
-#include "was_plugin.h"
+#include <QtCore/QThread>
+#include <QtNetwork/QNetworkAccessManager>
+#include <QtNetwork/QNetworkReply>
+#include <QtNetwork/QNetworkRequest>
+#include <stdexcept>
 
 WASPlugin instance;
 
-// 美国50个州的缩写列表
 static const QSet<QString> US_STATES = {"AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
                                         "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
                                         "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
@@ -28,12 +36,9 @@ WASPlugin::WASPlugin()
 
 WASPlugin::~WASPlugin() { closeDatabase(); }
 
-const char *WASPlugin::pluginName() const noexcept {
-    // 返回静态字符串，不需要 deleteString 释放
-    return "WAS Plugin (FCC Database)";
-}
+auto WASPlugin::pluginName() const noexcept -> const char * { return "WAS Plugin (FCC Database)"; }
 
-bool WASPlugin::install() noexcept {
+auto WASPlugin::install() noexcept -> bool {
     try {
         return updateFccDatabase();
     } catch (...) {
@@ -42,10 +47,9 @@ bool WASPlugin::install() noexcept {
     }
 }
 
-bool WASPlugin::uninstall() noexcept {
+auto WASPlugin::uninstall() noexcept -> bool {
     try {
         closeDatabase();
-        // 删除数据库文件
         QString dbPath =
             QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/fcc_amat.sqlite";
         QFile::remove(dbPath);
@@ -56,7 +60,7 @@ bool WASPlugin::uninstall() noexcept {
     }
 }
 
-bool WASPlugin::beforeEvaluate() noexcept {
+auto WASPlugin::beforeEvaluate() noexcept -> bool {
     try {
         m_workedStates.clear();
         m_cachedResult.clear();
@@ -72,9 +76,8 @@ bool WASPlugin::beforeEvaluate() noexcept {
     }
 }
 
-bool WASPlugin::afterEvaluate() noexcept {
+auto WASPlugin::afterEvaluate() noexcept -> bool {
     try {
-        // 生成结果并缓存
         QJsonObject result;
         result["total_states"] = static_cast<int>(m_workedStates.size());
         result["total_possible"] = 50;
@@ -104,9 +107,9 @@ bool WASPlugin::afterEvaluate() noexcept {
     }
 }
 
-bool WASPlugin::evaluate(const IGRecord *QSO, IGRecordGetValueByField callback) noexcept {
+auto WASPlugin::evaluate(const IGRecord *QSO, IGRecordGetValueByField callback) noexcept -> bool {
     try {
-        if (!QSO || !callback) {
+        if ((QSO == nullptr) || (callback == nullptr)) {
             return false;
         }
         auto getValueByField = [=](const char *field, uint64_t field_len, char *result_buf,
@@ -114,17 +117,15 @@ bool WASPlugin::evaluate(const IGRecord *QSO, IGRecordGetValueByField callback) 
             return callback(QSO, field, field_len, result_buf, result_len, max_result_len);
         };
 
-        // 1. 获取呼号字段
         char callBuf[64] = {0};
         uint64_t callLen = 0;
         auto res = getValueByField("call", 4, callBuf, &callLen, sizeof(callBuf) - 1);
         if (res != IGRecord::Result::NoError || callLen == 0) {
-            return false; // 无呼号，跳过
+            return false;
         }
         callBuf[callLen] = '\0';
         QString callsign = QString::fromUtf8(callBuf).trimmed().toUpper();
 
-        // 2. 先尝试从记录中直接获取州字段
         char stateBuf[8] = {0};
         uint64_t stateLen = 0;
         QString state;
@@ -134,12 +135,10 @@ bool WASPlugin::evaluate(const IGRecord *QSO, IGRecordGetValueByField callback) 
             state = QString::fromUtf8(stateBuf).trimmed().toUpper();
         }
 
-        // 3. 若没有州字段，查询数据库
         if (state.isEmpty() && !callsign.isEmpty()) {
             state = queryStateByCallsign(callsign);
         }
 
-        // 4. 验证并记录
         if (isValidUSState(state)) {
             m_workedStates.insert(state);
             return true;
@@ -156,37 +155,32 @@ void WASPlugin::getResult(char *result_buf, uint64_t *result_len,
                           uint64_t max_result_len) const noexcept {
     try {
         if (m_cachedResult.isEmpty()) {
-            // 无结果：长度为0，缓冲区（若有效）置为空字符串
-            if (result_len) {
+            if (result_len != nullptr) {
                 *result_len = 0;
             }
-            if (result_buf && max_result_len > 0) {
+            if ((result_buf != nullptr) && max_result_len > 0) {
                 result_buf[0] = '\0';
             }
             return;
         }
 
-        // 将结果转换为 UTF-8 字节序列
         QByteArray utf8 = m_cachedResult.toUtf8();
-        uint64_t actual_len = static_cast<uint64_t>(utf8.size());
+        auto actual_len = static_cast<uint64_t>(utf8.size());
 
-        // 输出实际长度（不含结尾空字符），即使缓冲区不足也返回完整长度
-        if (result_len) {
+        if (result_len != nullptr) {
             *result_len = actual_len;
         }
 
-        // 向缓冲区复制数据，留一个字节给结尾空字符
-        if (result_buf && max_result_len > 0) {
+        if ((result_buf != nullptr) && max_result_len > 0) {
             uint64_t copy_len = std::min(actual_len, max_result_len - 1);
             std::memcpy(result_buf, utf8.constData(), copy_len);
             result_buf[copy_len] = '\0';
         }
     } catch (...) {
-        // 发生异常时同样保证输出状态一致
-        if (result_len) {
+        if (result_len != nullptr) {
             *result_len = 0;
         }
-        if (result_buf && max_result_len > 0) {
+        if ((result_buf != nullptr) && max_result_len > 0) {
             result_buf[0] = '\0';
         }
     }
@@ -195,107 +189,303 @@ void WASPlugin::getResult(char *result_buf, uint64_t *result_len,
 void WASPlugin::getLastError(char *result_buf, uint64_t *result_len,
                              uint64_t max_result_len) const noexcept {
     try {
-        uint64_t full_len = 0; // 完整错误信息的 UTF-8 字节数（不含 '\0'）
+        uint64_t full_len = 0;
         if (!m_lastError.isEmpty()) {
             QByteArray utf8 = m_lastError.toUtf8();
             full_len = static_cast<uint64_t>(utf8.size());
         }
 
-        // 无论 result_buf 是否为空，只要 result_len 有效，都必须设置长度
-        if (result_len) {
+        if (result_len != nullptr) {
             *result_len = full_len;
         }
 
-        // 如果 result_buf 为空，跳过写入操作
-        if (!result_buf || max_result_len == 0) {
+        if ((result_buf == nullptr) || max_result_len == 0) {
             return;
         }
 
-        // 写入缓冲区，确保不越界且字符串以 '\0' 结尾
         if (full_len == 0) {
             result_buf[0] = '\0';
         } else {
             QByteArray utf8 = m_lastError.toUtf8();
             uint64_t copy_len = full_len;
             if (copy_len >= max_result_len) {
-                copy_len = max_result_len - 1; // 留出 '\0' 空间
+                copy_len = max_result_len - 1;
             }
             std::memcpy(result_buf, utf8.constData(), copy_len);
             result_buf[copy_len] = '\0';
         }
     } catch (...) {
-        // 异常情况：安全地设置 result_len，并尽可能使缓冲区有效
-        if (result_len) {
+        if (result_len != nullptr) {
             *result_len = 0;
         }
-        if (result_buf && max_result_len > 0) {
+        if ((result_buf != nullptr) && max_result_len > 0) {
             result_buf[0] = '\0';
         }
     }
 }
 
-bool WASPlugin::updateFccDatabase() {
-    QString dataDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-    QDir().mkpath(dataDir);
-    QString dbPath = dataDir + "/fcc_amat.sqlite";
+namespace {
 
-    // 如果数据库已存在，可选择跳过（也可增加版本检查）
-    if (QFile::exists(dbPath)) {
-        return true;
+void extractZipWas(const QString &zipPath, const QString &extractDir,
+                   QNetworkAccessManager &manager) {
+    QDir().mkpath(extractDir);
+    QProcess proc;
+#ifdef Q_OS_WIN
+    proc.start(QStringLiteral("tar"),
+               {QStringLiteral("-xf"), zipPath, QStringLiteral("-C"), extractDir});
+    if (!proc.waitForFinished() || proc.exitCode() != 0) {
+        QString _7zipbin = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) +
+                           QStringLiteral("/7zip");
+        QDir().mkpath(_7zipbin);
+        QString _7zrExePath = _7zipbin + QStringLiteral("/7zr.exe");
+        QString _7zaExePath = _7zipbin + QStringLiteral("/7za.exe");
+
+        auto downloadProgress = [&](const QString &url, const QString &filename) {
+            QFile file(filename);
+            if (!file.exists()) {
+                auto req = QNetworkRequest(QUrl(url));
+                req.setHeader(QNetworkRequest::UserAgentHeader,
+                              QStringLiteral("GLogKit-WAS-Plugin/1.0"));
+                auto *rep = manager.get(req);
+                QEventLoop loop;
+                QObject::connect(rep, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+                loop.exec();
+                if (rep->error() != QNetworkReply::NoError) {
+                    rep->deleteLater();
+                    throw std::runtime_error("Extraction failed");
+                }
+                if (!file.open(QIODevice::WriteOnly)) {
+                    rep->deleteLater();
+                    throw std::runtime_error("Extraction failed");
+                }
+                file.write(rep->readAll());
+                file.close();
+                rep->deleteLater();
+            }
+        };
+        {
+            QFile _7za_file(_7zaExePath);
+            if (!_7za_file.exists()) {
+                downloadProgress(QStringLiteral("https://www.7-zip.org/a/7zr.exe"), _7zrExePath);
+                QString _7za7zPath = QDir::tempPath() + QStringLiteral("/7za.7z");
+                downloadProgress(QStringLiteral("https://www.7-zip.org/a/7z2600-extra.7z"),
+                                 _7za7zPath);
+                QProcess _7zr_proc;
+                _7zr_proc.start(_7zrExePath,
+                                {QStringLiteral("x"), QDir::toNativeSeparators(_7za7zPath),
+                                 QStringLiteral("-o") + QDir::toNativeSeparators(_7zipbin),
+                                 QStringLiteral("7za.exe"), QStringLiteral("-y")});
+                if (!_7zr_proc.waitForFinished() || _7zr_proc.exitCode() != 0) {
+                    throw std::runtime_error("Extraction failed");
+                }
+            }
+            QProcess _7za_proc;
+            _7za_proc.start(_7zaExePath,
+                            {QStringLiteral("x"), QDir::toNativeSeparators(zipPath),
+                             QStringLiteral("-o") + QDir::toNativeSeparators(extractDir),
+                             QStringLiteral("-y")});
+            if (!_7za_proc.waitForFinished() || _7za_proc.exitCode() != 0) {
+                throw std::runtime_error("Extraction failed");
+            }
+        }
     }
-
-    // 1. 定位 EN.dat 和 HD.dat 文件
-    QString appDir = QCoreApplication::applicationDirPath();
-    QString enPath = appDir + "/EN.dat";
-    QString hdPath = appDir + "/HD.dat";
-
-    // 若默认路径不存在，尝试在数据目录查找
-    if (!QFile::exists(enPath)) {
-        enPath = QStandardPaths::locate(QStandardPaths::AppDataLocation, "EN.dat");
+#else
+    proc.start(QStringLiteral("unzip"),
+               {QStringLiteral("-o"), zipPath, QStringLiteral("-d"), extractDir});
+    if (!proc.waitForFinished() || proc.exitCode() != 0) {
+        throw std::runtime_error("Extraction failed");
     }
-    if (!QFile::exists(hdPath)) {
-        hdPath = QStandardPaths::locate(QStandardPaths::AppDataLocation, "HD.dat");
-    }
+#endif
+}
 
-    QFile enFile(enPath);
-    QFile hdFile(hdPath);
-    if (!enFile.exists() || !hdFile.exists()) {
-        m_lastError = "FCC data files (EN.dat, HD.dat) not found. "
-                      "Please place them in the application directory.";
+// Real FCC amateur extract populates far more than this; catches schema-only or aborted imports.
+static constexpr qint64 kFccAmatMinRowCount = 5000;
+
+bool fccAmatDatabaseIsValid(const QString &dbPath) {
+    if (QFileInfo(dbPath).size() <= 0) {
         return false;
     }
 
-    // 2. 创建数据库连接（使用临时连接名）
-    QString m_connName = connName + "_build";
+    const QString probeConn =
+        QStringLiteral("was_fcc_probe_") + QString::number(QDateTime::currentMSecsSinceEpoch());
+    QSqlDatabase db = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), probeConn);
+    db.setDatabaseName(dbPath);
+    if (!db.open()) {
+        QSqlDatabase::removeDatabase(probeConn);
+        return false;
+    }
+
+    QSqlQuery q(db);
+
+    if (!q.exec(QStringLiteral("PRAGMA quick_check"))) {
+        db.close();
+        QSqlDatabase::removeDatabase(probeConn);
+        return false;
+    }
+    if (!q.next()) {
+        db.close();
+        QSqlDatabase::removeDatabase(probeConn);
+        return false;
+    }
+    const QString quickCheck = q.value(0).toString().trimmed();
+    if (quickCheck.compare(QStringLiteral("ok"), Qt::CaseInsensitive) != 0) {
+        db.close();
+        QSqlDatabase::removeDatabase(probeConn);
+        return false;
+    }
+
+    if (!q.exec(QStringLiteral("SELECT 1 FROM fcc_amat LIMIT 1"))) {
+        db.close();
+        QSqlDatabase::removeDatabase(probeConn);
+        return false;
+    }
+
+    if (!q.exec(QStringLiteral("PRAGMA table_info(fcc_amat)"))) {
+        db.close();
+        QSqlDatabase::removeDatabase(probeConn);
+        return false;
+    }
+    bool hasCallsign = false;
+    bool hasState = false;
+    while (q.next()) {
+        const QString col = q.value(1).toString();
+        if (col.compare(QStringLiteral("callsign"), Qt::CaseInsensitive) == 0) {
+            hasCallsign = true;
+        }
+        if (col.compare(QStringLiteral("state"), Qt::CaseInsensitive) == 0) {
+            hasState = true;
+        }
+    }
+    if (!hasCallsign || !hasState) {
+        db.close();
+        QSqlDatabase::removeDatabase(probeConn);
+        return false;
+    }
+
+    if (!q.exec(QStringLiteral("SELECT COUNT(*) FROM fcc_amat"))) {
+        db.close();
+        QSqlDatabase::removeDatabase(probeConn);
+        return false;
+    }
+    if (!q.next()) {
+        db.close();
+        QSqlDatabase::removeDatabase(probeConn);
+        return false;
+    }
+    const qint64 rowCount = q.value(0).toLongLong();
+    if (rowCount < kFccAmatMinRowCount) {
+        db.close();
+        QSqlDatabase::removeDatabase(probeConn);
+        return false;
+    }
+
+    db.close();
+    QSqlDatabase::removeDatabase(probeConn);
+    return true;
+}
+
+} // namespace
+
+auto WASPlugin::updateFccDatabase() -> bool {
+    closeDatabase();
+    m_lastError.clear();
+
+    QString dataDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    QDir().mkpath(dataDir);
+    QString dbPath = dataDir + QStringLiteral("/fcc_amat.sqlite");
+
+    if (QFile::exists(dbPath)) {
+        if (fccAmatDatabaseIsValid(dbPath)) {
+            return true;
+        }
+        m_lastError = QStringLiteral("Invalid FCC cache database, rebuilding");
+        if (!QFile::remove(dbPath)) {
+            m_lastError = QStringLiteral("Cannot remove invalid FCC database: ") + dbPath;
+            return false;
+        }
+    }
+
+    QString zipPath = QDir::tempPath() + QStringLiteral("/l_amat_was.zip");
+    QString extractDir = QDir::tempPath() + QStringLiteral("/fcc_extract_was_") +
+                         QString::number(QDateTime::currentMSecsSinceEpoch());
+
+    QNetworkAccessManager manager;
     {
-        QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", m_connName);
+        QUrl url(QStringLiteral("https://data.fcc.gov/download/pub/uls/complete/l_amat.zip"));
+        QNetworkRequest req(url);
+        req.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("GLogKit-WAS-Plugin/1.0"));
+        QNetworkReply *reply = manager.get(req);
+        QEventLoop loop;
+        QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+        loop.exec();
+        if (reply->error() != QNetworkReply::NoError) {
+            m_lastError = QStringLiteral("Download failed: ") + reply->errorString();
+            reply->deleteLater();
+            return false;
+        }
+        QFile zf(zipPath);
+        if (!zf.open(QIODevice::WriteOnly)) {
+            m_lastError = QStringLiteral("Cannot write zip file");
+            reply->deleteLater();
+            return false;
+        }
+        zf.write(reply->readAll());
+        zf.close();
+        reply->deleteLater();
+    }
+
+    try {
+        extractZipWas(zipPath, extractDir, manager);
+    } catch (const std::exception &e) {
+        m_lastError = QString::fromLatin1(e.what());
+        QDir(extractDir).removeRecursively();
+        return false;
+    } catch (...) {
+        m_lastError = QStringLiteral("Extract failed");
+        QDir(extractDir).removeRecursively();
+        return false;
+    }
+
+    QString enPath = extractDir + QStringLiteral("/EN.dat");
+    QString hdPath = extractDir + QStringLiteral("/HD.dat");
+    if (!QFile::exists(enPath) || !QFile::exists(hdPath)) {
+        m_lastError = QStringLiteral("EN.dat or HD.dat missing after extract");
+        QDir(extractDir).removeRecursively();
+        return false;
+    }
+
+    QString m_connName = connName + QStringLiteral("_build");
+    {
+        QSqlDatabase db = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), m_connName);
         db.setDatabaseName(dbPath);
         if (!db.open()) {
-            m_lastError = "Cannot create database: " + db.lastError().text();
+            m_lastError = QStringLiteral("Cannot create database: ") + db.lastError().text();
+            QSqlDatabase::removeDatabase(m_connName);
+            QDir(extractDir).removeRecursively();
             return false;
         }
 
-        // 性能优化：关闭同步，使用内存日志
         QSqlQuery query(db);
-        query.exec("PRAGMA synchronous = OFF;");
-        query.exec("PRAGMA journal_mode = MEMORY;");
-        query.exec("CREATE TABLE IF NOT EXISTS fcc_amat ("
-                   "callsign TEXT PRIMARY KEY, "
-                   "state TEXT NOT NULL)");
+        query.exec(QStringLiteral("PRAGMA synchronous = OFF;"));
+        query.exec(QStringLiteral("PRAGMA journal_mode = MEMORY;"));
+        query.exec(QStringLiteral("CREATE TABLE IF NOT EXISTS fcc_amat ("
+                                  "callsign TEXT PRIMARY KEY, "
+                                  "state TEXT NOT NULL)"));
 
-        // 3. 第一遍：解析 EN.dat，建立 USI → State 映射
         QHash<long long, QString> usiToState;
+        QFile enFile(enPath);
         if (!enFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-            m_lastError = "Cannot open EN.dat";
+            m_lastError = QStringLiteral("Cannot open EN.dat");
+            db.close();
+            QSqlDatabase::removeDatabase(m_connName);
+            QDir(extractDir).removeRecursively();
             return false;
         }
 
-        int enCount = 0;
         QTextStream enStream(&enFile);
-        // enStream.setCodec("UTF-8");
         while (!enStream.atEnd()) {
             QString line = enStream.readLine();
-            if (!line.startsWith("EN|")) {
+            if (!line.startsWith(QStringLiteral("EN|"))) {
                 continue;
             }
 
@@ -305,21 +495,19 @@ bool WASPlugin::updateFccDatabase() {
             }
 
             long long usi = fields[1].toLongLong();
-            if (usi <= 0) continue;
+            if (usi <= 0) {
+                continue;
+            }
 
-            // 字段17通常是州缩写
             QString stateCandidate = fields[17].trimmed();
             if (stateCandidate.length() == 2 && stateCandidate == stateCandidate.toUpper()) {
                 usiToState.insert(usi, stateCandidate);
-                ++enCount;
             } else {
-                // 若17不是州，则向后搜索包含两字母大写的字段
-                for (int i : {12, 16, 18, 19, 20}) {
+                for (int i : {12, 16, 17, 18, 19, 20}) {
                     if (i < fields.size()) {
                         QString s = fields[i].trimmed();
                         if (s.length() == 2 && s == s.toUpper()) {
                             usiToState.insert(usi, s);
-                            ++enCount;
                             break;
                         }
                     }
@@ -328,34 +516,44 @@ bool WASPlugin::updateFccDatabase() {
         }
         enFile.close();
 
-        // 4. 第二遍：解析 HD.dat，根据 USI 和状态 'A' 插入呼号
+        QFile hdFile(hdPath);
         if (!hdFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-            m_lastError = "Cannot open HD.dat";
+            m_lastError = QStringLiteral("Cannot open HD.dat");
+            db.close();
+            QSqlDatabase::removeDatabase(m_connName);
+            QDir(extractDir).removeRecursively();
             return false;
         }
 
         QTextStream hdStream(&hdFile);
-        // hdStream.setCodec("UTF-8");
 
         db.transaction();
-        query.prepare("INSERT OR REPLACE INTO fcc_amat (callsign, state) VALUES (?, ?)");
+        query.prepare(
+            QStringLiteral("INSERT OR REPLACE INTO fcc_amat (callsign, state) VALUES (?, ?)"));
 
         int hdCount = 0;
         while (!hdStream.atEnd()) {
             QString line = hdStream.readLine();
-            if (line.isEmpty()) continue;
+            if (line.isEmpty()) {
+                continue;
+            }
 
             QStringList fields = line.split('|');
-            if (fields.size() < 6) continue; // 确保索引 5 (status) 安全
+            if (fields.size() < 6) {
+                continue;
+            }
 
-            bool ok;
+            bool ok = false;
             long long usi = fields[1].toLongLong(&ok);
-            if (!ok || !usiToState.contains(usi)) continue;
+            if (!ok || !usiToState.contains(usi)) {
+                continue;
+            }
 
             QString callsign = fields[4].trimmed().toUpper();
             QString status = fields[5].trimmed();
-            // 仅处理活动执照 (status == "A")
-            if (callsign.isEmpty() || status != "A") continue;
+            if (callsign.isEmpty() || status != QStringLiteral("A")) {
+                continue;
+            }
 
             query.addBindValue(callsign);
             query.addBindValue(usiToState[usi]);
@@ -364,7 +562,6 @@ bool WASPlugin::updateFccDatabase() {
             }
 
             ++hdCount;
-            // 每 10000 条提交一次事务
             if (hdCount % 10000 == 0) {
                 db.commit();
                 db.transaction();
@@ -373,26 +570,23 @@ bool WASPlugin::updateFccDatabase() {
         db.commit();
         hdFile.close();
 
-        // 5. 创建索引加速查询
-        query.exec("CREATE INDEX IF NOT EXISTS idx_fcc_call ON fcc_amat(callsign)");
+        query.exec(QStringLiteral("CREATE INDEX IF NOT EXISTS idx_fcc_call ON fcc_amat(callsign)"));
         db.close();
     }
     QSqlDatabase::removeDatabase(m_connName);
+    QDir(extractDir).removeRecursively();
     return true;
 }
 
-bool WASPlugin::openDatabase() {
+auto WASPlugin::openDatabase() -> bool {
     if (QSqlDatabase::contains(connName)) {
         QSqlDatabase db = QSqlDatabase::database(connName);
         if (db.isOpen()) {
             m_query = QSqlQuery(db);
-            // ✅ 确保预处理语句在连接打开后立即准备
             m_query.prepare("SELECT state FROM fcc_amat WHERE callsign = ?");
             return true;
-        } else {
-            // 连接存在但未打开，移除后重新创建
-            QSqlDatabase::removeDatabase(connName);
         }
+        QSqlDatabase::removeDatabase(connName);
     }
 
     QString dbPath =
@@ -411,9 +605,8 @@ bool WASPlugin::openDatabase() {
 
 void WASPlugin::closeDatabase() {
     if (QSqlDatabase::contains(connName)) {
-        // ✅ 显式清除查询对象，释放数据库资源
         m_query.clear();
-        m_query = QSqlQuery(); // 赋空查询
+        m_query = QSqlQuery();
 
         QSqlDatabase db = QSqlDatabase::database(connName);
         if (db.isOpen()) {
@@ -423,14 +616,12 @@ void WASPlugin::closeDatabase() {
     }
 }
 
-QString WASPlugin::queryStateByCallsign(const QString &callsign) {
-    // ✅ 先检查缓存
+auto WASPlugin::queryStateByCallsign(const QString &callsign) -> QString {
     QString *cached = m_cache.object(callsign);
-    if (cached) {
+    if (cached != nullptr) {
         return *cached;
     }
 
-    // ✅ 直接绑定并执行，不再依赖 isActive()
     m_query.addBindValue(callsign.toUpper());
     if (m_query.exec() && m_query.next()) {
         QString state = m_query.value(0).toString().trimmed().toUpper();
@@ -438,22 +629,20 @@ QString WASPlugin::queryStateByCallsign(const QString &callsign) {
         return state;
     }
 
-    // 未找到时也缓存空字符串，避免重复查询
     m_cache.insert(callsign, new QString(""), 1);
-    return QString();
+    return {};
 }
 
-QString WASPlugin::parseCallsignFromADIF(const QString &adif) {
-    // ✅ 支持 <CALL:len> 和 <CALL> 两种形式
+auto WASPlugin::parseCallsignFromADIF(const QString &adif) -> QString {
     QRegularExpression re(R"(<CALL(?::\d+)?>([^<]+))", QRegularExpression::CaseInsensitiveOption);
     auto match = re.match(adif);
     if (match.hasMatch()) {
         return match.captured(1).trimmed().toUpper();
     }
-    return QString();
+    return {};
 }
 
-QString WASPlugin::parseStateFromADIF(const QString &adif) {
+auto WASPlugin::parseStateFromADIF(const QString &adif) -> QString {
     QRegularExpression re(R"(<STATE(?::\d+)?>([^<]+))", QRegularExpression::CaseInsensitiveOption);
     auto match = re.match(adif);
     if (match.hasMatch()) {
@@ -462,24 +651,26 @@ QString WASPlugin::parseStateFromADIF(const QString &adif) {
             return state;
         }
     }
-    return QString();
+    return {};
 }
 
-bool WASPlugin::isValidUSState(const QString &state) const { return US_STATES.contains(state); }
+auto WASPlugin::isValidUSState(const QString &state) const -> bool {
+    return US_STATES.contains(state);
+}
 
 extern "C" {
 
-const char *pluginName() { return instance.pluginName(); }
+auto pluginName() -> const char * { return instance.pluginName(); }
 
-bool install() { return instance.install(); }
+auto install() -> bool { return instance.install(); }
 
-bool uninstall() { return instance.uninstall(); }
+auto uninstall() -> bool { return instance.uninstall(); }
 
-bool beforeEvaluate() { return instance.beforeEvaluate(); }
+auto beforeEvaluate() -> bool { return instance.beforeEvaluate(); }
 
-bool afterEvaluate() { return instance.afterEvaluate(); }
+auto afterEvaluate() -> bool { return instance.afterEvaluate(); }
 
-bool evaluate(const IGRecord *QSO, IGRecordGetValueByField callback) {
+auto evaluate(const IGRecord *QSO, IGRecordGetValueByField callback) -> bool {
     return instance.evaluate(QSO, callback);
 }
 

@@ -48,6 +48,8 @@ class AdifFreq : public AdifDataBase {
 
     const std::string &getPendingValue() const { return m_pendingValue; }
 
+    CompareRes compare(const AdifDataBase &right) const override;
+
     AdifFreq(const AdifFreq &) = delete;
     AdifFreq &operator=(const AdifFreq &) = delete;
 };

@@ -5,8 +5,10 @@
 #include <QPromise>
 #include <QThread>
 #include <QThreadPool>
+#include <cstdint>
 #include <exception>
 #include <functional>
+#include <optional>
 #include <type_traits>
 
 #include "SqliteDbExecutor.h"
@@ -24,11 +26,12 @@ class GRecordRepository {
 
     // --- 异步 API ---
 
-    // 初始化数据库表结构（若不存在则创建）
-    QFuture<bool> initSchemaAsync();
+    // 初始化数据库表结构（若不存在则创建）；失败通过 QFuture 携带异常
+    QFuture<void> initSchemaAsync();
 
     // 文件级操作
-    QFuture<int64_t> createFileAsync(const std::string &filename);
+    QFuture<int64_t> createFileAsync(std::string filename);
+    QFuture<std::optional<int64_t>> findFileIdByFilenameAsync(std::string canonicalPath);
     QFuture<void> deleteFileAsync(int64_t fileId);
     QFuture<std::vector<GRecord>> loadFileAsync(int64_t fileId);
     QFuture<void> updateFileSyncTimeAsync(int64_t fileId);
@@ -41,9 +44,8 @@ class GRecordRepository {
     QFuture<void> deleteRecordAsync(int64_t recordDbId);
 
     // 字段级更新
-    QFuture<void> updateFieldAsync(int64_t recordDbId, const std::string &key,
-                                   const std::string &value);
-    QFuture<void> deleteFieldAsync(int64_t recordDbId, const std::string &key);
+    QFuture<void> updateFieldAsync(int64_t recordDbId, std::string key, std::string value);
+    QFuture<void> deleteFieldAsync(int64_t recordDbId, std::string key);
 
     // 内部先同步复制副本，再异步刷盘
     QFuture<void> syncOrderAsync(const std::vector<GRecord> &records);

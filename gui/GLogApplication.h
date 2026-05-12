@@ -22,11 +22,11 @@
 #include "adifdb.h"
 #include "app_export.h"
 
-#include "LoadedAwardPlugin.h"
-
 inline void initAssetsResource() { Q_INIT_RESOURCE(assets); }
 
 class FIFOBackendThreadExecutor;
+class AwardPluginManager;
+class AdifFileService;
 
 namespace Ui {
 class GLogApplicationClass;
@@ -45,8 +45,6 @@ class GLOGKIT_API GLogApplication : public QMainWindow {
     QFuture<std::vector<std::string>> openFile(const QString &filename);
     void mergeFile(const QString &filename, bool remove = false);
     void saveAsFile(const QString &filename);
-    static void extractZip(const QString &zipPath, const QString &extractDir,
-                           QNetworkAccessManager &manager);
     void initCtyDB(bool show_warning = true);
     static CtyDB *getCtyDBInstance();
 
@@ -57,9 +55,12 @@ class GLOGKIT_API GLogApplication : public QMainWindow {
     void saveAsAction();
     void saveDone();
     void setCilpboard(QMimeData *mimeData);
-    void updateFccDatabase();
     void manageAwardPluginAction();
     void moveDataFromStdin();
+
+  private slots:
+    void onMapCallSignInViewTriggered();
+    void onMapCallSignInViewFinished(int failCount, int confictCount);
 
   signals:
     void mergeFileActionSignal(QString filename, bool remove = false);
@@ -68,22 +69,28 @@ class GLOGKIT_API GLogApplication : public QMainWindow {
                      QMessageBox::StandardButton button1 = QMessageBox::StandardButton::NoButton);
     void warning(QString title, QString text, QMessageBox::StandardButton button0,
                  QMessageBox::StandardButton button1 = QMessageBox::StandardButton::NoButton);
+    void critical(QString title, QString text, QMessageBox::StandardButton button0,
+                  QMessageBox::StandardButton button1 = QMessageBox::StandardButton::NoButton);
     void showMessage(QString message, int timeout = 0);
     void disableAction(QAction *action);
     void enableAction(QAction *action);
     void initCtyDBDone();
 
   private:
+    void mapCallSignAskOverwritePreference();
+
     Ui::GLogApplicationClass *ui;
     DropAbleTableView *tableview = nullptr;
     AdifModel *model = nullptr;
+    AdifFileService *fileService = nullptr;
     SearchBar *searchBar = nullptr;
     MapGraphicsView *mapView = nullptr;
     ConfigureCtyDialog *configureCtyDialog = nullptr;
     AddQSODialog *addQSODialog = nullptr;
     DuplicatesManager *duplicatesManager = nullptr;
+    AwardPluginManager *awardPluginManager = nullptr;
 
-    std::vector<LoadedAwardPlugin> m_award_plugins;
+    // std::vector<LoadedAwardPlugin> m_award_plugins;
     std::shared_ptr<StdinReaderWorker> stdinReader;
     QTimer stdinReaderTimer;
 };

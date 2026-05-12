@@ -2,77 +2,86 @@
 #include "Concurrent.h"
 #include "recorddao.h"
 
-// --- 异步 API 实现 ---
-
-QFuture<bool> GRecordRepository::initSchemaAsync() {
-    // 捕获 m_dbExec 共享指针，确保 executor 存活
+auto GRecordRepository::initSchemaAsync() -> QFuture<void> {
     auto exec = m_dbExec;
-    return GLogConcurrent::makeFuture([exec]() -> bool { return GRecordDao::initSchema(*exec); },
-                                      *exec);
+    return GLogConcurrent::makeFuture([exec]() { GRecordDao::initSchema(*exec); }, *exec);
 }
 
-QFuture<int64_t> GRecordRepository::createFileAsync(const std::string &filename) {
+auto GRecordRepository::createFileAsync(std::string filename) -> QFuture<int64_t> {
     auto exec = m_dbExec;
     return GLogConcurrent::makeFuture(
-        [exec, filename]() -> int64_t { return GRecordDao::createFile(*exec, filename); }, *exec);
+        [exec, filename = std::move(filename)]() -> int64_t {
+            return GRecordDao::createFile(*exec, filename);
+        },
+        *exec);
 }
 
-QFuture<void> GRecordRepository::deleteFileAsync(int64_t fileId) {
+auto GRecordRepository::findFileIdByFilenameAsync(std::string canonicalPath)
+    -> QFuture<std::optional<int64_t>> {
+    auto exec = m_dbExec;
+    return GLogConcurrent::makeFuture(
+        [exec, path = std::move(canonicalPath)]() -> std::optional<int64_t> {
+            return GRecordDao::findFileIdByFilename(*exec, path);
+        },
+        *exec);
+}
+
+auto GRecordRepository::deleteFileAsync(int64_t fileId) -> QFuture<void> {
     auto exec = m_dbExec;
     return GLogConcurrent::makeFuture([exec, fileId]() { GRecordDao::deleteFile(*exec, fileId); },
                                       *exec);
 }
 
-QFuture<std::vector<GRecord>> GRecordRepository::loadFileAsync(int64_t fileId) {
+auto GRecordRepository::loadFileAsync(int64_t fileId) -> QFuture<std::vector<GRecord>> {
     auto exec = m_dbExec;
     return GLogConcurrent::makeFuture(
         [exec, fileId]() -> std::vector<GRecord> { return GRecordDao::loadFile(*exec, fileId); },
         *exec);
 }
 
-QFuture<void> GRecordRepository::updateFileSyncTimeAsync(int64_t fileId) {
+auto GRecordRepository::updateFileSyncTimeAsync(int64_t fileId) -> QFuture<void> {
     auto exec = m_dbExec;
     return GLogConcurrent::makeFuture(
         [exec, fileId]() { GRecordDao::updateFileSyncTime(*exec, fileId); }, *exec);
 }
 
-QFuture<void> GRecordRepository::upsertRecordAsync(int64_t fileId, const GRecord &record) {
+auto GRecordRepository::upsertRecordAsync(int64_t fileId, const GRecord &record) -> QFuture<void> {
     auto exec = m_dbExec;
-    // 先同步复制副本（深拷贝，但共享 m_dbInternalId 原子指针）
     GRecord snapshot = record.cloneForPersistence();
     return GLogConcurrent::makeFuture(
         [exec, fileId, snapshot = std::move(snapshot)]() mutable {
-            // snapshot 内的 m_dbInternalId 与原始 record 共享，修改会传回上层
             GRecordDao::upsertRecord(*exec, fileId, snapshot);
         },
         *exec);
 }
 
-QFuture<void> GRecordRepository::deleteRecordAsync(int64_t recordDbId) {
+auto GRecordRepository::deleteRecordAsync(int64_t recordDbId) -> QFuture<void> {
     auto exec = m_dbExec;
     return GLogConcurrent::makeFuture(
         [exec, recordDbId]() { GRecordDao::deleteRecord(*exec, recordDbId); }, *exec);
 }
 
-QFuture<void> GRecordRepository::updateFieldAsync(int64_t recordDbId, const std::string &key,
-                                                  const std::string &value) {
+auto GRecordRepository::updateFieldAsync(int64_t recordDbId, std::string key, std::string value)
+    -> QFuture<void> {
     auto exec = m_dbExec;
     return GLogConcurrent::makeFuture(
-        [exec, recordDbId, key, value]() {
+        [exec, recordDbId, key = std::move(key), value = std::move(value)]() {
             GRecordDao::updateField(*exec, recordDbId, key, value);
         },
         *exec);
 }
 
-QFuture<void> GRecordRepository::deleteFieldAsync(int64_t recordDbId, const std::string &key) {
+auto GRecordRepository::deleteFieldAsync(int64_t recordDbId, std::string key) -> QFuture<void> {
     auto exec = m_dbExec;
     return GLogConcurrent::makeFuture(
-        [exec, recordDbId, key]() { GRecordDao::deleteField(*exec, recordDbId, key); }, *exec);
+        [exec, recordDbId, key = std::move(key)]() {
+            GRecordDao::deleteField(*exec, recordDbId, key);
+        },
+        *exec);
 }
 
-QFuture<void> GRecordRepository::syncOrderAsync(const std::vector<GRecord> &records) {
+auto GRecordRepository::syncOrderAsync(const std::vector<GRecord> &records) -> QFuture<void> {
     auto exec = m_dbExec;
-    // 构建轻量副本（共享 m_dbInternalId，不深拷贝字段数据）
     std::vector<GRecord> snapshots;
     snapshots.reserve(records.size());
     for (const auto &rec : records) {

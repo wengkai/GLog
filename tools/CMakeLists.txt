@@ -8,6 +8,7 @@ qt_add_library(${LIB_NAME} STATIC
 
 target_link_libraries(${LIB_NAME} PUBLIC
         parser
+        model
         Qt6::Widgets
         Qt6::Network
         Qt6::SvgWidgets

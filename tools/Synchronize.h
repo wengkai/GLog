@@ -52,7 +52,7 @@ template <typename T> class Synchronized : private Unsynchronized<T> {
       public:
         WriteProxy(std::shared_mutex &m, T &v) : lock(m), ref(v) {}
         T *operator->() { return &ref; }
-        // T &operator*() { return ref; }
+        T &operator*() { return ref; }
     };
 
     class ReadProxy {
@@ -62,7 +62,7 @@ template <typename T> class Synchronized : private Unsynchronized<T> {
       public:
         ReadProxy(std::shared_mutex &m, const T &v) : lock(m), ref(v) {}
         const T *operator->() const { return &ref; }
-        // const T &operator*() const { return ref; }
+        const T &operator*() const { return ref; }
     };
 
     [[nodiscard]] WriteProxy requireWrite() { return {m_lock, MyBase::value}; }

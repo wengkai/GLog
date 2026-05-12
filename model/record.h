@@ -50,6 +50,10 @@ class AdifDataWrap {
 
   public:
     explicit AdifDataWrap() : m_ptr(make_shared_from_optional(AdifGeneral::create(""))) {}
+    AdifDataWrap(const AdifDataWrap &) = default;
+    AdifDataWrap(AdifDataWrap &&) noexcept = default;
+    AdifDataWrap &operator=(const AdifDataWrap &) = default;
+    AdifDataWrap &operator=(AdifDataWrap &&) noexcept = default;
     explicit AdifDataWrap(Mybase other) : m_ptr(std::move(other)) {}
     explicit operator std::string() const { return (get() != nullptr) ? (*this)->get() : ""; }
     explicit operator std::string_view() const {
@@ -134,7 +138,7 @@ class GRecord : public IGRecord {
     // core mapping
     static wrapper_type _createField(const std::string &key_normalized, std::string value);
 
-    void _beforeSet(const_iterator iter);
+    void _beforeSet(const const_iterator &iter);
 
     static bool _emplaceEssentialFields(MapT &map);
 

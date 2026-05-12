@@ -1,11 +1,13 @@
 #include "MapWidget.h"
 #include <QActionGroup>
 #include <QBrush>
+#include <QColor>
 #include <QFont>
 #include <QGraphicsEllipseItem>
-#include <QMessageBox>
+#include <QGraphicsPathItem>
 #include <QMouseEvent>
 #include <QOpenGLWidget>
+#include <QPen>
 #include <QWheelEvent>
 #include "ctydb.h"
 #include "ui_MapWidget.h"
@@ -39,13 +41,29 @@ MapWidget::MapWidget(AdifModel *model, QWidget *parent)
 
     ui->graphicsView->setDragMode(QGraphicsView::ScrollHandDrag);
     ui->actionDrag_Mode->setChecked(true);
+
+    connect(ui->centerCallEdit, &QLineEdit::textChanged, this, &MapWidget::dataVisualize);
 }
 
-MapWidget::~MapWidget() { delete ui; }
+MapWidget::~MapWidget() {
+    clearRouteLines();
+    delete ui;
+}
 
 auto MapWidget::getMapGraphicsView() -> MapGraphicsView * { return ui->graphicsView; }
 
+void MapWidget::clearRouteLines() {
+    for (auto *line : m_route_lines) {
+        if (line != nullptr) {
+            ui->graphicsView->removeItem(line);
+            delete line;
+        }
+    }
+    m_route_lines.clear();
+}
+
 void MapWidget::clearMarkers() {
+    clearRouteLines();
     qDeleteAll(m_markers);
     m_markers.clear();
     m_position_count.clear();
@@ -108,32 +126,66 @@ void MapWidget::dataVisualize() {
 
     m_position_count.assign(m_position_count.size(), 0);
 
-    auto *ctydb = CtyDB::instance();
-    std::shared_lock<decltype(ctydb->mutex)> lock0(ctydb->mutex, std::defer_lock);
-    if (!lock0.try_lock()) {
-        emit dataVisualizeRe();
-        return;
-    }
-
-    Q_ASSERT(ctydb->getVEnts().size() == m_position_count.size());
-    QString buf;
-    for (auto &record : m_model->records) {
-        auto call = record.at("call")->get();
-        buf = QString::fromUtf8(call.data(), call.size());
-        CtyDB::normalizeCallSign(buf);
-        auto result = ctydb->lookUpCallSign(QStringView(buf));
-        if (result.first->valid) {
-            ++m_position_count[result.first->location_id];
+    m_model->snapshotAsync().then(this, [this](AdifModelSnapshot snap) {
+        auto *ctydb = CtyDB::instance();
+        std::shared_lock<decltype(ctydb->mutex)> lock0(ctydb->mutex, std::defer_lock);
+        if (!lock0.try_lock()) {
+            emit dataVisualizeRe();
+            return;
         }
-    }
 
-    for (int i = 0; i < m_markers.size(); ++i) {
-        if (auto *marker = m_markers[i]) {
-            int count = m_position_count[i];
-            marker->setVisible(count > 0);
-            if (count > 0) {
-                marker->setPointOpacity(std::min(0.2 + (count * 0.05), 1.0));
+        Q_ASSERT(ctydb->getVEnts().size() == m_position_count.size());
+        QString buf;
+        for (const auto &record : snap.records) {
+            auto call = record.at("call")->get();
+            buf = QString::fromUtf8(call.data(), qsizetype(call.size()));
+            CtyDB::normalizeCallSign(buf);
+            auto result = ctydb->lookUpCallSign(QStringView(buf));
+            if (result.first->valid) {
+                ++m_position_count[result.first->location_id];
             }
         }
-    }
+
+        for (int i = 0; i < m_markers.size(); ++i) {
+            if (auto *marker = m_markers[i]) {
+                int count = m_position_count[i];
+                marker->setVisible(count > 0);
+                if (count > 0) {
+                    marker->setPointOpacity(std::min(0.2 + (count * 0.05), 1.0));
+                }
+            }
+        }
+
+        clearRouteLines();
+
+        QString centerCall = ui->centerCallEdit->text();
+        CtyDB::normalizeCallSign(centerCall);
+        auto centerEnt = ctydb->lookUpCallSign(QStringView(centerCall));
+        if (!centerEnt.first || !centerEnt.first->valid) {
+            return;
+        }
+
+        const qreal cLon = centerEnt.first->lon;
+        const qreal cLat = centerEnt.first->lat;
+        const auto &ents = ctydb->getVEnts();
+
+        QPen routePen(QColor(80, 120, 200, 120));
+        routePen.setWidthF(1.0);
+
+        for (int i = 0; i < m_markers.size(); ++i) {
+            if (m_position_count[i] <= 0 || m_markers[i] == nullptr) {
+                continue;
+            }
+            if (static_cast<size_t>(i) >= ents.size()) {
+                continue;
+            }
+            const auto &ent = ents[static_cast<size_t>(i)];
+            if (ent->lon == cLon && ent->lat == cLat) {
+                continue;
+            }
+            auto *line = ui->graphicsView->createLine(cLon, cLat, ent->lon, ent->lat, routePen);
+            ui->graphicsView->addItem(line);
+            m_route_lines.push_back(line);
+        }
+    });
 }

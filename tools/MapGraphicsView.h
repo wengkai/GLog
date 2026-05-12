@@ -2,6 +2,7 @@
 #define MAPGRAPHICSVIEW_H
 
 #include <QGraphicsEllipseItem>
+#include <QGraphicsPathItem>
 #include <QGraphicsScene>
 #include <QGraphicsSimpleTextItem>
 #include <QGraphicsSvgItem>
@@ -12,6 +13,7 @@
 #include <QPen>
 #include <QSvgRenderer>
 #include <QThread>
+#include <unordered_map>
 
 class MarkerPointItem : public QGraphicsEllipseItem {
   public:
@@ -54,8 +56,8 @@ class MapGraphicsView : public QGraphicsView {
 
     MarkerItem *createMarker(const QString &title, const qreal &lon, const qreal &lat,
                              const qreal &size = 10.0) const;
-    QGraphicsLineItem *createLine(const qreal &lon1, const qreal &lat1, const qreal &lon2,
-                                  const qreal &lat2, const QPen &pen = QPen()) const;
+    QGraphicsPathItem *createLine(const qreal &lon1, const qreal &lat1, const qreal &lon2,
+                                  const qreal &lat2, const QPen &pen = QPen());
 
     void addItem(QGraphicsItem *item);
     void removeItem(QGraphicsItem *item);
@@ -73,6 +75,7 @@ class MapGraphicsView : public QGraphicsView {
     QGraphicsScene *m_scene;
     qreal m_zoomnum = 1.0;
     QPointF m_scene_bottom_right;
+    std::unordered_map<QGraphicsItem *, QMetaObject::Connection> m_connections_hash;
 };
 
 #endif

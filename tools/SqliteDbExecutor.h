@@ -63,7 +63,7 @@ class SqliteDbExecutor {
   private:
     class Worker : public QObject {
       public:
-        Worker(const QString &dbPath, const QString &connName);
+        Worker(QString dbPath, QString connName);
         ~Worker();
 
         QSqlDatabase &database() { return m_db; }

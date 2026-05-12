@@ -1,6 +1,5 @@
 #include "ConfigureCtyDialog.h"
 #include <QFileDialog>
-#include <QMessageBox>
 #include <QUrl>
 #include "Concurrent.h"
 #include "GlobalNetwork.h"
@@ -105,7 +104,7 @@ void ConfigureCtyDialog::applyLoadDB(const LoadContext &ctx) {
 }
 
 void ConfigureCtyDialog::onLoadFinished(const QString &msg) {
-    QMessageBox::information(this, tr("Load"), msg);
+    emit loadFinishedInformation(msg);
     enableCtyConfigure();
     if (msg == successMsg()) {
         accept();

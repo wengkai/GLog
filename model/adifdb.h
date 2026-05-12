@@ -6,6 +6,7 @@
 #include <QMimeData>
 #include <QPersistentModelIndex>
 #include <QStandardItemModel>
+#include <functional>
 #include <iostream>
 #include <map>
 #include <mutex>
@@ -14,14 +15,28 @@
 #include <string>
 #include <unordered_set>
 #include <vector>
+#include "adifparse_service.h"
 #include "ctydb.h"
-#include "glogparser.h"
 #include "record.h"
 #include "recordrepository.h"
 
 #include "Concurrent.h"
+#include "Synchronize.h"
 
-class MapWidget;
+class AdifFileService;
+
+/**
+ * @brief Deep-cloned read-only snapshot of an {@link AdifModel}.
+ *
+ * Produced by {@link AdifModel::snapshotAsync}. Both fields are fully
+ * owned copies (rows via `GRecord::clone()`, headers via vector copy), so
+ * the snapshot can be moved across threads without aliasing the model's
+ * internal state.
+ */
+struct AdifModelSnapshot {
+    std::vector<GRecord> records;
+    std::vector<std::string> columnHeaders;
+};
 
 class AdifModel : public QAbstractTableModel {
     Q_OBJECT
@@ -31,13 +46,13 @@ class AdifModel : public QAbstractTableModel {
     static std::vector<std::string> getDefaultSortModel(const std::string &field);
 
   private:
-    std::vector<Record> records{};
+    std::vector<Record> m_records{};
     std::unordered_set<std::string> sheaders{};
     std::vector<std::string> rheaders{};
     // mutable std::shared_mutex mutex{};
     std::shared_ptr<GRecordRepository> m_db_backup;
     mutable GLogConcurrent::FIFOBackendThreadExecutor m_fifo_exec;
-    friend class MapWidget;
+    AdifFileService *m_file_service = nullptr;
 
     auto rheaders_begin() {
         return (rheaders.begin() + static_cast<std::ptrdiff_t>(sheaders.size()));
@@ -49,10 +64,6 @@ class AdifModel : public QAbstractTableModel {
     void _clear();
     bool _addHeader(std::string header);
     std::string _records2StdString(const std::set<int> &rows) const;
-    template <typename Ostream>
-    static void _toCsv(Ostream &stream, std::vector<Record> p_records,
-                       std::vector<std::string> p_rheaders);
-    template <typename Ostream> static void _toAdif(Ostream &stream, std::vector<Record> p_records);
 
     template <typename Backup> void tryDbBackup(Backup &&backup) {
         if (m_db_backup) {
@@ -65,9 +76,11 @@ class AdifModel : public QAbstractTableModel {
     void _insertRecords(int where, std::vector<Record> new_record,
                         std::unordered_set<std::string> new_headers);
 
-    std::vector<std::string> openFile(const QString &filename, bool remove = false);
-    std::vector<std::string> insertFile(int row, const QString &filename, bool remove = false);
-    std::vector<std::string> insertStringData(int row, std::string data);
+    std::pair<bool, std::vector<std::string>::const_iterator>
+    _addHeaderCheck(const std::string &header) const;
+    bool _addHeaderNoSignal(std::string header);
+
+    int64_t persistFileIdForBackup() const;
 
   public:
     explicit AdifModel(QObject *parent = nullptr);
@@ -90,61 +103,64 @@ class AdifModel : public QAbstractTableModel {
     void sort(int column, Qt::SortOrder order = Qt::AscendingOrder) override;
 
     using Condition = std::function<bool(const std::string &)>;
-    QModelIndex findNext(const QModelIndex &start, Condition condition,
+    QModelIndex findNext(const QModelIndex &start, const Condition &condition,
                          const std::string &field = "") const;
-    QList<int> findAll(Condition condition, const std::string &field = "") const;
+    QList<int> findAll(const Condition &condition, const std::string &field = "") const;
 
     virtual ~AdifModel();
 
-    QFuture<bool> addHeader(std::string header);
+    bool addHeader(std::string header);
 
     void clear();
 
     void setDbBackup(std::shared_ptr<GRecordRepository> backup) { m_db_backup = std::move(backup); }
     auto getDbBackup() const { return m_db_backup; }
 
-    std::string records2StdString(const std::set<int> &rows) const;
-    void toCsv(std::ostream &stream) const;
-    void toAdif(std::ostream &stream) const;
+    /**
+     * @brief Clone rows for SQLite upsert. Must be invoked on the GUI thread (same thread as the
+     * model).
+     * @param rowCount Number of rows; if < 0, clones from @p startRow through the last row.
+     */
+    std::vector<GRecord> cloneRecordsForPersistenceSlice(int startRow, int rowCount) const;
 
-    QFuture<std::vector<std::string>> openFileAsync(const QString &filename, bool remove = false);
-    QFuture<std::vector<std::string>> insertFileAsync(int where, const QString &filename,
-                                                      bool remove = false);
-    QFuture<std::vector<std::string>> insertStringDataAsync(int row, std::string data);
+    /**
+     * @brief Asynchronously produces a deep-cloned snapshot of the model.
+     *
+     * Callable from any thread. The snapshot task is dispatched through
+     * {@link GLogConcurrent::MainThreadExecutor} so the rows and headers
+     * are copied while the model is quiescent on the GUI thread; the
+     * resulting {@link AdifModelSnapshot} contains row clones and a copy
+     * of the current column header order, with no aliasing of the
+     * model's internal state.
+     *
+     * Background callers should consume the future via continuations
+     * (`then(...)`); only blocking on the future from a non-GUI thread is
+     * safe (the GUI thread must remain free to service the posted task).
+     */
+    QFuture<AdifModelSnapshot> snapshotAsync() const;
+
+    void setFileService(AdifFileService *service) { m_file_service = service; }
+
+    void applyFullLoad(AdifParseService::ParseRes &&res);
+    void applyInsertAt(int row, AdifParseService::ParseRes &&res);
+
+    std::string records2StdString(const std::set<int> &rows) const;
+
+    GLogConcurrent::FIFOBackendThreadExecutor *getFIFOBackendThreadExecutor() {
+        return &m_fifo_exec;
+    }
 
     void insertRecords(int where, std::vector<Record> new_record);
 
     void insertRecords(int where, std::vector<Record> new_record,
                        std::unordered_set<std::string> new_headers);
 
-    struct ParseRes {
-        bool parse_res = false;
-        std::vector<Record> parse_records;
-        std::unordered_set<std::string> parse_headers;
-    };
-    enum class ParseMode { Batch, Interactive };
-    static ParseRes parse(std::istream &in, std::vector<std::string> &errors, ParseMode mode);
-    static ParseRes
-    fromRawData(bool success,
-                std::vector<std::vector<std::pair<std::string, std::string>>> raw_data);
-    GLogConcurrent::FIFOBackendThreadExecutor *getFIFOBackendThreadExecutor() {
-        return &m_fifo_exec;
-    }
-
     // 以特定字段组为基准返回重复记录
     std::vector<std::vector<QPersistentModelIndex>>
     findDuplicates(const std::vector<std::string> &fields) const;
 
-    struct AwardRes {
-        QString DXCC = "0";
-        QString WAC_ARRL = "0";
-        QString WAC_NOTARRL = "0";
-        QString CQZ = "0";
-        QString WAS = "Invaild";
-    };
-    AwardRes diffEntNameCountForAward() const;
-    size_t deleteRowsPersistent(std::vector<QPersistentModelIndex> indexes);
-    bool mergeRows(QModelIndex major, QModelIndexList indexes);
+    size_t deleteRowsPersistent(const std::vector<QPersistentModelIndex> &indexes);
+    bool mergeRows(const QModelIndex &major, const QModelIndexList &indexes);
     QFuture<bool> mergeRowsAsync(QModelIndex major, QModelIndexList indexes);
     QFuture<size_t> deleteRowsAsync(QModelIndexList indexes);
 
@@ -154,7 +170,6 @@ class AdifModel : public QAbstractTableModel {
     void removeSelectedColumn(int column);
     void mapCallSignInView(bool keepOrigin);
 
-    void saveAs(const QString &filename) const;
     void newViewWithRows(const QModelIndexList &indexes) const;
     void pasteRows(const QMimeData *mimeData);
     void copyRows(const QModelIndexList &indexes);
@@ -165,7 +180,6 @@ class AdifModel : public QAbstractTableModel {
   signals:
     void mapCallSignInViewBegin();
     void mapCallSignInViewEnd(int failCount, int confictCount);
-    void saveDone() const;
     void setCilpboard(QMimeData *mimeData);
     void foundNext(QModelIndex index);
     void selectRows(QList<int> rows);

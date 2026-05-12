@@ -13,7 +13,7 @@
 #define IS_PIPED (!isatty(fileno(stdin)))
 #endif
 
-int StdinReaderWorker::work() {
+auto StdinReaderWorker::work() -> int {
     const int STDIN_WAIT_TIME = 100;
     std::this_thread::sleep_for(std::chrono::milliseconds(STDIN_WAIT_TIME));
 
@@ -42,7 +42,7 @@ int StdinReaderWorker::work() {
     return parse_ret;
 }
 
-int StdinReaderWorker::run() {
+auto StdinReaderWorker::run() -> int {
     struct StopGuard {
         std::atomic<bool> &m_stop;
         StopGuard(std::atomic<bool> &m_stop) : m_stop(m_stop) { m_stop.store(false); }

@@ -14,7 +14,8 @@ macro(add_test_unit test_name)
         Qt6::Test
     )
 
-    add_test(NAME ${test_name} COMMAND ${test_name})
+    # Multi-config generators (Visual Studio): resolve exe at test time.
+    add_test(NAME ${test_name} COMMAND "$<TARGET_FILE:${test_name}>")
 
     list(APPEND TEST_UNITS ${test_name})
     
@@ -49,3 +50,5 @@ if(WIN32)
 
     message(STATUS "Tests Qt Runtime Dir: ${_qt_bin_dir}")
 endif()
+
+set(GLOG_TEST_EXECUTABLE_TARGETS "${TEST_UNITS}" PARENT_SCOPE)

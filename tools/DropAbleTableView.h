@@ -6,14 +6,18 @@
 #include <QTableView>
 #include "GHeaderView.h"
 
+class AdifModel;
+
 class DropAbleTableView : public QTableView {
     Q_OBJECT
 
   private:
     GHeaderView *headerview;
+    AdifModel *m_model;
 
   public:
-    explicit DropAbleTableView(QWidget *parent = nullptr);
+    explicit DropAbleTableView(AdifModel *model, QWidget *parent = nullptr);
+    void setAdifModel(AdifModel *model);
     void tryDeleteSelectedRows();
     void tryNewSelectedRowsView();
     void tryPasteRows();
@@ -29,17 +33,19 @@ class DropAbleTableView : public QTableView {
     void setMSelection(QItemSelectionModel::SelectionFlag command);
 
   signals:
-    void deleteRowsSignal(QModelIndexList indexes);
-    void newViewWithRowsSignal(QModelIndexList indexes);
-    void pasteRowsSignal(const QMimeData *mimeData);
-    void copyRowsSignal(const QModelIndexList indexes);
     void findNextSignal(QModelIndex current, QString key, QString value, bool isReg);
     void setMSelectionSignal(QItemSelectionModel::SelectionFlag command);
     void selected();
+    void userInformation(const QString &title, const QString &text);
 
   protected:
     void dropEvent(QDropEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
+
+  public:
+    void proceedDeleteSelectedRows(const QModelIndexList &rows);
+    void proceedNewViewWithRows(const QModelIndexList &rows);
+    void proceedPasteRows(const QMimeData *mimeData);
 
   private:
     QItemSelection m_selection;

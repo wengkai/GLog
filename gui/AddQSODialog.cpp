@@ -1,6 +1,5 @@
 #include "AddQSODialog.h"
 #include <QDate>
-#include <QMessageBox>
 #include <QRegularExpression>
 #include <QRegularExpressionMatch>
 #include <QTime>
@@ -30,8 +29,7 @@ void AddQSODialog::accept() {
     if (ui->callSignLineEdit->text().isEmpty() || ui->modeComboBox->currentText().isEmpty() ||
         ui->freqDoubleSpinBox->text().isEmpty() || ui->rstLineEdit->text().isEmpty() ||
         ui->rstRcvdLineEdit->text().isEmpty()) {
-        QMessageBox::information(this, tr("Add QSO"), tr("Some empty field(s)."),
-                                 QMessageBox::StandardButton::Ok);
+        emit userInformation(tr("Add QSO"), tr("Some empty field(s)."));
         return;
     }
     // 1. Unified Validation
@@ -46,7 +44,7 @@ void AddQSODialog::accept() {
 
     if (!call_regex.match(call).hasMatch()) {
         ui->callSignLineEdit->setFocus();
-        QMessageBox::warning(this, tr("Add QSO"), tr("Invalid Call-sign format."));
+        emit userWarning(tr("Add QSO"), tr("Invalid Call-sign format."));
         return;
     }
 

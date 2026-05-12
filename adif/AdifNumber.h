@@ -56,7 +56,7 @@ class AdifNumber : public AdifDataBase {
 
     CompareRes compare(const AdifDataBase &right) const override;
 
-    static CompareRes compare_rational(std::string_view a, std::string_view b);
+    static CompareRes compare_rational(std::string_view a_str, std::string_view b_str);
 
     static bool in_range(std::string_view lower, std::string_view val, std::string_view upper) {
         auto compare_to_lower = AdifNumber::compare_rational(val, lower);

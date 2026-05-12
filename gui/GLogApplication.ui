@@ -51,7 +51,6 @@
     <addaction name="actionConfigure_Cty_dat"/>
     <addaction name="actionAdd_QSO_Manually"/>
     <addaction name="actionAward"/>
-    <addaction name="actionUpdate_FCC_database"/>
     <addaction name="actionManage_Award_Plugin"/>
     <addaction name="actionManage_Duplicates"/>
    </widget>
@@ -123,11 +122,6 @@
   <action name="actionAward">
    <property name="text">
     <string>Award</string>
-   </property>
-  </action>
-  <action name="actionUpdate_FCC_database">
-   <property name="text">
-    <string>Update FCC database</string>
    </property>
   </action>
   <action name="actionAbout_Qt">

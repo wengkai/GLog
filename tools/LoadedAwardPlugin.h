@@ -4,6 +4,10 @@
 #include <QLibrary>
 #include <QList>
 #include <QString>
+#include <atomic>
+#include <functional>
+#include <memory>
+#include <vector>
 
 #include "IGRecord.h"
 
@@ -31,17 +35,27 @@ struct LoadedAwardPlugin {
     AwardPluginGetResultF getResult = nullptr;
     AwardPluginGetLastErrorF getLastError = nullptr;
 
+    enum class Status {
+        Enabled,
+        Pending,
+        Disabled,
+    };
+    std::unique_ptr<std::atomic<Status>> status =
+        std::make_unique<std::atomic<Status>>(Status::Disabled);
+
     bool valid() const {
         return pluginName && install && uninstall && beforeEvaluate && afterEvaluate && evaluate &&
                getResult && getLastError;
     }
-
+    LoadedAwardPlugin() = default;
     LoadedAwardPlugin(QString i_filename, std::unique_ptr<QLibrary> i_plugin_lib)
         : filename(std::move(i_filename)), plugin_lib(std::move(i_plugin_lib)), pluginName(nullptr),
           install(nullptr), uninstall(nullptr), beforeEvaluate(nullptr), afterEvaluate(nullptr),
           evaluate(nullptr), getResult(nullptr), getLastError(nullptr) {
         tryResolve();
     }
+    LoadedAwardPlugin(LoadedAwardPlugin &&) = default;
+    LoadedAwardPlugin &operator=(LoadedAwardPlugin &&) = default;
 
 #define ResolvePluginFunctionByName(function)                                                      \
     do {                                                                                           \
@@ -69,6 +83,27 @@ struct LoadedAwardPlugin {
         return valid();
     }
 #undef ResolvePluginFunctionByName
+};
+
+class IAwardPluginsProxy {
+    std::function<void()> m_initializer;
+    std::function<void()> m_finalizer;
+
+  public:
+    IAwardPluginsProxy(
+        std::function<void()> &&initializer = []() {}, std::function<void()> &&finalizer = []() {})
+        : m_initializer(initializer), m_finalizer(finalizer) {
+        m_initializer();
+    };
+    virtual ~IAwardPluginsProxy() { m_finalizer(); };
+    virtual const std::vector<LoadedAwardPlugin> *operator->() const = 0;
+    virtual const std::vector<LoadedAwardPlugin> &operator*() const = 0;
+};
+
+class IAwardPluginsManager {
+  public:
+    virtual std::unique_ptr<IAwardPluginsProxy> getPAwardPlugins() = 0;
+    virtual ~IAwardPluginsManager() = default;
 };
 
 #endif

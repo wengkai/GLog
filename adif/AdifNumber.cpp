@@ -10,7 +10,7 @@ auto AdifNumber::take(std::string &&newValue) -> TakeRes {
     return {false, std::move(newValue)};
 }
 
-double AdifNumber::asDouble() const { return std::stod(m_rawValue); }
+auto AdifNumber::asDouble() const -> double { return std::stod(m_rawValue); }
 
 auto AdifNumber::compare(const AdifDataBase &right) const -> CompareRes {
     const auto *check_right = dynamic_cast<decltype(this)>(&right);
@@ -22,82 +22,89 @@ auto AdifNumber::compare(const AdifDataBase &right) const -> CompareRes {
     return compare_rational(m_rawValue, check_right->m_rawValue);
 }
 
-auto AdifNumber::compare_rational(std::string_view a, std::string_view b) -> CompareRes {
-    bool a_neg = (!a.empty() && a[0] == '-');
-    size_t a_num_start = a_neg ? 1 : 0;
-    size_t a_dot = a.find('.', a_num_start);
+struct RationalView {
+    bool is_neg;
+    bool is_zero;
+    std::string_view integer;
+    std::string_view fraction;
+};
 
-    std::string_view a_int =
-        a.substr(a_num_start,
-                 (a_dot == std::string_view::npos) ? a.size() - a_num_start : a_dot - a_num_start);
-    std::string_view a_frac =
-        (a_dot != std::string_view::npos) ? a.substr(a_dot + 1) : std::string_view();
+// Helper to parse and normalize the string view
+static inline auto parse_rational(std::string_view s) -> RationalView {
+    bool neg = (!s.empty() && s[0] == '-');
+    size_t start = neg ? 1 : 0;
+    size_t dot = s.find('.', start);
 
-    size_t a_int_nonzero = a_int.find_first_not_of('0');
-    std::string_view a_int_trim = (a_int_nonzero == std::string_view::npos)
-                                      ? std::string_view()
-                                      : a_int.substr(a_int_nonzero);
+    std::string_view i_part =
+        s.substr(start, (dot == std::string_view::npos) ? s.size() - start : dot - start);
+    std::string_view f_part =
+        (dot != std::string_view::npos) ? s.substr(dot + 1) : std::string_view();
 
-    bool a_is_zero = a_int_trim.empty() &&
-                     (a_frac.empty() || a_frac.find_first_not_of('0') == std::string_view::npos);
+    // Trim leading zeros from integer
+    size_t first_digit = i_part.find_first_not_of('0');
+    i_part = (first_digit == std::string_view::npos) ? "" : i_part.substr(first_digit);
 
-    bool b_neg = (!b.empty() && b[0] == '-');
-    size_t b_num_start = b_neg ? 1 : 0;
-    size_t b_dot = b.find('.', b_num_start);
+    // Check if effectively zero
+    bool is_zero = i_part.empty() &&
+                   (f_part.empty() || f_part.find_first_not_of('0') == std::string_view::npos);
 
-    std::string_view b_int =
-        b.substr(b_num_start,
-                 (b_dot == std::string_view::npos) ? b.size() - b_num_start : b_dot - b_num_start);
-    std::string_view b_frac =
-        (b_dot != std::string_view::npos) ? b.substr(b_dot + 1) : std::string_view();
+    return {neg && !is_zero, is_zero, i_part, f_part};
+}
 
-    size_t b_int_nonzero = b_int.find_first_not_of('0');
-    std::string_view b_int_trim = (b_int_nonzero == std::string_view::npos)
-                                      ? std::string_view()
-                                      : b_int.substr(b_int_nonzero);
+static inline auto compare_magnitudes(const RationalView &a, const RationalView &b)
+    -> AdifNumber::CompareRes {
 
-    bool b_is_zero = b_int_trim.empty() &&
-                     (b_frac.empty() || b_frac.find_first_not_of('0') == std::string_view::npos);
+    using CompareRes = AdifNumber::CompareRes;
 
-    if (a_is_zero && b_is_zero) {
-        return equal_to;
-    }
-    if (a_is_zero) {
-        return b_neg ? greater : less;
-    }
-    if (b_is_zero) {
-        return a_neg ? less : greater;
+    // 1. Integer length check
+    if (a.integer.size() != b.integer.size()) {
+        return a.integer.size() > b.integer.size() ? CompareRes::greater : CompareRes::less;
     }
 
-    if (a_neg != b_neg) {
-        return a_neg ? less : greater;
+    // 2. Integer value check
+    if (int int_cmp = a.integer.compare(b.integer); int_cmp != 0) {
+        return int_cmp > 0 ? CompareRes::greater : CompareRes::less;
     }
 
-    bool both_negative = a_neg;
-
-    if (a_int_trim.size() != b_int_trim.size()) {
-        bool a_longer = a_int_trim.size() > b_int_trim.size();
-        if (both_negative) a_longer = !a_longer;
-        return a_longer ? greater : less;
-    }
-
-    int int_cmp = a_int_trim.compare(b_int_trim);
-    if (int_cmp != 0) {
-        bool a_greater = int_cmp > 0;
-        if (both_negative) a_greater = !a_greater;
-        return a_greater ? greater : less;
-    }
-
-    size_t max_frac_len = std::max(a_frac.size(), b_frac.size());
-    for (size_t i = 0; i < max_frac_len; ++i) {
-        char ca = (i < a_frac.size()) ? a_frac[i] : '0';
-        char cb = (i < b_frac.size()) ? b_frac[i] : '0';
+    // 3. Fractional check
+    const size_t max_len = std::max(a.fraction.size(), b.fraction.size());
+    for (size_t i = 0; i < max_len; ++i) {
+        char ca = (i < a.fraction.size()) ? a.fraction[i] : '0';
+        char cb = (i < b.fraction.size()) ? b.fraction[i] : '0';
         if (ca != cb) {
-            bool a_greater = ca > cb;
-            if (both_negative) a_greater = !a_greater;
-            return a_greater ? greater : less;
+            return ca > cb ? CompareRes::greater : CompareRes::less;
         }
     }
 
-    return equal_to;
+    return CompareRes::equal_to;
+}
+
+auto AdifNumber::compare_rational(std::string_view a_str, std::string_view b_str) -> CompareRes {
+    auto a = parse_rational(a_str);
+    auto b = parse_rational(b_str);
+
+    // 1. Zero handling
+    if (a.is_zero && b.is_zero) {
+        return equal_to;
+    }
+    if (a.is_zero) {
+        return b.is_neg ? greater : less;
+    }
+    if (b.is_zero) {
+        return a.is_neg ? less : greater;
+    }
+
+    // 2. Sign handling
+    if (a.is_neg != b.is_neg) {
+        return a.is_neg ? less : greater;
+    }
+
+    // 3. Magnitude comparison (Absolute Value)
+    CompareRes res = compare_magnitudes(a, b);
+
+    // 4. Flip result if both are negative
+    if (a.is_neg && res != equal_to) {
+        return (res == greater) ? less : greater;
+    }
+    return res;
 }

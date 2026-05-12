@@ -13,3 +13,4 @@ CMakeLists.txt.user
 AppDir/
 __pycache__/
 *.sqlite
+coverage/
