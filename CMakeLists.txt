@@ -618,6 +618,42 @@ if(WIN32)
     else()
         message(STATUS "OpenCppCoverage.exe not found; coverage target disabled")
     endif()
+
+    # LLVM source-based coverage target. Only meaningful with the clang/LLVM toolchain
+    # built with -fprofile-instr-generate -fcoverage-mapping. The target invokes
+    # scripts/Generate-LlvmCoverage.ps1 which runs ctest with LLVM_PROFILE_FILE set,
+    # merges the resulting .profraw files via llvm-profdata and renders HTML + lcov
+    # via llvm-cov.
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        find_program(LLVM_COV_EXECUTABLE NAMES llvm-cov)
+        find_program(LLVM_PROFDATA_EXECUTABLE NAMES llvm-profdata)
+        if(LLVM_COV_EXECUTABLE AND LLVM_PROFDATA_EXECUTABLE)
+            add_custom_target(llvm-coverage
+                COMMAND powershell -NoProfile -ExecutionPolicy Bypass -File
+                    "${CMAKE_SOURCE_DIR}/scripts/Generate-LlvmCoverage.ps1"
+                    -LlvmCov "${LLVM_COV_EXECUTABLE}"
+                    -LlvmProfdata "${LLVM_PROFDATA_EXECUTABLE}"
+                    -BuildDir "${CMAKE_BINARY_DIR}"
+                    -SourceRoot "${CMAKE_SOURCE_DIR}"
+                WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
+                COMMENT "LLVM source-based coverage (clang + ctest + llvm-cov)"
+                VERBATIM
+            )
+            if(GLOG_TEST_EXECUTABLE_TARGETS)
+                add_dependencies(llvm-coverage ${GLOG_TEST_EXECUTABLE_TARGETS})
+            endif()
+            if(NOT CMAKE_CXX_FLAGS MATCHES "fcoverage-mapping")
+                message(WARNING "llvm-coverage target enabled, but CMAKE_CXX_FLAGS does not contain"
+                                " -fcoverage-mapping. Reconfigure with"
+                                " -DCMAKE_CXX_FLAGS=\"-fprofile-instr-generate -fcoverage-mapping ...\""
+                                " for meaningful results.")
+            else()
+                message(STATUS "llvm-coverage: ${LLVM_COV_EXECUTABLE}")
+            endif()
+        else()
+            message(STATUS "llvm-cov / llvm-profdata not found; llvm-coverage target disabled")
+        endif()
+    endif()
 endif()
 
 endif()

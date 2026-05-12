@@ -32,4 +32,4 @@ class TestMainWindow : public QObject {
 };
 
 QTEST_MAIN(TestMainWindow)
-#include "hello_ctest.moc"
+#include "tst_hello_app.moc"

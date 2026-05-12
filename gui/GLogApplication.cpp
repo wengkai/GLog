@@ -29,9 +29,13 @@
 #include "recordrepository.h"
 #include "ui_GLogApplication.h"
 
-GLogApplication::GLogApplication(QWidget *parent)
+GLogApplication::GLogApplication(bool msgBoxEnabled, QWidget *parent)
     : QMainWindow(parent), ui(new Ui::GLogApplicationClass()) {
     ui->setupUi(this);
+
+    if (msgBoxEnabled) {
+        enableMsgBox();
+    }
 
     connect(ui->actionAbout_Qt, &QAction::triggered, this, []() { QApplication::aboutQt(); });
 
@@ -50,30 +54,6 @@ GLogApplication::GLogApplication(QWidget *parent)
         [this](const QString &title, const QString &text, QMessageBox::StandardButton button0,
                QMessageBox::StandardButton button1) {
             emit critical(title, text, button0, button1);
-        },
-        Qt::QueuedConnection);
-
-    connect(
-        this, &GLogApplication::information, this,
-        [=](const QString &title, const QString &text, QMessageBox::StandardButton button0,
-            QMessageBox::StandardButton button1) {
-            QMessageBox::information(this, title, text, button0, button1);
-        },
-        Qt::QueuedConnection);
-
-    connect(
-        this, &GLogApplication::warning, this,
-        [=](const QString &title, const QString &text, QMessageBox::StandardButton button0,
-            QMessageBox::StandardButton button1) {
-            QMessageBox::warning(this, title, text, button0, button1);
-        },
-        Qt::QueuedConnection);
-
-    connect(
-        this, &GLogApplication::critical, this,
-        [=](const QString &title, const QString &text, QMessageBox::StandardButton button0,
-            QMessageBox::StandardButton button1) {
-            QMessageBox::critical(this, title, text, button0, button1);
         },
         Qt::QueuedConnection);
 
@@ -292,6 +272,38 @@ void GLogApplication::enableBackup() {
         .onFailed(this, [](const std::exception &e) {
             qCritical() << "GRecordRepository initSchemaAsync failed:" << e.what();
         });
+}
+
+void GLogApplication::enableMsgBox() {
+    if (m_msgBoxEnabled) {
+        return;
+    }
+
+    m_msgBoxEnabled = true;
+
+    connect(
+        this, &GLogApplication::information, this,
+        [=](const QString &title, const QString &text, QMessageBox::StandardButton button0,
+            QMessageBox::StandardButton button1) {
+            QMessageBox::information(this, title, text, button0, button1);
+        },
+        Qt::QueuedConnection);
+
+    connect(
+        this, &GLogApplication::warning, this,
+        [=](const QString &title, const QString &text, QMessageBox::StandardButton button0,
+            QMessageBox::StandardButton button1) {
+            QMessageBox::warning(this, title, text, button0, button1);
+        },
+        Qt::QueuedConnection);
+
+    connect(
+        this, &GLogApplication::critical, this,
+        [=](const QString &title, const QString &text, QMessageBox::StandardButton button0,
+            QMessageBox::StandardButton button1) {
+            QMessageBox::critical(this, title, text, button0, button1);
+        },
+        Qt::QueuedConnection);
 }
 
 auto GLogApplication::openFile(const QString &filename) -> QFuture<std::vector<std::string>> {

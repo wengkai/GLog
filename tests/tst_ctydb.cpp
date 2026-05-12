@@ -81,4 +81,4 @@ class CtyDBTest : public QObject {
 };
 
 QTEST_MAIN(CtyDBTest)
-#include "ctydb_test.moc"
+#include "tst_ctydb.moc"

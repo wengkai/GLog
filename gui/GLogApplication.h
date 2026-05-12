@@ -36,9 +36,10 @@ class GLOGKIT_API GLogApplication : public QMainWindow {
     Q_OBJECT
 
     static constexpr int DEFAULT_MSG_TIMEOUT = 5000;
+    bool m_msgBoxEnabled = false;
 
   public:
-    GLogApplication(QWidget *parent = nullptr);
+    GLogApplication(bool msgBoxEnabled = false, QWidget *parent = nullptr);
     ~GLogApplication();
 
     void resizeTableView();
@@ -49,6 +50,7 @@ class GLOGKIT_API GLogApplication : public QMainWindow {
     static CtyDB *getCtyDBInstance();
 
     void enableBackup();
+    void enableMsgBox();
 
   public slots:
     void openFileAction();

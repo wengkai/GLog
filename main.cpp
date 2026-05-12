@@ -59,7 +59,7 @@ int main(int argc, char *argv[]) { // NOLINT
 
     QApplication app(argc, argv);
     QApplication::setApplicationName("GLog");
-    GLogApplication window;
+    GLogApplication window(true);
     window.enableBackup();
     window.show();
     return QApplication::exec();
