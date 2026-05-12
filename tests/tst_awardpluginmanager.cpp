@@ -139,6 +139,7 @@ void AwardPluginManagerTest::test_install_after_confirmed_success_emits_informat
     const QPersistentModelIndex pix(mgr.index(0));
     QVERIFY(pix.isValid());
     mgr.installAwardPluginAfterConfirmed(pix);
+    QCoreApplication::processEvents();
 
     QTRY_VERIFY(infoSpy.count() >= 1);
     QCOMPARE(criticalSpy.count(), 0);
@@ -158,6 +159,7 @@ void AwardPluginManagerTest::test_install_after_confirmed_failure_emits_critical
     const QPersistentModelIndex pix(mgr.index(0));
     QVERIFY(pix.isValid());
     mgr.installAwardPluginAfterConfirmed(pix);
+    QCoreApplication::processEvents();
 
     QTRY_VERIFY(criticalSpy.count() >= 1);
     QCOMPARE(infoSpy.count(), 0);
@@ -179,6 +181,7 @@ void AwardPluginManagerTest::test_uninstall_after_confirmed_success() {
     QSignalSpy criticalSpy(&mgr, &AwardPluginManager::userCritical);
 
     mgr.uninstallAwardPluginAfterConfirmed(pix);
+    QCoreApplication::processEvents();
     QTRY_VERIFY(infoSpy.count() >= 1);
     QCOMPARE(criticalSpy.count(), 0);
 }
