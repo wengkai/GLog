@@ -48,6 +48,8 @@ class GLOGKIT_API GLogApplication : public QMainWindow {
     void initCtyDB(bool show_warning = true);
     static CtyDB *getCtyDBInstance();
 
+    void enableBackup();
+
   public slots:
     void openFileAction();
     void mergeFileAction();

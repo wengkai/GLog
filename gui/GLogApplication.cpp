@@ -90,17 +90,6 @@ GLogApplication::GLogApplication(QWidget *parent)
         [=](QAction *action) { action->setEnabled(false); }, Qt::QueuedConnection);
 
     model = new AdifModel(this);
-    {
-        const QString appData = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-        QDir().mkpath(appData);
-        const QString dbPath = appData + QStringLiteral("/glog_records.sqlite");
-        auto recordRepo = std::make_shared<GRecordRepository>(dbPath);
-        recordRepo->initSchemaAsync()
-            .then(this, [model = model, recordRepo]() { model->setDbBackup(recordRepo); })
-            .onFailed(this, [](const std::exception &e) {
-                qCritical() << "GRecordRepository initSchemaAsync failed:" << e.what();
-            });
-    }
     tableview = new DropAbleTableView(model, this);
     setCentralWidget(tableview);
     connect(ui->actionOpen, &QAction::triggered, this, &GLogApplication::openFileAction);
@@ -290,6 +279,18 @@ void GLogApplication::resizeTableView() {
     tableview->resizeColumnsToContents();
     tableview->resizeRowsToContents();
     tableview->setVisible(true);
+}
+
+void GLogApplication::enableBackup() {
+    const QString appData = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    QDir().mkpath(appData);
+    const QString dbPath = appData + QStringLiteral("/glog_records.sqlite");
+    auto recordRepo = std::make_shared<GRecordRepository>(dbPath);
+    recordRepo->initSchemaAsync()
+        .then(this, [model = model, recordRepo]() { model->setDbBackup(recordRepo); })
+        .onFailed(this, [](const std::exception &e) {
+            qCritical() << "GRecordRepository initSchemaAsync failed:" << e.what();
+        });
 }
 
 auto GLogApplication::openFile(const QString &filename) -> QFuture<std::vector<std::string>> {
