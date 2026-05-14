@@ -11,6 +11,7 @@
 #include <QList>
 #include <QMainWindow>
 #include <QPen>
+#include <QShowEvent>
 #include <QSvgRenderer>
 #include <QThread>
 #include <unordered_map>
@@ -69,15 +70,19 @@ class GLOGKIT_API MapGraphicsView : public QGraphicsView {
     void mouseMoveTo(qreal lon, qreal lat);
 
   protected:
+    void showEvent(QShowEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
     void wheelEvent(QWheelEvent *event) override;
     void mouseDoubleClickEvent(QMouseEvent *event) override;
 
   private:
+    void ensureGlViewportInstalled();
+
     QGraphicsScene *m_scene;
     qreal m_zoomnum = 1.0;
     QPointF m_scene_bottom_right;
     std::unordered_map<QGraphicsItem *, QMetaObject::Connection> m_connections_hash;
+    bool m_glViewportInstalled = false;
 };
 
 #endif

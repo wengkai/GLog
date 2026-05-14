@@ -1,11 +1,13 @@
 #include "MapGraphicsView.h"
 #include <QBrush>
+#include <QCoreApplication>
 #include <QFont>
 #include <QGraphicsEllipseItem>
 #include <QGraphicsSceneEvent>
 #include <QMouseEvent>
 #include <QOpenGLWidget>
 #include <QPainterPath>
+#include <QShowEvent>
 #include <QWheelEvent>
 #include <cmath>
 
@@ -83,10 +85,34 @@ MapGraphicsView::MapGraphicsView(QWidget *parent)
 
     setRenderHint(QPainter::Antialiasing);
     setRenderHint(QPainter::SmoothPixmapTransform);
+}
 
-    auto *gl = new QOpenGLWidget();
+void MapGraphicsView::showEvent(QShowEvent *event) {
+    QGraphicsView::showEvent(event);
+    ensureGlViewportInstalled();
+}
+
+void MapGraphicsView::ensureGlViewportInstalled() {
+    if (m_glViewportInstalled) {
+        return;
+    }
+    m_glViewportInstalled = true;
+
+#if defined(Q_OS_MACOS)
+    // macOS (incl. arm64 CI / Metal): QOpenGLWidget viewport can SIGBUS during first
+    // composite after show. Keep QGraphicsView's default raster viewport unless opted in.
+    if (!qEnvironmentVariableIsSet("GLOG_MAP_USE_OPENGL")) {
+        return;
+    }
+#endif
+
+    auto *gl = new QOpenGLWidget(this);
     QSurfaceFormat format;
+#if defined(Q_OS_MACOS)
+    format.setSamples(0);
+#else
     format.setSamples(4);
+#endif
     gl->setFormat(format);
     setViewport(gl);
 }
