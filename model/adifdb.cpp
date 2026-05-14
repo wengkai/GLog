@@ -222,11 +222,11 @@ void AdifModel::mapCallSignInView(bool keepOrigin) {
         std::shared_lock<decltype(ctydb->mutex)> lock0(ctydb->mutex);
 
         int failCount = 0;
-        int confictCount = 0;
+        int conflictCount = 0;
         auto writeByKeepOriginFlag = [&](Record &dest, const std::string &key,
                                          const std::string &value) {
             if (auto iter = dest.find(key); iter != dest.end() && iter->second->get() != value) {
-                ++confictCount;
+                ++conflictCount;
                 if (keepOrigin) {
                     return;
                 }
@@ -235,6 +235,7 @@ void AdifModel::mapCallSignInView(bool keepOrigin) {
         };
 
         QString buf;
+        const int64_t fid = persistFileIdForBackup();
         for (auto &record : m_records) {
             auto call = record.at("call")->get();
             buf = QString::fromUtf8(call.data(), qsizetype(call.size()));
@@ -249,6 +250,11 @@ void AdifModel::mapCallSignInView(bool keepOrigin) {
                                       QString::number(result.first->itu).toStdString());
                 writeByKeepOriginFlag(record, "cont", result.first->continent.toStdString());
                 writeByKeepOriginFlag(record, "country", result.first->name.toStdString());
+                if (fid > 0) {
+                    tryDbBackup([&](const std::shared_ptr<GRecordRepository> &repo) {
+                        attachBackupFailureLogger(repo->upsertRecordAsync(fid, record));
+                    });
+                }
             } else {
                 record.addOrSetPair(testField, result.second.toStdString());
                 ++failCount;
@@ -256,7 +262,7 @@ void AdifModel::mapCallSignInView(bool keepOrigin) {
         }
 
         emit layoutChanged();
-        emit mapCallSignInViewEnd(failCount, confictCount);
+        emit mapCallSignInViewEnd(failCount, conflictCount);
     });
 }
 
