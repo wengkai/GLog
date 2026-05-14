@@ -63,12 +63,12 @@ auto AdifParseService::parse(std::istream &in, std::vector<std::string> &errors,
     auto success = parser.parse() == 0;
 
     ParseRes ret{success, {}, {}};
+    driver->errors.write([&](auto &d_errors) { std::swap(errors, d_errors); });
     if (!success) {
         return ret;
     }
 
     ret = driver->data.write([&](auto &data) { return fromRawData(success, std::move(data)); });
-    driver->errors.write([&](auto &d_errors) { std::swap(errors, d_errors); });
 
     return ret;
 }

@@ -7,11 +7,53 @@
 #include <QMenu>
 #include <QMessageBox>
 #include <QMimeData>
+#include <QPointer>
+#include <algorithm>
 #include <exception>
+
 #include "Concurrent.h"
 #include "GHeaderView.h"
 #include "MultiLineDelegate.h"
 #include "adifdb.h"
+
+namespace {
+
+/**
+ * Turn a list of row indices into disjoint [first,last] intervals (sorted, unique, in-range).
+ * Runs on a worker thread; only touches plain integers.
+ */
+QList<QPair<int, int>> compressedRowRanges(QVector<int> rows, int rowCount) {
+    if (rowCount <= 0 || rows.isEmpty()) {
+        return {};
+    }
+    std::sort(rows.begin(), rows.end());
+    rows.erase(std::unique(rows.begin(), rows.end()), rows.end());
+
+    QList<QPair<int, int>> ranges;
+    int start = -1;
+    int prev = -1;
+    for (int r : rows) {
+        if (r < 0 || r >= rowCount) {
+            continue;
+        }
+        if (start < 0) {
+            start = prev = r;
+            continue;
+        }
+        if (r == prev + 1) {
+            prev = r;
+            continue;
+        }
+        ranges.append({start, prev});
+        start = prev = r;
+    }
+    if (start >= 0) {
+        ranges.append({start, prev});
+    }
+    return ranges;
+}
+
+} // namespace
 
 DropAbleTableView::DropAbleTableView(AdifModel *model, QWidget *parent)
     : m_model(model), QTableView(parent) {
@@ -28,8 +70,6 @@ DropAbleTableView::DropAbleTableView(AdifModel *model, QWidget *parent)
     setContextMenuPolicy(Qt::ContextMenuPolicy::CustomContextMenu);
     connect(this, &DropAbleTableView::customContextMenuRequested, this,
             &DropAbleTableView::customContextMenu);
-    connect(this, &DropAbleTableView::setMSelectionSignal, this, &DropAbleTableView::setMSelection,
-            Qt::QueuedConnection);
 
     setAdifModel(model);
 }
@@ -151,43 +191,70 @@ void DropAbleTableView::foundNext(QModelIndex index) {
     emit selected();
 }
 
+void DropAbleTableView::applySelectionOnGuiThread(QItemSelection selection,
+                                                  QItemSelectionModel::SelectionFlag command) {
+    if (selectionModel() == nullptr) {
+        return;
+    }
+    setUpdatesEnabled(false);
+    selectionModel()->select(selection, command);
+    setUpdatesEnabled(true);
+    emit selected();
+}
+
+void DropAbleTableView::applyRowRangeSelectionAsync(
+    const QList<int> &rows, QItemSelectionModel::SelectionFlags mergeFlags) {
+    QAbstractItemModel *m = model();
+    const int rowCount = m ? m->rowCount() : 0;
+    const QItemSelection baseSelection =
+        selectionModel() ? selectionModel()->selection() : QItemSelection{};
+
+    QVector<int> rowVec;
+    rowVec.reserve(rows.size());
+    for (int r : rows) {
+        rowVec.push_back(r);
+    }
+
+    GLogConcurrent::makeFuture(
+        [rowVec, rowCount]() mutable { return compressedRowRanges(std::move(rowVec), rowCount); })
+        .then(this, [self = QPointer<DropAbleTableView>(this), baseSelection,
+                     mergeFlags](QList<QPair<int, int>> ranges) {
+            if (!self) {
+                return;
+            }
+            if (self->selectionModel() == nullptr || self->model() == nullptr) {
+                return;
+            }
+            const int columnCount = self->model()->columnCount();
+            if (columnCount <= 0) {
+                return;
+            }
+            const int nRows = self->model()->rowCount();
+            const int lastCol = columnCount - 1;
+            QItemSelection acc = baseSelection;
+            for (const auto &ab : ranges) {
+                if (nRows <= 0) {
+                    break;
+                }
+                const int a = std::clamp(ab.first, 0, nRows - 1);
+                const int b = std::clamp(ab.second, 0, nRows - 1);
+                const QModelIndex topLeft = self->model()->index(a, 0);
+                const QModelIndex bottomRight = self->model()->index(b, lastCol);
+                if (!topLeft.isValid() || !bottomRight.isValid()) {
+                    continue;
+                }
+                acc.merge(QItemSelection(topLeft, bottomRight), mergeFlags);
+            }
+            self->applySelectionOnGuiThread(acc, QItemSelectionModel::ClearAndSelect);
+        });
+}
+
 void DropAbleTableView::selectRows(const QList<int> &rows) {
-    m_selection = selectionModel()->selection();
-    auto *m_model = model();
-    auto columnCount = m_model->columnCount();
-    // QItemSelection::merge can be time consuming when there are many rows to be selected
-    auto mergeSub = GLogConcurrent::makeFuture([=]() {
-        for (const auto &row : rows) {
-            auto index = m_model->index(row, 0);
-            auto index2 = m_model->index(row, columnCount - 1);
-            m_selection.merge(QItemSelection(index, index2),
-                              QItemSelectionModel::SelectionFlag::Select);
-        }
-        emit setMSelectionSignal(QItemSelectionModel::SelectionFlag::ClearAndSelect);
-    });
+    applyRowRangeSelectionAsync(rows, QItemSelectionModel::Select);
 }
 
 void DropAbleTableView::deselectRows(const QList<int> &rows) {
-    m_selection = selectionModel()->selection();
-    auto *m_model = model();
-    auto columnCount = m_model->columnCount();
-    // QItemSelection::merge can be time consuming when there are many rows to be selected
-    auto mergeSub = GLogConcurrent::makeFuture([=]() {
-        for (const auto &row : rows) {
-            auto index = m_model->index(row, 0);
-            auto index2 = m_model->index(row, columnCount - 1);
-            m_selection.merge(QItemSelection(index, index2),
-                              QItemSelectionModel::SelectionFlag::Deselect);
-        }
-        emit setMSelectionSignal(QItemSelectionModel::SelectionFlag::ClearAndSelect);
-    });
-}
-
-void DropAbleTableView::setMSelection(QItemSelectionModel::SelectionFlag command) {
-    setUpdatesEnabled(false);
-    selectionModel()->select(m_selection, command);
-    setUpdatesEnabled(true);
-    emit selected();
+    applyRowRangeSelectionAsync(rows, QItemSelectionModel::Deselect);
 }
 
 void DropAbleTableView::dropEvent(QDropEvent *event) { QTableView::dropEvent(event); }

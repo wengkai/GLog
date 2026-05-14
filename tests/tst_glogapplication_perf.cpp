@@ -4,10 +4,39 @@
 #include <QFutureWatcher>
 #include <QTemporaryFile>
 #include <QtTest/QtTest>
+#include <algorithm>
 #include <chrono>
+#include <string>
+#include <vector>
 
 #include "GLogApplication.h"
 #include "adif_stress_generator.hpp"
+#include "adifdb.h"
+
+namespace {
+
+AdifModel *adifModel(GLogApplication *app) { return app->findChild<AdifModel *>(); }
+
+int columnOf(const AdifModel *m, const char *field) {
+    for (int c = 0; c < m->columnCount(); ++c) {
+        if (m->headerData(c, Qt::Horizontal).toString() == QLatin1String(field)) {
+            return c;
+        }
+    }
+    return -1;
+}
+
+QString cellAt(const AdifModel *m, int row, const char *field) {
+    const int c = columnOf(m, field);
+    if (c < 0) {
+        return {};
+    }
+    return m->data(m->index(row, c), Qt::DisplayRole).toString();
+}
+
+bool hasColumn(const AdifModel *m, const char *field) { return columnOf(m, field) >= 0; }
+
+} // namespace
 
 class GLogApplicationTest : public QObject {
     Q_OBJECT
@@ -43,6 +72,9 @@ class GLogApplicationTest : public QObject {
 
     // 同步等待 openFile 完成，返回错误列表（若抛出异常则将其 what() 放入列表）
     std::vector<std::string> waitForOpenFile(const QString &filename);
+
+    /** After openFile completes, returns the live model (child of the main window). */
+    AdifModel *model() const { return adifModel(m_app); }
 };
 
 void GLogApplicationTest::initTestCase() {
@@ -85,6 +117,7 @@ void GLogApplicationTest::testValidSmallFile() {
     std::string content = "ADIF 3.1.4\n"
                           "<EOH>\n"
                           "<CALL:4>W1AW\n"
+                          "<FREQ:4>14.1"
                           "<BAND:3>20M\n"
                           "<MODE:3>SSB\n"
                           "<EOR>\n";
@@ -99,6 +132,12 @@ void GLogApplicationTest::testValidSmallFile() {
 
     std::vector<std::string> errors = waitForOpenFile(tempFile.fileName());
     QCOMPARE(errors.size(), size_t(0));
+    AdifModel *m = model();
+    QVERIFY(m != nullptr);
+    QCOMPARE(m->rowCount(), 1);
+    QCOMPARE(cellAt(m, 0, "call"), QStringLiteral("W1AW"));
+    QCOMPARE(cellAt(m, 0, "band"), QStringLiteral("20M"));
+    QCOMPARE(cellAt(m, 0, "mode"), QStringLiteral("SSB"));
 }
 
 void GLogApplicationTest::testLargeField() {
@@ -112,8 +151,14 @@ void GLogApplicationTest::testLargeField() {
     tempFile.close();
 
     std::vector<std::string> errors = waitForOpenFile(tempFile.fileName());
-    qDebug() << "LargeField errors:" << errors.size();
-    QVERIFY(true); // 仅要求不崩溃
+    QVERIFY2(errors.empty(), "Large-field ADIF should parse without driver errors");
+    AdifModel *m = model();
+    QVERIFY(m != nullptr);
+    QCOMPARE(m->rowCount(), 1);
+    const QString call = cellAt(m, 0, "call");
+    QCOMPARE(call.size(), 1024);
+    QVERIFY(std::all_of(call.begin(), call.end(),
+                        [](const QChar &ch) { return ch == QLatin1Char('X'); }));
 }
 
 void GLogApplicationTest::testNestedTag() {
@@ -127,7 +172,12 @@ void GLogApplicationTest::testNestedTag() {
     tempFile.close();
 
     std::vector<std::string> errors = waitForOpenFile(tempFile.fileName());
-    QVERIFY(true);
+    QVERIFY2(errors.empty(), "Nested literal angle brackets in field data should not fail parse");
+    AdifModel *m = model();
+    QVERIFY(m != nullptr);
+    QCOMPARE(m->rowCount(), 1);
+    QVERIFY2(hasColumn(m, "notes"), "NOTES field should appear as a column");
+    QCOMPARE(cellAt(m, 0, "notes"), QStringLiteral("Contains <TAG>\r\n"));
 }
 
 void GLogApplicationTest::testUnknownTag() {
@@ -141,7 +191,13 @@ void GLogApplicationTest::testUnknownTag() {
     tempFile.close();
 
     std::vector<std::string> errors = waitForOpenFile(tempFile.fileName());
-    QVERIFY(true);
+    QVERIFY2(errors.empty(), "Unknown ADIF field should still parse");
+    AdifModel *m = model();
+    QVERIFY(m != nullptr);
+    QCOMPARE(m->rowCount(), 1);
+    QCOMPARE(cellAt(m, 0, "call"), QStringLiteral("W1AW"));
+    QVERIFY2(hasColumn(m, "my_new_field"), "Unknown tag should become a dynamic column");
+    QCOMPARE(cellAt(m, 0, "my_new_field"), QStringLiteral("HELLO"));
 }
 
 void GLogApplicationTest::testEmptyTag() {
@@ -155,7 +211,13 @@ void GLogApplicationTest::testEmptyTag() {
     tempFile.close();
 
     std::vector<std::string> errors = waitForOpenFile(tempFile.fileName());
-    QVERIFY(true);
+    QVERIFY2(errors.empty(), "Zero-length field and trailing EOM should parse");
+    AdifModel *m = model();
+    QVERIFY(m != nullptr);
+    QCOMPARE(m->rowCount(), 1);
+    QCOMPARE(cellAt(m, 0, "call"), QStringLiteral("W1AW"));
+    QVERIFY2(hasColumn(m, "notes"), "NOTES tag should exist even with length 0");
+    QVERIFY(cellAt(m, 0, "notes").isEmpty());
 }
 
 void GLogApplicationTest::testOutOfOrderTags() {
@@ -169,12 +231,19 @@ void GLogApplicationTest::testOutOfOrderTags() {
     tempFile.close();
 
     std::vector<std::string> errors = waitForOpenFile(tempFile.fileName());
-    QVERIFY(true);
+    QVERIFY2(errors.empty(), "Out-of-order tags should still produce one valid row");
+    AdifModel *m = model();
+    QVERIFY(m != nullptr);
+    QCOMPARE(m->rowCount(), 1);
+    QCOMPARE(cellAt(m, 0, "call"), QStringLiteral("W1AW"));
+    QCOMPARE(cellAt(m, 0, "band"), QStringLiteral("20M"));
+    QCOMPARE(cellAt(m, 0, "mode"), QStringLiteral("SSB"));
+    QCOMPARE(cellAt(m, 0, "qso_date"), QStringLiteral("20240315"));
 }
 
 void GLogApplicationTest::testEncodingAndSpecialChars() {
-    std::string content =
-        adif_stress::Generator::makeEncodingTest() + adif_stress::Generator::makeSpecialChars();
+    std::string content = adif_stress::Generator::makeEncodingTest() +
+                          adif_stress::Generator::makeSpecialChars(false);
     QTemporaryFile tempFile;
     if (!tempFile.open()) {
         QVERIFY2(false, "Failed to create temp file");
@@ -184,7 +253,16 @@ void GLogApplicationTest::testEncodingAndSpecialChars() {
     tempFile.close();
 
     std::vector<std::string> errors = waitForOpenFile(tempFile.fileName());
-    QVERIFY(true);
+    QVERIFY2(errors.empty(), "No utf-8 errors");
+    AdifModel *m = model();
+    QVERIFY(m != nullptr);
+    QCOMPARE(m->rowCount(), 2);
+    QCOMPARE(cellAt(m, 0, "name_intl"), QStringLiteral("W1AW/Ø"));
+    QVERIFY(cellAt(m, 0, "address_intl").contains(QChar(0x00B0)));
+    QCOMPARE(cellAt(m, 0, "qslmsg_intl"), QStringLiteral("Café con leche"));
+    QVERIFY2(hasColumn(m, "notes"), "Second record should carry NOTES");
+    QVERIFY(cellAt(m, 1, "notes").contains(QLatin1String("AT&T")));
+    QVERIFY(cellAt(m, 1, "notes").contains(QLatin1Char('<')));
 }
 
 void GLogApplicationTest::testInvalidDateTime() {
@@ -198,8 +276,16 @@ void GLogApplicationTest::testInvalidDateTime() {
     tempFile.close();
 
     std::vector<std::string> errors = waitForOpenFile(tempFile.fileName());
-    qDebug() << "InvalidDateTime errors:" << errors.size();
-    QVERIFY(true);
+    AdifModel *m = model();
+    QVERIFY(m != nullptr);
+    QCOMPARE(m->rowCount(), 1);
+    QCOMPARE(cellAt(m, 0, "call"), QStringLiteral("W1AW"));
+    QVERIFY2(cellAt(m, 0, "qso_date") != QStringLiteral("20261332"),
+             "Invalid QSO_DATE must not be stored as typed value");
+    QVERIFY2(cellAt(m, 0, "time_on") != QStringLiteral("2560"),
+             "Invalid TIME_ON must not be stored as typed value");
+    QVERIFY2(!cellAt(m, 0, "time_off").contains(QLatin1Char(':')),
+             "TIME_OFF with ':' is invalid and must not appear as HHMM");
 }
 
 void GLogApplicationTest::testInvalidMode() {
@@ -213,7 +299,14 @@ void GLogApplicationTest::testInvalidMode() {
     tempFile.close();
 
     std::vector<std::string> errors = waitForOpenFile(tempFile.fileName());
-    QVERIFY(true);
+    AdifModel *m = model();
+    QVERIFY(m != nullptr);
+    QCOMPARE(m->rowCount(), 1);
+    QCOMPARE(cellAt(m, 0, "call"), QStringLiteral("W1AW"));
+    QVERIFY2(cellAt(m, 0, "mode") != QStringLiteral("NO_SUCH_MODE"),
+             "Invalid MODE must not be applied to the model");
+    QVERIFY2(cellAt(m, 0, "submode") != QStringLiteral("FT999"),
+             "Invalid SUBMODE must not be applied to the model");
 }
 
 void GLogApplicationTest::testInvalidFrequency() {
@@ -227,7 +320,13 @@ void GLogApplicationTest::testInvalidFrequency() {
     tempFile.close();
 
     std::vector<std::string> errors = waitForOpenFile(tempFile.fileName());
-    QVERIFY(true);
+    AdifModel *m = model();
+    QVERIFY(m != nullptr);
+    QCOMPARE(m->rowCount(), 2);
+    QCOMPARE(cellAt(m, 0, "call"), QStringLiteral("W1AW"));
+    QVERIFY2(cellAt(m, 0, "freq") != QStringLiteral("-7.0"), "Negative FREQ must not be stored");
+    QVERIFY2(cellAt(m, 1, "freq") != QStringLiteral("99999999999999999999.99"),
+             "Out-of-range FREQ must not be stored as given");
 }
 
 void GLogApplicationTest::testTruncatedInTag() {
@@ -317,6 +416,11 @@ void GLogApplicationTest::testVolume() {
 
     qDebug() << "Parsed" << recordCount << "QSOs in" << duration << "ms, errors:" << errors.size();
 
+    QVERIFY2(errors.empty(), "Volume stress ADIF should parse without driver errors");
+    AdifModel *m = model();
+    QVERIFY(m != nullptr);
+    QCOMPARE(m->rowCount(), recordCount);
+
     // 100k 参考预算 10s：超时仅告警（插桩/低配机器上仍应通过用例）
     if (recordCount == 100000) {
         constexpr qint64 kBudgetMs = 10000;
@@ -352,6 +456,12 @@ void GLogApplicationTest::testExtremeVolume() {
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 
     qDebug() << "Parsed 1,000,000 QSOs in" << duration << "ms, errors:" << errors.size();
+
+    QVERIFY2(errors.empty(), "Extreme volume ADIF should parse without driver errors");
+    AdifModel *m = model();
+    QVERIFY(m != nullptr);
+    QCOMPARE(m->rowCount(), hugeCount);
+
     constexpr qint64 kBudgetMs = 120000; // 参考 2 分钟
     if (duration >= kBudgetMs) {
         qWarning() << "testExtremeVolume: 1M QSOs took" << duration << "ms (soft budget"

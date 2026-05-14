@@ -31,11 +31,9 @@ class GLOGKIT_API DropAbleTableView : public QTableView {
     void foundNext(QModelIndex index);
     void selectRows(const QList<int> &rows);
     void deselectRows(const QList<int> &rows);
-    void setMSelection(QItemSelectionModel::SelectionFlag command);
 
   signals:
     void findNextSignal(QModelIndex current, QString key, QString value, bool isReg);
-    void setMSelectionSignal(QItemSelectionModel::SelectionFlag command);
     void selected();
     void userInformation(const QString &title, const QString &text);
 
@@ -49,7 +47,10 @@ class GLOGKIT_API DropAbleTableView : public QTableView {
     void proceedPasteRows(const QMimeData *mimeData);
 
   private:
-    QItemSelection m_selection;
+    void applyRowRangeSelectionAsync(const QList<int> &rows,
+                                     QItemSelectionModel::SelectionFlags mergeFlags);
+    void applySelectionOnGuiThread(QItemSelection selection,
+                                   QItemSelectionModel::SelectionFlag command);
 };
 
 #endif

@@ -48,6 +48,31 @@ auto AdifFreq::take(std::string &&newValue) -> TakeRes {
         return {false, std::nullopt};
     }
 
+    static const std::pair<std::string, std::string> freq_min_max{[]() {
+        std::string min = BAND_MAP.begin()->second.lower_mhz;
+        std::string max = BAND_MAP.begin()->second.upper_mhz;
+        for (const auto &[band, range] : BAND_MAP) {
+            const auto &[lower_mhz, upper_mhz] = range;
+            if (AdifNumber::compare_rational(min, lower_mhz) == AdifNumber::greater) {
+                min = lower_mhz;
+            }
+            if (AdifNumber::compare_rational(max, upper_mhz) == AdifNumber::less) {
+                max = upper_mhz;
+            }
+        }
+        return std::make_pair(min, max);
+    }()};
+
+    if (AdifNumber::compare_rational(newValue, freq_min_max.first) == AdifNumber::less) {
+        m_pendingValue = std::move(newValue);
+        return {false, std::nullopt};
+    }
+
+    if (AdifNumber::compare_rational(newValue, freq_min_max.second) == AdifNumber::greater) {
+        m_pendingValue = std::move(newValue);
+        return {false, std::nullopt};
+    }
+
     auto bandPeer = m_bandPeer.lock();
 
     if (!bandPeer) {

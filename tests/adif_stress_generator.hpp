@@ -37,27 +37,33 @@ class Generator {
     // ----------------------------- 1. 结构化压力测试 -----------------------------
 
     /** 超大字段长度：<CALL:xxx> 后填充指定长度的 'X' */
-    static std::string makeLargeField(size_t length) {
+    static std::string makeLargeField(size_t length, bool header = true) {
         std::ostringstream oss;
-        writeHeader(oss);
+        if (header) {
+            writeHeader(oss);
+        }
         oss << "<CALL:" << length << '>' << std::string(length, 'X');
         oss << "<EOR>\n";
         return oss.str();
     }
 
     /** 数据区内包含伪标签：<NOTES> 中包含 "<TAG>" */
-    static std::string makeNestedTag() {
+    static std::string makeNestedTag(bool header = true) {
         std::ostringstream oss;
-        writeHeader(oss);
+        if (header) {
+            writeHeader(oss);
+        }
         oss << "<NOTES:15>Contains <TAG>\n"
             << "<EOR>\n";
         return oss.str();
     }
 
     /** 未知标签：非标准字段 <MY_NEW_FIELD> */
-    static std::string makeUnknownTag() {
+    static std::string makeUnknownTag(bool header = true) {
         std::ostringstream oss;
-        writeHeader(oss);
+        if (header) {
+            writeHeader(oss);
+        }
         oss << "<CALL:4>W1AW\n"
             << "<MY_NEW_FIELD:5>HELLO\n"
             << "<EOR>\n";
@@ -65,9 +71,11 @@ class Generator {
     }
 
     /** 无数据标签：紧跟 <EOR> 或 <EOM> */
-    static std::string makeEmptyTag() {
+    static std::string makeEmptyTag(bool header = true) {
         std::ostringstream oss;
-        writeHeader(oss);
+        if (header) {
+            writeHeader(oss);
+        }
         oss << "<CALL:4>W1AW\n"
             << "<NOTES:0>\n" // 零长度字段
             << "<EOR>\n"
@@ -76,11 +84,14 @@ class Generator {
     }
 
     /** 乱序标签：QSO_DATE 出现在 CALL 之后，且混入多个字段 */
-    static std::string makeOutOfOrderTags() {
+    static std::string makeOutOfOrderTags(bool header = true) {
         std::ostringstream oss;
-        writeHeader(oss);
+        if (header) {
+            writeHeader(oss);
+        }
         oss << "<BAND:3>20M\n"
             << "<CALL:4>W1AW\n"
+            << "<FREQ:4>14.1\n"
             << "<QSO_DATE:8>20240315\n"
             << "<MODE:3>SSB\n"
             << "<EOR>\n";
@@ -90,22 +101,31 @@ class Generator {
     // ----------------------------- 2. 字符编码与边界测试 -----------------------------
 
     /** 混合 UTF-8 字符（如 ° 符号）以及非打印字符 */
-    static std::string makeEncodingTest() {
+    static std::string makeEncodingTest(bool header = true) {
         std::ostringstream oss;
-        writeHeader(oss);
-        // 经纬度符号 ° 占 2 字节 (UTF-8: C2 B0)
-        oss << "<CALL:6>W1AW/Ø\n"             // 包含斜杠和特殊字符
-            << "<GRIDSQUARE:6>FN42°A\n"       // 度符号
-            << "<COMMENT:13>Café con leche\n" // é 字符
-            << "<NOTES:10>Line1\r\nLine2\nLine3\r\n"
-            << "<EOR>\n";
+        auto gen_adif_field = [](const char *field, const char *raw) {
+            std::ostringstream m_oss;
+            std::string data{raw};
+            m_oss << "<" << field << ":" << data.size() << ">" << data << " \n";
+            return m_oss.str();
+        };
+        if (header) {
+            writeHeader(oss);
+        }
+        // 使用_intl字段显式启动utf-8支持
+        oss << gen_adif_field("name_intl", "W1AW/Ø")           // 包含斜杠和特殊字符
+            << gen_adif_field("address_intl", "FN42°A")        // 度符号
+            << gen_adif_field("qslmsg_intl", "Café con leche") // é 字符
+            << gen_adif_field("notes_intl", "Line1\r\nLine2\nLine3\r\n") << "<EOR>\n";
         return oss.str();
     }
 
     /** 大小写混合的标签名 */
-    static std::string makeCaseInsensitiveTags() {
+    static std::string makeCaseInsensitiveTags(bool header = true) {
         std::ostringstream oss;
-        writeHeader(oss);
+        if (header) {
+            writeHeader(oss);
+        }
         oss << "<Call:4>W1AW\n"
             << "<band:3>20M\n"
             << "<MODE:3>SSB\n"
@@ -114,9 +134,11 @@ class Generator {
     }
 
     /** 包含 XML/HTML 敏感字符：& " ' < > */
-    static std::string makeSpecialChars() {
+    static std::string makeSpecialChars(bool header = true) {
         std::ostringstream oss;
-        writeHeader(oss);
+        if (header) {
+            writeHeader(oss);
+        }
         oss << "<NOTES:25>AT&T \"radio\" <ham> 'test'\n"
             << "<EOR>\n";
         return oss.str();
@@ -125,9 +147,11 @@ class Generator {
     // ----------------------------- 3. 数据逻辑压力测试 -----------------------------
 
     /** 非法日期/时间 */
-    static std::string makeInvalidDateTime() {
+    static std::string makeInvalidDateTime(bool header = true) {
         std::ostringstream oss;
-        writeHeader(oss);
+        if (header) {
+            writeHeader(oss);
+        }
         oss << "<CALL:4>W1AW\n"
             << "<QSO_DATE:8>20261332\n" // 不存在的月份日期
             << "<TIME_ON:4>2560\n"      // 不存在的小时
@@ -137,9 +161,11 @@ class Generator {
     }
 
     /** 模式违规：非标准枚举值 */
-    static std::string makeInvalidMode() {
+    static std::string makeInvalidMode(bool header = true) {
         std::ostringstream oss;
-        writeHeader(oss);
+        if (header) {
+            writeHeader(oss);
+        }
         oss << "<CALL:4>W1AW\n"
             << "<MODE:15>NO_SUCH_MODE\n"
             << "<SUBMODE:6>FT999\n"
@@ -148,12 +174,16 @@ class Generator {
     }
 
     /** 频率越界：负值 / 天文数字 */
-    static std::string makeInvalidFrequency() {
+    static std::string makeInvalidFrequency(bool header = true) {
         std::ostringstream oss;
-        writeHeader(oss);
+        if (header) {
+            writeHeader(oss);
+        }
         oss << "<CALL:4>W1AW\n"
             << "<FREQ:4>-7.0\n"
-            << "<FREQ_RX:9>999999.99\n"
+            << "<EOR>\n"
+            << "<CALL:4>W1AW\n"
+            << "<FREQ:23>99999999999999999999.99\n"
             << "<EOR>\n";
         return oss.str();
     }
@@ -166,9 +196,11 @@ class Generator {
      * @return ADIF 格式字符串
      * @note 对于 >10万 记录建议使用 writeVolumeFile() 直接写文件
      */
-    static std::string makeVolume(size_t count) {
+    static std::string makeVolume(size_t count, bool header = true) {
         std::ostringstream oss;
-        writeHeader(oss);
+        if (header) {
+            writeHeader(oss);
+        }
         for (size_t i = 0; i < count; ++i) {
             appendRandomQSO(oss);
             oss << "<EOR>\n";
@@ -182,12 +214,15 @@ class Generator {
      * @param count 记录数
      * @param seed 随机种子（默认固定，保证可重复）
      */
-    static void writeVolumeFile(const std::string &filename, size_t count, uint32_t seed = 42) {
+    static void writeVolumeFile(const std::string &filename, size_t count, uint32_t seed = 42,
+                                bool header = true) {
         std::ofstream out(filename, std::ios::binary);
         if (!out) {
             throw std::runtime_error("Cannot open file: " + filename);
         }
-        writeHeader(out);
+        if (header) {
+            writeHeader(out);
+        }
         std::mt19937 rng(seed);
         for (size_t i = 0; i < count; ++i) {
             appendRandomQSO(out, rng);
@@ -200,27 +235,33 @@ class Generator {
     // ----------------------------- 5. 异常终止测试 -----------------------------
 
     /** 截断文件：在标签中间结束 */
-    static std::string makeTruncatedInTag() {
+    static std::string makeTruncatedInTag(bool header = true) {
         std::ostringstream oss;
-        writeHeader(oss);
+        if (header) {
+            writeHeader(oss);
+        }
         oss << "<CALL:4>W1AW\n"
             << "<COMMEN"; // 故意截断
         return oss.str();
     }
 
     /** 长度不匹配：声明长度 > 实际数据 */
-    static std::string makeLengthLongerThanData() {
+    static std::string makeLengthLongerThanData(bool header = true) {
         std::ostringstream oss;
-        writeHeader(oss);
+        if (header) {
+            writeHeader(oss);
+        }
         oss << "<CALL:10>W1AW\n" // 声称 10 字符，实际只有 4
             << "<EOR>\n";
         return oss.str();
     }
 
     /** 长度不匹配：声明长度 < 实际数据 */
-    static std::string makeLengthShorterThanData() {
+    static std::string makeLengthShorterThanData(bool header = true) {
         std::ostringstream oss;
-        writeHeader(oss);
+        if (header) {
+            writeHeader(oss);
+        }
         oss << "<CALL:2>W1AW\n" // 声称 2，实际有 4
             << "<EOR>\n";
         return oss.str();
