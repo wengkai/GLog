@@ -35,9 +35,7 @@ class CtyDBTest : public QObject {
             if (reply->isFinished() && reply->error() == QNetworkReply::NoError) {
                 networkOk = true;
             } else {
-                if (reply->isRunning()) {
-                    reply->abort();
-                }
+                QSKIP("Can not get https://www.country-files.com/");
             }
             reply->deleteLater();
         }

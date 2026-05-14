@@ -79,6 +79,9 @@ param(
     [Parameter(Mandatory = $false)]
     [int] $Parallel = 0,
 
+    [Parameter(Mandatory = $false)]
+    [string] $Config = '',
+
     [switch] $KeepProfraw,
     [switch] $FailOnTestError,
 
@@ -160,6 +163,7 @@ try {
     if ($Parallel -gt 0) {
         $ctestArgs += @('-j', "$Parallel")
     }
+    $ctestArgs = @('-C', $Config)
     Write-Host "ctest $($ctestArgs -join ' ')"
     & $ctestPath @ctestArgs
     $ctestExit = $LASTEXITCODE

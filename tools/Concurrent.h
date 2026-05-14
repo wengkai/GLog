@@ -34,7 +34,7 @@ struct MainThreadExecutor {
  * may deadlock.
  */
 template <class F> inline void runOnMainThreadSync(F &&f) {
-    makeFuture(std::forward<F>(f), MainThreadExecutor{});
+    makeFuture(std::forward<F>(f), MainThreadExecutor{}).waitForFinished();
 }
 
 class FIFOBackendThreadExecutor {

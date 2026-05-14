@@ -635,6 +635,7 @@ if(WIN32)
                     -LlvmProfdata "${LLVM_PROFDATA_EXECUTABLE}"
                     -BuildDir "${CMAKE_BINARY_DIR}"
                     -SourceRoot "${CMAKE_SOURCE_DIR}"
+                    -Config "${GLOG_COVERAGE_CTEST_CONFIG}"
                 WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
                 COMMENT "LLVM source-based coverage (clang + ctest + llvm-cov)"
                 VERBATIM
