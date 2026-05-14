@@ -79,6 +79,9 @@ class GLOGKIT_API GLogApplication : public QMainWindow {
     void disableAction(QAction *action);
     void enableAction(QAction *action);
     void initCtyDBDone();
+    /** Microseconds spent in AwardEntityCountReport::format for the last Award action (emitted
+     * before the Award information() dialog). */
+    void perfAwardReportFinished(qint64 elapsedUs);
 
   private:
     void mapCallSignAskOverwritePreference();

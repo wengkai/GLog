@@ -2,6 +2,7 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFunctionPointer>
@@ -178,12 +179,19 @@ GLogApplication::GLogApplication(bool msgBoxEnabled, QWidget *parent)
 
     connect(ui->actionAward, &QAction::triggered, [=]() {
         model->snapshotAsync()
-            .then([mgr = awardPluginManager](AdifModelSnapshot snap) {
-                AwardEntityCountReport reporter(mgr);
-                return reporter.format(snap.records);
-            })
-            .then(this, [=](QString result) {
-                emit information(tr("Award"), std::move(result), QMessageBox::StandardButton::Ok);
+            .then(this,
+                  [mgr = awardPluginManager](AdifModelSnapshot snap) {
+                      QElapsedTimer timer;
+                      timer.start();
+                      AwardEntityCountReport reporter(mgr);
+                      QString text = reporter.format(snap.records);
+                      const qint64 us = timer.nsecsElapsed() / 1000;
+                      return std::make_pair(std::move(text), us);
+                  })
+            .then(this, [=](std::pair<QString, qint64> out) {
+                emit perfAwardReportFinished(out.second);
+                emit information(tr("Award"), std::move(out.first),
+                                 QMessageBox::StandardButton::Ok);
             });
     });
 

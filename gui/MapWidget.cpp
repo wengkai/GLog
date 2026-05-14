@@ -131,6 +131,7 @@ void MapWidget::dataVisualize() {
         std::shared_lock<decltype(ctydb->mutex)> lock0(ctydb->mutex, std::defer_lock);
         if (!lock0.try_lock()) {
             emit dataVisualizeRe();
+            emit mapDataVisualizeFinished();
             return;
         }
 
@@ -162,6 +163,7 @@ void MapWidget::dataVisualize() {
         CtyDB::normalizeCallSign(centerCall);
         auto centerEnt = ctydb->lookUpCallSign(QStringView(centerCall));
         if (!centerEnt.first || !centerEnt.first->valid) {
+            emit mapDataVisualizeFinished();
             return;
         }
 
@@ -187,5 +189,6 @@ void MapWidget::dataVisualize() {
             ui->graphicsView->addItem(line);
             m_route_lines.push_back(line);
         }
+        emit mapDataVisualizeFinished();
     });
 }

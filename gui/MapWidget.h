@@ -21,6 +21,8 @@ class GLOGKIT_API MapWidget : public QMainWindow {
     ~MapWidget();
     MapGraphicsView *getMapGraphicsView();
     void clearMarkers();
+    /** True after CTY entity markers have been created (initCtyMarkers batch finished). */
+    bool isMapMarkersReady() const { return m_markers_ready.load(); }
 
   public slots:
     void initCtyMarkers();
@@ -33,6 +35,9 @@ class GLOGKIT_API MapWidget : public QMainWindow {
     void initCtyMarkersCon();
     void initCtyMarkersEnd();
     void dataVisualizeRe();
+    /** After dataVisualize()'s snapshot handler runs (success or early exit). Not emitted when
+     * markers are not ready and the call only re-queues via dataVisualizeRe. */
+    void mapDataVisualizeFinished();
 
   private:
     void clearRouteLines();

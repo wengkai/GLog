@@ -45,31 +45,34 @@ QString AwardEntityCountReport::format(const std::vector<GRecord> &records) cons
     std::map<QString, int> counterWAC_NOTARRL;
     std::map<int, int> counterCQZ;
     QString buf;
+    int base_failed_count = 0;
     for (const auto &record : records) {
         auto call = record.at("call")->get();
         buf = QString::fromUtf8(call.data(), qsizetype(call.size()));
         CtyDB::normalizeCallSign(buf);
         auto result = ctydb->lookUpCallSign(QStringView(buf));
-        if (result.first->valid && result.first->ARRL_sponsored) {
+        if (!result.first->valid) {
+            ++base_failed_count;
+            continue;
+        }
+        if (result.first->ARRL_sponsored) {
             ++counterDXCC[result.first->name];
         }
-        if (result.first->valid && result.first->ARRL_sponsored) {
+        if (result.first->ARRL_sponsored) {
             ++counterWAC_ARRL[result.first->continent];
         }
-        if (result.first->valid) {
-            ++counterWAC_NOTARRL[result.first->continent];
-        }
-        if (result.first->valid) {
-            ++counterCQZ[result.first->cq];
-        }
+        ++counterWAC_NOTARRL[result.first->continent];
+        ++counterCQZ[result.first->cq];
     }
     const QString core = QCoreApplication::translate(
                              "AwardEntityCountReport",
-                             "DXCC: %1/100\nWAC (ARRL): %2/6\nWAC (Non-ARRL): %3/6\nCQ: %4/70")
+                             "DXCC: %1/100\nWAC (ARRL): %2/6\nWAC (Non-ARRL): %3/6\nCQ: %4/70\n"
+                             "%5 Failed to evaluate")
                              .arg(QString::number(counterDXCC.size()))
                              .arg(QString::number(counterWAC_ARRL.size()))
                              .arg(QString::number(counterWAC_NOTARRL.size()))
-                             .arg(QString::number(counterCQZ.size()));
+                             .arg(QString::number(counterCQZ.size()))
+                             .arg(base_failed_count);
     sections.append(core);
 
     auto *broker = m_broker;
@@ -86,6 +89,7 @@ QString AwardEntityCountReport::format(const std::vector<GRecord> &records) cons
         if (!(snap.status->load() == LoadedAwardPlugin::Status::Enabled)) {
             continue;
         }
+        int snap_eval_failed = 0;
         const QString pluginTitle =
             snap.pluginName ? QString::fromUtf8(snap.pluginName())
                             : QCoreApplication::translate("AwardEntityCountReport", "Award plugin");
@@ -94,13 +98,19 @@ QString AwardEntityCountReport::format(const std::vector<GRecord> &records) cons
             continue;
         }
         for (const auto &record : records) {
-            snap.evaluate(&record, &GRecord::getValueByField);
+            if (!snap.evaluate(&record, &GRecord::getValueByField)) {
+                ++snap_eval_failed;
+            }
         }
         if (!snap.afterEvaluate()) {
             sections.append(pluginTitle + QLatin1Char('\n') + pluginEvalErrorText(snap));
             continue;
         }
-        sections.append(pluginTitle + QLatin1Char('\n') + pluginEvalResultText(snap));
+        sections.append(pluginTitle + QLatin1Char('\n') + pluginEvalResultText(snap) +
+                        QLatin1Char('\n'));
+        sections.append(
+            QCoreApplication::translate("AwardEntityCountReport", "%1 Failed to evaluate")
+                .arg(snap_eval_failed));
     }
 
     return sections.join(QStringLiteral("\n\n"));
