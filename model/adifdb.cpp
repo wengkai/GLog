@@ -325,19 +325,25 @@ auto AdifModel::setData(const QModelIndex &index, const QVariant &value, int rol
             if (field == "qso_date" || field == "time_on") {
                 return false;
             }
-            auto res = m_records[index.row()].addOrSetPair(field, v);
+            auto &record = m_records[index.row()];
+            auto res = record.addOrSetPair(field, v);
+            if (!res) {
+                return false;
+            }
             dataChanged(index, index);
-            tryDbBackup([&](const std::shared_ptr<GRecordRepository> &repo) {
+            tryDbBackup([&, norm_v = record.find(field)->second->get()](
+                            const std::shared_ptr<GRecordRepository> &repo) mutable {
                 const int64_t fid = persistFileIdForBackup();
                 auto &rec = m_records[index.row()];
                 const int64_t dbId = rec.getDbId();
                 if (dbId > 0) {
-                    attachBackupFailureLogger(repo->updateFieldAsync(dbId, field, v));
+                    attachBackupFailureLogger(
+                        repo->updateFieldAsync(dbId, field, std::move(norm_v)));
                 } else if (fid > 0) {
                     attachBackupFailureLogger(repo->upsertRecordAsync(fid, rec));
                 }
             });
-            return res;
+            return true;
         }
     }
 
